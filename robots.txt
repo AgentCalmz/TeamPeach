@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+# Add the sitemap URL after the Render service URL or custom domain is finalised.
