@@ -63,6 +63,46 @@
     const feedback = document.querySelector("#form-feedback");
     if (feedback) feedback.textContent = "This is the preview form; no information was sent or stored. The secure enquiry endpoint will be connected before launch.";
   });
+
+  // Share controls use the current public URL, so the same build works on Render or a project URL.
+  const shareUrl = window.location.href.split("#")[0];
+  const shareTitle = document.title || "TeamPeach";
+  const shareText = "Discover practical AI tools, agents and custom automation with TeamPeach.";
+  const encode = value => encodeURIComponent(value);
+  const whatsapp = document.querySelector("#share-whatsapp");
+  const linkedin = document.querySelector("#share-linkedin");
+  const facebook = document.querySelector("#share-facebook");
+  if (whatsapp) whatsapp.href = "https://api.whatsapp.com/send?text=" + encode(shareText + " " + shareUrl);
+  if (linkedin) linkedin.href = "https://www.linkedin.com/sharing/share-offsite/?url=" + encode(shareUrl);
+  if (facebook) facebook.href = "https://www.facebook.com/sharer/sharer.php?u=" + encode(shareUrl);
+  const shareFeedback = document.querySelector("#share-feedback");
+  const nativeShare = document.querySelector("#native-share");
+  nativeShare?.addEventListener("click", async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: shareTitle, text: shareText, url: shareUrl });
+      } catch (error) {
+        if (error?.name !== "AbortError" && shareFeedback) shareFeedback.textContent = "Sharing was not completed. You can copy the link instead.";
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        if (shareFeedback) shareFeedback.textContent = "Link copied. Share it with someone who may find it useful.";
+      } catch {
+        if (shareFeedback) shareFeedback.textContent = "Use Copy link to share the site.";
+      }
+    }
+  });
+  document.querySelector("#copy-site-link")?.addEventListener("click", async () => {
+    if (!shareFeedback) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      shareFeedback.textContent = "Link copied to your clipboard.";
+    } catch {
+      shareFeedback.textContent = "Copy the page address from your browser's address bar.";
+    }
+  });
+
   const year = document.querySelector("#current-year");
   if (year) year.textContent = new Date().getFullYear();
 })();
