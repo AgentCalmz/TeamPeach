@@ -2,3 +2,5 @@ User-agent: *
 Allow: /
 
 # Add the sitemap URL after the Render service URL or custom domain is finalised.
+
+# Add Sitemap: https://YOUR-LIVE-DOMAIN/sitemap.xml after the live host is finalised.
