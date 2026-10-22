@@ -1,6 +1,6 @@
 # TeamPeach — public website
 
-A premium, editorial-style AI tools and automation hub. This is the public-site phase; it intentionally does not implement authentication, payment processing, or live AI execution yet.
+A premium, editorial-style AI tools and automation hub. Root assets use relative URLs so the public pages can work both at a Render root domain and on GitHub Pages under a project path. This is the public-site phase; it intentionally does not implement authentication, payment processing, or live AI execution yet.
 
 ## Included
 - Responsive landing page, mobile navigation, and animated editorial-style hero
@@ -23,12 +23,16 @@ The catalogue describes planned concepts, not live purchasable products. The inq
 6. Verify all external photos and links, run mobile/accessibility checks, and validate structured data after deployment.
 7. Never put API keys, payment secrets, OTP secrets, or customer data into these static files.
 
-## Deploy to Render
+## Deployment
+
+The asset links are intentionally relative. This supports Render at the domain root and GitHub Pages at a project URL such as `/TeamPeach/`.
+
+### Deploy to Render
 1. Connect repository MrCalmz/TeamPeach as a Static Site.
 2. Build command: leave blank.
 3. Publish directory: .
 4. Deploy. Static sites do not require a keep-alive cron job.
-5. Once Render generates the service URL, update sitemap.xml and SEO metadata.
+5. Once Render generates the service URL, update sitemap.xml and SEO metadata. Relative asset paths are cache-busted via the stylesheet URL's `?v=3` query.
 
 ## Later phases
 Custom email OTP authentication, a secure backend for AI execution, credit ledger, subscription billing, payment verification, and an admin dashboard.
