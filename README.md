@@ -36,3 +36,11 @@ The asset links are intentionally relative. This supports Render at the domain r
 
 ## Later phases
 Custom email OTP authentication, a secure backend for AI execution, credit ledger, subscription billing, payment verification, and an admin dashboard.
+
+## SEO, AEO/GEO and social sharing
+- The homepage repeats the main positioning phrase in visible body copy so heading words are supported by page text.
+- The site includes Organization/WebSite structured data and a substantive explanatory article. These are foundations, not a guarantee of ranking or AI recommendations.
+- Social sharing controls include Web Share where available and links for WhatsApp, LinkedIn and Facebook plus copy-link fallback.
+- Once the final production hostname is known, configure absolute canonical URLs, `og:url` values and sitemap URLs.
+- For a custom domain on Render, add the root or `www` domain in the Render service's Custom Domains settings. Render automatically adds the counterpart and redirects it to the chosen primary form. The alternate hostname cannot be correctly configured in repository HTML alone.
+
