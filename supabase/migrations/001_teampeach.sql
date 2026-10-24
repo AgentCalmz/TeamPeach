@@ -6,7 +6,8 @@ create table if not exists public.tp_users(
  id uuid primary key default gen_random_uuid(),email text not null unique check(email=lower(btrim(email))),
  full_name text not null check(char_length(full_name) between 2 and 100),password_hash text not null,
  email_verified_at timestamptz not null default now(),marketing_opt_in boolean not null default false,
- marketing_opt_in_at timestamptz,created_at timestamptz not null default now(),updated_at timestamptz not null default now());
+ marketing_opt_in_at timestamptz,
+ marketing_opt_out_at timestamptz,created_at timestamptz not null default now(),updated_at timestamptz not null default now());
 create table if not exists public.tp_pending_registrations(
  email text primary key check(email=lower(btrim(email))),full_name text not null,password_hash text not null,
  otp_hash text not null,marketing_opt_in boolean not null default false,expires_at timestamptz not null,
@@ -30,6 +31,7 @@ create table if not exists public.tp_email_jobs(
  status text not null default 'queued' check(status in('queued','processing','completed','partially_failed','failed')),
  total_count integer not null default 0 check(total_count>=0),success_count integer not null default 0 check(success_count>=0),
  fail_count integer not null default 0 check(fail_count>=0),skipped_count integer not null default 0 check(skipped_count>=0),created_at timestamptz not null default now(),completed_at timestamptz);
+alter table public.tp_users add column if not exists marketing_opt_out_at timestamptz;
 alter table public.tp_email_jobs add column if not exists provider_campaign_id text;
 alter table public.tp_email_jobs add column if not exists skipped_count integer not null default 0 check(skipped_count>=0);
 alter table public.tp_email_jobs add column if not exists claimed_at timestamptz;

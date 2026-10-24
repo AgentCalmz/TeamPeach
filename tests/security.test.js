@@ -29,3 +29,12 @@ test("SQL migration keeps function delimiters balanced and supports schema upgra
  assert.match(sql, /tp_consume_rate_limit/);
  assert.match(sql, /create table if not exists public\.tp_rate_limits/);
 });
+
+
+test("Brevo unsubscribe event is handled and campaign does not resubscribe every user",function(){
+ const fs=require("node:fs");
+ const path=require("node:path");
+ const server=fs.readFileSync(path.join(__dirname,"..","server.js"),"utf8");
+ assert.match(server,/unsubscribed/);
+ assert.doesNotMatch(server,/await mapLimit\(users,4,user=>syncMarketingContact/);
+});
