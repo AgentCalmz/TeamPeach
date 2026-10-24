@@ -31,6 +31,7 @@ create table if not exists public.tp_email_jobs(
  total_count integer not null default 0 check(total_count>=0),success_count integer not null default 0 check(success_count>=0),
  fail_count integer not null default 0 check(fail_count>=0),skipped_count integer not null default 0 check(skipped_count>=0),created_at timestamptz not null default now(),completed_at timestamptz);
 alter table public.tp_email_jobs add column if not exists provider_campaign_id text;
+alter table public.tp_email_jobs add column if not exists skipped_count integer not null default 0 check(skipped_count>=0);
 alter table public.tp_email_jobs add column if not exists claimed_at timestamptz;
 create index if not exists tp_email_jobs_created_idx on public.tp_email_jobs(created_at desc);
 create table if not exists public.tp_email_queue(
@@ -39,6 +40,9 @@ create table if not exists public.tp_email_queue(
  status text not null default 'pending' check(status in('pending','processing','sent','failed','skipped')),
  attempt_count integer not null default 0 check(attempt_count>=0),brevo_message_id text,last_error text,
  created_at timestamptz not null default now(),claimed_at timestamptz,sent_at timestamptz,completed_at timestamptz,unique(job_id,recipient_email));
+alter table public.tp_email_queue add column if not exists claimed_at timestamptz;
+alter table public.tp_email_queue drop constraint if exists tp_email_queue_status_check;
+alter table public.tp_email_queue add constraint tp_email_queue_status_check check(status in('pending','processing','sent','failed','skipped'));
 create index if not exists tp_email_queue_pending_idx on public.tp_email_queue(status,created_at);
 create index if not exists tp_email_queue_sent_idx on public.tp_email_queue(status,sent_at);
 alter table public.tp_users enable row level security;
@@ -115,7 +119,7 @@ begin
 end $$;
 
 create or replace function public.tp_refresh_email_job_status(p_job_id uuid)
-returns jsonb language plpgsql security definer set search_path=public,pg_temp as $
+returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
 declare n integer;sent_n integer;fail_n integer;skip_n integer;active_n integer;s text;
 begin
  select count(*),count(*) filter(where status='sent'),count(*) filter(where status='failed'),
@@ -130,7 +134,7 @@ begin
  update public.tp_email_jobs set total_count=n,success_count=sent_n,fail_count=fail_n,skipped_count=skip_n,
    status=s,completed_at=case when active_n=0 then coalesce(completed_at,now()) else null end,claimed_at=case when active_n=0 then null else claimed_at end where id=p_job_id;
  return jsonb_build_object('status',s,'total',n,'sent',sent_n,'failed',fail_n,'skipped',skip_n);
-end $;
+end $$;
 
 create or replace function public.tp_claim_broadcast_jobs(p_limit integer default 1)
 returns table(job_id uuid,subject text,body_text text,total_count integer)

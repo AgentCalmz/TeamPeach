@@ -12,9 +12,9 @@ TeamPeach is a peach/ivory/navy AI-tools and automation website served by one No
 - Sitemap/robots support including explicit OAI-SearchBot access.
 
 ## Setup
-1. Run supabase/migrations/001_teampeach.sql in Supabase SQL Editor before enabling account features. Visit /api/health after deployment: it reports whether the database schema and mail/auth environment are ready, without returning secret values. It is designed to be re-runnable for the provider campaign ID column and function definitions.
+1. Run supabase/migrations/001_teampeach.sql in Supabase SQL Editor before enabling account features. Visit /api/health after deployment: it reports whether the database schema and mail/auth environment are ready, without returning secret values. It also adds missing columns and refreshes the queue status constraint when re-run, so upgrades from the earlier schema stay compatible.
 2. Authenticate your sending domain in Brevo and verify the sender. Generate a Brevo API key; the SMTP password is not the API key used by the HTTP integration. Create a dedicated marketing list in Brevo and set its numeric ID as BREVO_MARKETING_LIST_ID. Transactional account emails use the transactional endpoint; opt-in broadcasts use the Brevo Marketing Campaign API. Configure a Brevo marketing webhook for the unsubscribe event to POST to https://teampeach.org/api/webhooks/brevo?token=YOUR_BREVO_WEBHOOK_TOKEN; the server uses it to sync unsubscribe events back to TeamPeach.
-3. Generate two different secrets with openssl rand -hex 32 for OTP_PEPPER and UNSUBSCRIBE_SECRET.
+3. Generate three different secrets with openssl rand -hex 32 for OTP_PEPPER, SESSION_SECRET and BREVO_WEBHOOK_TOKEN. Keep them separate from the Brevo API key and Supabase service-role key.
 4. Add variables from .env.example to Render Environment. Never expose SUPABASE_SERVICE_ROLE_KEY, BREVO_API_KEY or any of these secrets to client JavaScript.
 5. Create a Render **Web Service** (Render does not convert a Static Site into a Web Service), build command npm install && npm run build, start command npm start, Node.js 20+. Set NODE_ENV=production in Render Environment; keep NODE_ENV=development only for local HTTP testing.
 6. Set APP_BASE_URL to the currently live primary host; once connected, use https://teampeach.org. Set SITE_URL to https://teampeach.org before build.

@@ -8,3 +8,17 @@ test("password hash is salted and verified",async()=>{const p="A sample password
 test("OTP has six digits",()=>{for(let i=0;i<50;i++)assert.match(generateOtp(),/^\d{6}$/);});
 test("session token is hashed",()=>{assert.match(hashSessionToken("random session token"),/^[a-f0-9]{64}$/);});
 test("admin emails normalize",()=>assert.deepEqual(adminEmailsFromEnv(" ADMIN@Example.com,nope,other@example.org "),["admin@example.com","other@example.org"]));
+
+test("SQL migration keeps function delimiters balanced and supports schema upgrades", function () {
+ const fs = require("node:fs");
+ const path = require("node:path");
+ const sql = fs.readFileSync(path.join(__dirname, "..", "supabase", "migrations", "001_teampeach.sql"), "utf8");
+ const fnCount = (sql.match(/create or replace function/g) || []).length;
+ const delimiterCount = sql.split("$$").length - 1;
+ assert.equal(fnCount, 6);
+ assert.equal(delimiterCount, fnCount * 2);
+ assert.equal((sql.match(/language plpgsql[\s\S]*?as \$\$/g) || []).length, fnCount);
+ assert.match(sql, /add column if not exists skipped_count/i);
+ assert.match(sql, /tp_email_queue_status_check/);
+ assert.match(sql, /tp_claim_broadcast_jobs/);
+});
