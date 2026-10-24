@@ -250,7 +250,7 @@ begin
  select count(*) filter(where status in('reserved','sent')),count(*) filter(where status='sent')
   into existing_count,sent_count from public.tp_email_usage where job_id=p_job_id and category='broadcast';
  if sent_count>0 then return jsonb_build_object('status','already_finalized','count',sent_count);end if;
- if existing_count>0 then return jsonb_build_object('status','reserved','count',existing_count);end if;
+ if existing_count>0 then return jsonb_build_object('status','reservation_exists','count',existing_count);end if;
  select count(*) into n from(
   select distinct lower(btrim(x.email)) as email from jsonb_to_recordset(coalesce(p_recipients,'[]'::jsonb)) as x(email text,name text)
   where x.email ~* '^[^@[:space:]]+@[^@[:space:]]+[.][^@[:space:]]+$'
