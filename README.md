@@ -6,7 +6,7 @@ TeamPeach is a peach/ivory/navy AI-tools and automation website served by one No
 - Clean URLs, redirects away from .html URLs, canonical URLs and a generated sitemap.
 - Custom six-digit email OTP registration and password-reset codes. A user record is created only after the OTP is verified.
 - Interruption-friendly registration: only name/email are kept as browser draft; neither password nor OTP is persisted in browser storage.
-- Server-side scrypt password hashes, hashed opaque session cookies, logout/session revocation, CSRF checks, rate limits, CSP/security headers and validation.
+- Server-side scrypt password hashes, HMAC-hashed opaque session cookies, logout/session revocation, CSRF checks, rate limits, CSP/security headers and validation.
 - Brevo transactional email sender, persistent Supabase email queue, one-person admin email, opt-in Brevo marketing campaigns and native campaign unsubscribe links.
 - Admin allowlist, project inquiry storage and email notifications.
 - Sitemap/robots support including explicit OAI-SearchBot access.

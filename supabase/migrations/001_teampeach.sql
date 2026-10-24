@@ -31,6 +31,7 @@ create table if not exists public.tp_email_jobs(
  total_count integer not null default 0 check(total_count>=0),success_count integer not null default 0 check(success_count>=0),
  fail_count integer not null default 0 check(fail_count>=0),skipped_count integer not null default 0 check(skipped_count>=0),created_at timestamptz not null default now(),completed_at timestamptz);
 alter table public.tp_email_jobs add column if not exists provider_campaign_id text;
+alter table public.tp_email_jobs add column if not exists claimed_at timestamptz;
 create index if not exists tp_email_jobs_created_idx on public.tp_email_jobs(created_at desc);
 create table if not exists public.tp_email_queue(
  id uuid primary key default gen_random_uuid(),job_id uuid not null references public.tp_email_jobs(id) on delete cascade,
@@ -127,7 +128,7 @@ begin
  elsif sent_n+skip_n=0 then s:='failed';
  else s:='partially_failed';end if;
  update public.tp_email_jobs set total_count=n,success_count=sent_n,fail_count=fail_n,skipped_count=skip_n,
-   status=s,completed_at=case when active_n=0 then coalesce(completed_at,now()) else null end where id=p_job_id;
+   status=s,completed_at=case when active_n=0 then coalesce(completed_at,now()) else null end,claimed_at=case when active_n=0 then null else claimed_at end where id=p_job_id;
  return jsonb_build_object('status',s,'total',n,'sent',sent_n,'failed',fail_n,'skipped',skip_n);
 end $;
 
@@ -135,15 +136,17 @@ create or replace function public.tp_claim_broadcast_jobs(p_limit integer defaul
 returns table(job_id uuid,subject text,body_text text,total_count integer)
 language plpgsql security definer set search_path=public,pg_temp as $$
 begin
- update public.tp_email_jobs set status='failed',completed_at=now(),fail_count=total_count
- where mode='broadcast' and status='processing' and created_at<now()-interval '15 minutes';
+ update public.tp_email_queue q set status='failed',last_error='broadcast_worker_interrupted_check_provider',completed_at=now(),claimed_at=null
+ from public.tp_email_jobs j where j.id=q.job_id and j.mode='broadcast' and j.status='processing' and j.claimed_at<now()-interval '15 minutes' and q.status in('pending','processing');
+ update public.tp_email_jobs set status='failed',completed_at=now(),fail_count=total_count,claimed_at=null
+ where mode='broadcast' and status='processing' and claimed_at<now()-interval '15 minutes';
  return query
  with picked as(
   select j.id from public.tp_email_jobs j
   where j.mode='broadcast' and j.status='queued'
   order by j.created_at limit least(greatest(1,p_limit),5) for update skip locked
  ), claimed as(
-  update public.tp_email_jobs j set status='processing',completed_at=null
+  update public.tp_email_jobs j set status='processing',completed_at=null,claimed_at=now()
   from picked where j.id=picked.id
   returning j.id,j.subject,j.body_text,j.total_count
  )
