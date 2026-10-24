@@ -6,7 +6,7 @@
  async function ensureCsrf(){const r=await fetch("/api/csrf",{credentials:"same-origin"});if(!r.ok)throw new Error("Secure request setup failed. Refresh and retry.");csrfToken=(await r.json()).token;return csrfToken;}
  async function api(url,method,data){if(!csrfToken)await ensureCsrf();const r=await fetch(url,{method:method||"POST",credentials:"same-origin",headers:{"Content-Type":"application/json","X-CSRF-Token":csrfToken},body:data===undefined?undefined:JSON.stringify(data)});const d=await r.json().catch(()=>({}));if(!r.ok){const e=new Error(d.message||"Something went wrong. Please try again.");e.code=d.error||"";throw e;}return d;}
  function getDraft(){try{return JSON.parse(localStorage.getItem(draftKey)||"{}");}catch(_){return{};}}
- function saveDraft(d){try{localStorage.setItem(draftKey,JSON.stringify({name:d.name||"",email:d.email||" "}));}catch(_){}}
+ function saveDraft(d){try{localStorage.setItem(draftKey,JSON.stringify({name:d.name||"",email:d.email||""}));}catch(_){}}
  function busy(form,on,label){const b=form&&form.querySelector('button[type="submit"]');if(!b)return;if(!b.dataset.idleLabel)b.dataset.idleLabel=b.textContent.trim();b.disabled=on;b.textContent=on?label:b.dataset.idleLabel;}
  function safeStore(k,v){try{localStorage.setItem(k,v);}catch(_){}}
  function safeRemove(k){try{localStorage.removeItem(k);}catch(_){}}

@@ -29,12 +29,12 @@ create table if not exists public.tp_email_jobs(
  body_text text not null check(char_length(body_text) between 5 and 15000),
  status text not null default 'queued' check(status in('queued','processing','completed','partially_failed','failed')),
  total_count integer not null default 0 check(total_count>=0),success_count integer not null default 0 check(success_count>=0),
- fail_count integer not null default 0 check(fail_count>=0),created_at timestamptz not null default now(),completed_at timestamptz);
+ fail_count integer not null default 0 check(fail_count>=0),skipped_count integer not null default 0 check(skipped_count>=0),created_at timestamptz not null default now(),completed_at timestamptz);
 create index if not exists tp_email_jobs_created_idx on public.tp_email_jobs(created_at desc);
 create table if not exists public.tp_email_queue(
  id uuid primary key default gen_random_uuid(),job_id uuid not null references public.tp_email_jobs(id) on delete cascade,
  recipient_email text not null check(recipient_email=lower(btrim(recipient_email))),recipient_name text not null default '',
- status text not null default 'pending' check(status in('pending','processing','sent','failed')),
+ status text not null default 'pending' check(status in('pending','processing','sent','failed','skipped')),
  attempt_count integer not null default 0 check(attempt_count>=0),brevo_message_id text,last_error text,
  created_at timestamptz not null default now(),claimed_at timestamptz,sent_at timestamptz,completed_at timestamptz,unique(job_id,recipient_email));
 create index if not exists tp_email_queue_pending_idx on public.tp_email_queue(status,created_at);
@@ -113,16 +113,22 @@ begin
 end $$;
 
 create or replace function public.tp_refresh_email_job_status(p_job_id uuid)
-returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
-declare n integer;sent_n integer;fail_n integer;active_n integer;s text;
+returns jsonb language plpgsql security definer set search_path=public,pg_temp as $
+declare n integer;sent_n integer;fail_n integer;skip_n integer;active_n integer;s text;
 begin
- select count(*),count(*) filter(where status='sent'),count(*) filter(where status='failed'),count(*) filter(where status in('pending','processing')) into n,sent_n,fail_n,active_n from public.tp_email_queue where job_id=p_job_id;
+ select count(*),count(*) filter(where status='sent'),count(*) filter(where status='failed'),
+        count(*) filter(where status='skipped'),count(*) filter(where status in('pending','processing'))
+ into n,sent_n,fail_n,skip_n,active_n from public.tp_email_queue where job_id=p_job_id;
  if n=0 then return jsonb_build_object('status','not_found');end if;
- if active_n>0 then if exists(select 1 from public.tp_email_queue where job_id=p_job_id and status='processing') then s:='processing';else s:='queued';end if;
- elsif fail_n=0 then s:='completed';elsif sent_n=0 then s:='failed';else s:='partially_failed';end if;
- update public.tp_email_jobs set total_count=n,success_count=sent_n,fail_count=fail_n,status=s,completed_at=case when active_n=0 then coalesce(completed_at,now()) else null end where id=p_job_id;
- return jsonb_build_object('status',s,'total',n,'sent',sent_n,'failed',fail_n);
-end $$;
+ if active_n>0 then
+   if exists(select 1 from public.tp_email_queue where job_id=p_job_id and status='processing') then s:='processing';else s:='queued';end if;
+ elsif fail_n=0 then s:='completed';
+ elsif sent_n+skip_n=0 then s:='failed';
+ else s:='partially_failed';end if;
+ update public.tp_email_jobs set total_count=n,success_count=sent_n,fail_count=fail_n,skipped_count=skip_n,
+   status=s,completed_at=case when active_n=0 then coalesce(completed_at,now()) else null end where id=p_job_id;
+ return jsonb_build_object('status',s,'total',n,'sent',sent_n,'failed',fail_n,'skipped',skip_n);
+end $;
 
 revoke all on function public.tp_complete_registration(text,text) from public,anon,authenticated;
 revoke all on function public.tp_complete_password_reset(text,text,text) from public,anon,authenticated;
