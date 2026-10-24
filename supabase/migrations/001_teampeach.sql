@@ -30,6 +30,7 @@ create table if not exists public.tp_email_jobs(
  status text not null default 'queued' check(status in('queued','processing','completed','partially_failed','failed')),
  total_count integer not null default 0 check(total_count>=0),success_count integer not null default 0 check(success_count>=0),
  fail_count integer not null default 0 check(fail_count>=0),skipped_count integer not null default 0 check(skipped_count>=0),created_at timestamptz not null default now(),completed_at timestamptz);
+alter table public.tp_email_jobs add column if not exists provider_campaign_id text;
 create index if not exists tp_email_jobs_created_idx on public.tp_email_jobs(created_at desc);
 create table if not exists public.tp_email_queue(
  id uuid primary key default gen_random_uuid(),job_id uuid not null references public.tp_email_jobs(id) on delete cascade,
@@ -107,7 +108,7 @@ begin
  update public.tp_email_queue set status='failed',last_error='worker_interrupted_check_provider_before_retry',completed_at=now(),claimed_at=null where status='processing' and claimed_at<now()-interval '15 minutes';
  select count(*) into sent_today from public.tp_email_queue where status='sent' and sent_at>=date_trunc('day',now());
  remaining:=greatest(0,least(250,p_daily_limit)-sent_today);if remaining<=0 then return;end if;
- return query with picked as(select q.id from public.tp_email_queue q where q.status='pending' order by q.created_at,q.id for update skip locked limit least(greatest(1,p_limit),remaining)),
+ return query with picked as(select q.id from public.tp_email_queue q where q.status='pending' and exists(select 1 from public.tp_email_jobs j where j.id=q.job_id and j.mode in('single','system')) order by q.created_at,q.id limit least(greatest(1,p_limit),remaining) for update skip locked),
  claimed as(update public.tp_email_queue q set status='processing',claimed_at=now(),attempt_count=q.attempt_count+1 from picked where q.id=picked.id returning q.id,q.job_id,q.recipient_email,q.recipient_name)
  select c.id,c.job_id,c.recipient_email,c.recipient_name,j.subject,j.body_text,j.mode from claimed c join public.tp_email_jobs j on j.id=c.job_id;
 end $$;
@@ -130,14 +131,35 @@ begin
  return jsonb_build_object('status',s,'total',n,'sent',sent_n,'failed',fail_n,'skipped',skip_n);
 end $;
 
+create or replace function public.tp_claim_broadcast_jobs(p_limit integer default 1)
+returns table(job_id uuid,subject text,body_text text,total_count integer)
+language plpgsql security definer set search_path=public,pg_temp as $$
+begin
+ update public.tp_email_jobs set status='failed',completed_at=now(),fail_count=total_count
+ where mode='broadcast' and status='processing' and created_at<now()-interval '15 minutes';
+ return query
+ with picked as(
+  select j.id from public.tp_email_jobs j
+  where j.mode='broadcast' and j.status='queued'
+  order by j.created_at limit least(greatest(1,p_limit),5) for update skip locked
+ ), claimed as(
+  update public.tp_email_jobs j set status='processing',completed_at=null
+  from picked where j.id=picked.id
+  returning j.id,j.subject,j.body_text,j.total_count
+ )
+ select c.id,c.subject,c.body_text,c.total_count from claimed c;
+end $$;
+
 revoke all on function public.tp_complete_registration(text,text) from public,anon,authenticated;
 revoke all on function public.tp_complete_password_reset(text,text,text) from public,anon,authenticated;
 revoke all on function public.tp_enqueue_email_job(uuid,text,text,text,jsonb) from public,anon,authenticated;
 revoke all on function public.tp_claim_email_queue(integer,integer) from public,anon,authenticated;
 revoke all on function public.tp_refresh_email_job_status(uuid) from public,anon,authenticated;
+revoke all on function public.tp_claim_broadcast_jobs(integer) from public,anon,authenticated;
 grant execute on function public.tp_complete_registration(text,text) to service_role;
 grant execute on function public.tp_complete_password_reset(text,text,text) to service_role;
 grant execute on function public.tp_enqueue_email_job(uuid,text,text,text,jsonb) to service_role;
 grant execute on function public.tp_claim_email_queue(integer,integer) to service_role;
 grant execute on function public.tp_refresh_email_job_status(uuid) to service_role;
+grant execute on function public.tp_claim_broadcast_jobs(integer) to service_role;
 -- Optional manual cleanup: delete expired pending registrations, password resets and old sessions.

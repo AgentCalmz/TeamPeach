@@ -7,13 +7,13 @@ TeamPeach is a peach/ivory/navy AI-tools and automation website served by one No
 - Custom six-digit email OTP registration and password-reset codes. A user record is created only after the OTP is verified.
 - Interruption-friendly registration: only name/email are kept as browser draft; neither password nor OTP is persisted in browser storage.
 - Server-side scrypt password hashes, hashed opaque session cookies, logout/session revocation, CSRF checks, rate limits, CSP/security headers and validation.
-- Brevo email sender, persistent Supabase email queue, one-person admin email, opt-in broadcasts and signed unsubscribe links.
+- Brevo transactional email sender, persistent Supabase email queue, one-person admin email, opt-in Brevo marketing campaigns and native campaign unsubscribe links.
 - Admin allowlist, project inquiry storage and email notifications.
 - Sitemap/robots support including explicit OAI-SearchBot access.
 
 ## Setup
-1. Run supabase/migrations/001_teampeach.sql in Supabase SQL Editor before enabling account features.
-2. Authenticate your sending domain in Brevo and verify the sender. Generate a Brevo API key; the SMTP password is not the API key used by the HTTP integration.
+1. Run supabase/migrations/001_teampeach.sql in Supabase SQL Editor before enabling account features. It is designed to be re-runnable for the provider campaign ID column and function definitions.
+2. Authenticate your sending domain in Brevo and verify the sender. Generate a Brevo API key; the SMTP password is not the API key used by the HTTP integration. Create a dedicated marketing list in Brevo and set its numeric ID as BREVO_MARKETING_LIST_ID. Transactional account emails use the transactional endpoint; opt-in broadcasts use the Brevo Marketing Campaign API.
 3. Generate two different secrets with openssl rand -hex 32 for OTP_PEPPER and UNSUBSCRIBE_SECRET.
 4. Add variables from .env.example to Render Environment. Never expose SUPABASE_SERVICE_ROLE_KEY, BREVO_API_KEY or any of these secrets to client JavaScript.
 5. Set Render service type to Web Service, build command npm install && npm run build, start command npm start, Node.js 20+.

@@ -25,6 +25,45 @@ function trusted(req){const o=req.get("origin");if(!o)return true;try{return ori
 function csrf(req,res,next){const c=Buffer.from(String(req.cookies.tp_csrf||"")),h=Buffer.from(String(req.get("x-csrf-token")||""));if(!trusted(req)||c.length<24||h.length<24||c.length!==h.length||!crypto.timingSafeEqual(c,h))return errorJson(res,403,"CSRF_CHECK_FAILED","Refresh the page and try again.");next();}
 function baseUrl(){return cleanText(process.env.APP_BASE_URL||process.env.SITE_URL||process.env.RENDER_EXTERNAL_URL||"https://teampeach.org",300);}
 async function sendBrevo(to,name,message,tags){if(!emailReady())throw new Error("EMAIL_NOT_CONFIGURED");const body={sender:{name:cleanText(process.env.BREVO_SENDER_NAME||"TeamPeach",70),email:normalizeEmail(process.env.BREVO_SENDER_EMAIL)},to:[{email:normalizeEmail(to),name:cleanText(name||"",100)||normalizeEmail(to)}],subject:cleanText(message.subject,150),htmlContent:message.html,textContent:cleanText(message.text,15000),tags:(tags||["teampeach"]).slice(0,5)};const r=await fetch("https://api.brevo.com/v3/smtp/email",{method:"POST",headers:{"api-key":process.env.BREVO_API_KEY,"accept":"application/json","content-type":"application/json"},body:JSON.stringify(body),signal:AbortSignal.timeout(12000)});const d=await r.json().catch(()=>({}));if(!r.ok){const e=new Error("BREVO_HTTP_"+r.status);e.code="BREVO_HTTP_"+r.status;throw e;}return{messageId:cleanText(d.messageId||"",200)};}
+async function brevoApi(method,route,payload){
+ const options={method,headers:{"api-key":process.env.BREVO_API_KEY,"accept":"application/json","content-type":"application/json"},signal:AbortSignal.timeout(15000)};
+ if(payload!==undefined)options.body=JSON.stringify(payload);
+ const response=await fetch("https://api.brevo.com/v3"+route,options);
+ if(!response.ok){const error=new Error("BREVO_HTTP_"+response.status);error.code="BREVO_HTTP_"+response.status;throw error;}
+ if(response.status===204)return{};
+ return response.json().catch(()=>({}));
+}
+function marketingListId(){
+ const raw=String(process.env.BREVO_MARKETING_LIST_ID||"");
+ if(!/^\d+$/.test(raw)||!Number.isSafeInteger(Number(raw))||Number(raw)<1)throw Object.assign(new Error("BREVO_MARKETING_LIST_ID_REQUIRED"),{code:"BREVO_MARKETING_LIST_ID_REQUIRED"});
+ return Number(raw);
+}
+async function syncMarketingContact(user,listId){
+ if(user.marketing_opt_in){
+  await brevoApi("POST","/contacts",{email:user.email,listIds:[listId],updateEnabled:true});
+ }else{
+  try{await brevoApi("PUT","/contacts/"+encodeURIComponent(user.email),{unlinkListIds:[listId]});}
+  catch(error){if(error.code!=="BREVO_HTTP_404")throw error;}
+ }
+}
+async function mapLimit(items,limit,handler){
+ let next=0;const workers=Array.from({length:Math.min(limit,items.length)},async()=>{while(true){const i=next++;if(i>=items.length)return;await handler(items[i]);}});
+ await Promise.all(workers);
+}
+async function createMarketingCampaign(job,listId){
+ const message=plainNotificationEmail(job.subject,job.body_text,baseUrl(),"{{ unsubscribe }}");
+ const created=await brevoApi("POST","/emailCampaigns",{
+  name:("TeamPeach broadcast "+String(job.job_id).slice(0,8)+" "+new Date().toISOString()).slice(0,128),
+  subject:job.subject,
+  sender:{name:cleanText(process.env.BREVO_SENDER_NAME||"TeamPeach",70),email:normalizeEmail(process.env.BREVO_SENDER_EMAIL)},
+  recipients:{listIds:[listId]},
+  type:"classic",
+  htmlContent:message.html,
+  previewText:cleanText(job.body_text,150).replace(/\s+/g," ")
+ });
+ if(!created||!created.id)throw Object.assign(new Error("BREVO_CAMPAIGN_CREATE_FAILED"),{code:"BREVO_CAMPAIGN_CREATE_FAILED"});
+ return Number(created.id);
+}
 async function findUser(email){const r=await db.from("tp_users").select("id,email,full_name,password_hash,marketing_opt_in").eq("email",email).maybeSingle();if(r.error)throw r.error;return r.data;}
 async function createSession(userId,res){const token=crypto.randomBytes(32).toString("base64url"),r=await db.from("tp_sessions").insert({user_id:userId,token_hash:hashSessionToken(token),expires_at:new Date(Date.now()+SESSION_DAYS*86400000).toISOString()});if(r.error)throw r.error;res.cookie("tp_session",token,cookies());}
 async function authenticated(req,res,next){if(!authReady())return errorJson(res,503,"SERVICE_NOT_CONFIGURED","Account services are not configured yet.");const raw=req.cookies.tp_session||"";if(raw.length<40||raw.length>100)return errorJson(res,401,"NOT_AUTHENTICATED","Please sign in to continue.");try{const s=await db.from("tp_sessions").select("id,user_id").eq("token_hash",hashSessionToken(raw)).is("revoked_at",null).gt("expires_at",new Date().toISOString()).maybeSingle();if(s.error)throw s.error;if(!s.data)return errorJson(res,401,"NOT_AUTHENTICATED","Your session has expired. Please sign in again.");const u=await db.from("tp_users").select("id,email,full_name,marketing_opt_in").eq("id",s.data.user_id).maybeSingle();if(u.error)throw u.error;if(!u.data)return errorJson(res,401,"NOT_AUTHENTICATED","Please sign in to continue.");req.user=u.data;req.isAdmin=adminEmailsFromEnv(process.env.ADMIN_EMAILS).includes(u.data.email);next();}catch(e){logFailure("session",e);errorJson(res,503,"SESSION_FAILED","We could not check your session. Please try again.");}}
@@ -33,8 +72,97 @@ function validPassword(p){return typeof p==="string"&&p.length>=12&&p.length<=12
 function validOtp(c){return typeof c==="string"&&/^\d{6}$/.test(c);}
 async function queueJob(userId,mode,subject,body,recipients){const r=await db.rpc("tp_enqueue_email_job",{p_requested_by:userId||null,p_mode:mode,p_subject:cleanText(subject,150),p_body_text:cleanText(body,15000),p_recipients:recipients});if(r.error)throw r.error;return r.data;}
 async function refreshJob(id){const r=await db.rpc("tp_refresh_email_job_status",{p_job_id:id});if(r.error)logFailure("email-job-status",r.error);}
-let workerBusy=false;
-async function runEmailQueue(){if(workerBusy||!db||!emailReady())return;workerBusy=true;try{for(let round=0;round<60;round++){const claim=await db.rpc("tp_claim_email_queue",{p_limit:5,p_daily_limit:DAILY_LIMIT});if(claim.error){logFailure("queue-claim",claim.error);break;}const rows=Array.isArray(claim.data)?claim.data:[];if(!rows.length)break;const jobs=new Set();await Promise.all(rows.map(async item=>{jobs.add(item.job_id);try{let unsub=null;if(item.mode==="broadcast"){const pref=await db.from("tp_users").select("marketing_opt_in").eq("email",item.recipient_email).maybeSingle();if(pref.error)throw pref.error;if(!pref.data||!pref.data.marketing_opt_in){const skipped=await db.from("tp_email_queue").update({status:"skipped",last_error:"recipient_unsubscribed",completed_at:new Date().toISOString(),claimed_at:null}).eq("id",item.queue_id);if(skipped.error)throw skipped.error;return;}if(!process.env.UNSUBSCRIBE_SECRET||process.env.UNSUBSCRIBE_SECRET.length<32)throw Object.assign(new Error("UNSUBSCRIBE_SECRET_REQUIRED"),{code:"UNSUBSCRIBE_SECRET_REQUIRED"});const u=new URL("/unsubscribe/",baseUrl());u.searchParams.set("email",item.recipient_email);u.searchParams.set("sig",signedUnsubscribe(item.recipient_email,process.env.UNSUBSCRIBE_SECRET));unsub=u.toString();}const msg=plainNotificationEmail(item.subject,item.body_text,baseUrl(),unsub),sent=await sendBrevo(item.recipient_email,item.recipient_name,msg,["teampeach",item.job_id.slice(0,20)]);const u=await db.from("tp_email_queue").update({status:"sent",brevo_message_id:sent.messageId||null,sent_at:new Date().toISOString(),last_error:null,claimed_at:null}).eq("id",item.queue_id);if(u.error)throw u.error;}catch(e){logFailure("email-delivery",e);const u=await db.from("tp_email_queue").update({status:"failed",last_error:cleanText(e.code||e.name||"delivery_failed",80),completed_at:new Date().toISOString(),claimed_at:null}).eq("id",item.queue_id);if(u.error)logFailure("delivery-status",u.error);}}));await Promise.all(Array.from(jobs).map(refreshJob));if(rows.length<5)break;}}catch(e){logFailure("email-worker",e);}finally{workerBusy=false;}}
+let workerBusy=false,marketingWorkerBusy=false;
+async function runTransactionalQueue(){
+ if(workerBusy||!db||!emailReady())return;
+ workerBusy=true;
+ try{
+  for(let round=0;round<60;round++){
+   const claim=await db.rpc("tp_claim_email_queue",{p_limit:5,p_daily_limit:DAILY_LIMIT});
+   if(claim.error){logFailure("queue-claim",claim.error);break;}
+   const rows=Array.isArray(claim.data)?claim.data:[];
+   if(!rows.length)break;
+   const jobs=new Set();
+   await Promise.all(rows.map(async item=>{
+    jobs.add(item.job_id);
+    try{
+     const message=plainNotificationEmail(item.subject,item.body_text,baseUrl(),null);
+     const sent=await sendBrevo(item.recipient_email,item.recipient_name,message,["teampeach",String(item.job_id).slice(0,20)]);
+     const update=await db.from("tp_email_queue").update({status:"sent",brevo_message_id:sent.messageId||null,sent_at:new Date().toISOString(),last_error:null,claimed_at:null}).eq("id",item.queue_id);
+     if(update.error)throw update.error;
+    }catch(e){
+     logFailure("email-delivery",e);
+     const update=await db.from("tp_email_queue").update({status:"failed",last_error:cleanText(e.code||e.name||"delivery_failed",80),completed_at:new Date().toISOString(),claimed_at:null}).eq("id",item.queue_id);
+     if(update.error)logFailure("delivery-status",update.error);
+    }
+   }));
+   await Promise.all(Array.from(jobs).map(refreshJob));
+   if(rows.length<5)break;
+  }
+ }catch(e){logFailure("transactional-worker",e);}finally{workerBusy=false;}
+}
+async function claimableUsers(){
+ const users=[];const pageSize=500;
+ for(let offset=0;offset<=10000;offset+=pageSize){
+  const result=await db.from("tp_users").select("email,full_name,marketing_opt_in").order("created_at",{ascending:true}).range(offset,offset+pageSize-1);
+  if(result.error)throw result.error;
+  users.push(...(result.data||[]));
+  if(!result.data||result.data.length<pageSize)break;
+ }
+ if(users.length>10000)throw Object.assign(new Error("AUDIENCE_TOO_LARGE"),{code:"AUDIENCE_TOO_LARGE"});
+ return users;
+}
+async function failBroadcastJob(job,error){
+ const code=cleanText(error&& (error.code||error.name)||"broadcast_failed",80);
+ const now=new Date().toISOString();
+ const q=await db.from("tp_email_queue").update({status:"failed",last_error:code,completed_at:now,claimed_at:null}).eq("job_id",job.job_id).in("status",["pending","processing"]);
+ if(q.error)logFailure("broadcast-failure-rows",q.error);
+ const refresh=await refreshJob(job.job_id);
+ if(!refresh){
+  const j=await db.from("tp_email_jobs").update({status:"failed",fail_count:job.total_count||0,completed_at:now}).eq("id",job.job_id);
+  if(j.error)logFailure("broadcast-failure-job",j.error);
+ }
+}
+async function runMarketingQueue(){
+ if(marketingWorkerBusy||!db||!emailReady())return;
+ marketingWorkerBusy=true;
+ try{
+  for(let round=0;round<2;round++){
+   const claimed=await db.rpc("tp_claim_broadcast_jobs",{p_limit:1});
+   if(claimed.error){logFailure("broadcast-claim",claimed.error);break;}
+   const jobs=Array.isArray(claimed.data)?claimed.data:[];
+   if(!jobs.length)break;
+   const job=jobs[0];let campaignId=null;
+   try{
+    const listId=marketingListId();
+    const users=await claimableUsers();
+    const audience=users.filter(user=>user.marketing_opt_in);
+    if(!audience.length)throw Object.assign(new Error("NO_MARKETING_RECIPIENTS"),{code:"NO_MARKETING_RECIPIENTS"});
+    if(audience.length>DAILY_LIMIT)throw Object.assign(new Error("BROADCAST_EXCEEDS_DAILY_CAP"),{code:"BROADCAST_EXCEEDS_DAILY_CAP"});
+    const sent=await db.from("tp_email_queue").select("id",{count:"exact",head:true}).eq("status","sent").gte("sent_at",new Date(new Date().setUTCHours(0,0,0,0)).toISOString());
+    if(sent.error)throw sent.error;
+    if((sent.count||0)+audience.length>DAILY_LIMIT)throw Object.assign(new Error("DAILY_CAP_EXCEEDED"),{code:"DAILY_CAP_EXCEEDED"});
+    // Rebuild this job's recipient snapshot from current consent before synchronizing the actual Brevo campaign list.
+    const wiped=await db.from("tp_email_queue").delete().eq("job_id",job.job_id);if(wiped.error)throw wiped.error;
+    const inserts=audience.map(user=>({job_id:job.job_id,recipient_email:user.email,recipient_name:user.full_name,status:"pending"}));
+    const saved=await db.from("tp_email_queue").insert(inserts);if(saved.error)throw saved.error;
+    const countUpdate=await db.from("tp_email_jobs").update({total_count:audience.length,success_count:0,fail_count:0}).eq("id",job.job_id);if(countUpdate.error)throw countUpdate.error;
+    await mapLimit(users,4,user=>syncMarketingContact(user,listId));
+    campaignId=await createMarketingCampaign(job,listId);
+    const idUpdate=await db.from("tp_email_jobs").update({provider_campaign_id:String(campaignId)}).eq("id",job.job_id);if(idUpdate.error)throw idUpdate.error;
+    await brevoApi("POST","/emailCampaigns/"+campaignId+"/sendNow",{});
+    const sentAt=new Date().toISOString();
+    const done=await db.from("tp_email_queue").update({status:"sent",brevo_message_id:"campaign:"+campaignId,sent_at:sentAt,last_error:null,claimed_at:null}).eq("job_id",job.job_id);
+    if(done.error)throw done.error;
+    await refreshJob(job.job_id);
+  }catch(error){
+    logFailure("broadcast-worker",error);
+    await failBroadcastJob(job,error);
+   }
+  }
+ }catch(error){logFailure("marketing-worker",error);}finally{marketingWorkerBusy=false;}
+}
+async function runEmailQueue(){await Promise.all([runTransactionalQueue(),runMarketingQueue()]);}
 async function cleanup(){if(!db)return;try{await db.from("tp_pending_registrations").delete().lt("expires_at",new Date(Date.now()-86400000).toISOString());await db.from("tp_password_resets").delete().lt("expires_at",new Date(Date.now()-86400000).toISOString());await db.from("tp_sessions").delete().lt("expires_at",new Date().toISOString());await db.from("tp_sessions").delete().lt("revoked_at",new Date(Date.now()-30*86400000).toISOString());}catch(e){logFailure("cleanup",e);}}
 
 app.get("/api/health",(_q,r)=>r.json({status:"ok",service:"teampeach",accountServicesConfigured:authReady(),emailDeliveryConfigured:emailReady()}));
@@ -53,7 +181,7 @@ app.post("/api/projects",csrf,authLimit,asyncRoute(async(q,r)=>{if(!backendReady
 app.get("/api/admin/email/stats",authenticated,isAdmin,asyncRoute(async(_q,r)=>{const a=await db.from("tp_users").select("id",{count:"exact",head:true}).eq("marketing_opt_in",true),b=await db.from("tp_email_queue").select("id",{count:"exact",head:true}).eq("status","sent").gte("sent_at",new Date(new Date().setUTCHours(0,0,0,0)).toISOString());if(a.error||b.error){logFailure("admin-stats",a.error||b.error);return errorJson(r,503,"STATS_FAILED","Email statistics are unavailable.");}r.json({ok:true,optedInRecipients:a.count||0,sentToday:b.count||0,dailySoftLimit:DAILY_LIMIT});}));
 app.get("/api/admin/email/jobs",authenticated,isAdmin,asyncRoute(async(_q,r)=>{const d=await db.from("tp_email_jobs").select("id,mode,subject,status,total_count,success_count,fail_count,created_at,completed_at").order("created_at",{ascending:false}).limit(20);if(d.error){logFailure("admin-jobs",d.error);return errorJson(r,503,"JOBS_FAILED","Email history unavailable.");}r.json({ok:true,jobs:d.data||[]});}));
 app.get("/api/admin/projects",authenticated,isAdmin,asyncRoute(async(_q,r)=>{const d=await db.from("tp_project_requests").select("id,full_name,email,project_type,details,status,created_at").order("created_at",{ascending:false}).limit(50);if(d.error){logFailure("admin-projects",d.error);return errorJson(r,503,"PROJECTS_FAILED","Project inquiries unavailable.");}r.json({ok:true,projects:d.data||[]});}));
-app.post("/api/admin/email",csrf,authLimit,authenticated,isAdmin,asyncRoute(async(q,r)=>{if(!backendReady(r,true))return;const mode=cleanText(q.body&&q.body.mode,20),subject=cleanText(q.body&&q.body.subject,150),body=cleanText(q.body&&q.body.bodyText,15000);if(!["single","broadcast"].includes(mode))return errorJson(r,400,"INVALID_MODE","Choose one person or an opted-in broadcast.");if(subject.length<3||body.length<5)return errorJson(r,400,"INVALID_MESSAGE","Add an email subject and a message of at least five characters.");if(mode==="broadcast"&&(!q.body.confirmBroadcast||!process.env.UNSUBSCRIBE_SECRET||process.env.UNSUBSCRIBE_SECRET.length<32))return errorJson(r,400,"BROADCAST_CONFIRMATION_REQUIRED","Confirm the broadcast and configure an unsubscribe signing secret.");try{let recipients;if(mode==="single"){const email=normalizeEmail(q.body.email);if(!isValidEmail(email))return errorJson(r,400,"INVALID_EMAIL","Enter a valid recipient address.");recipients=[{email,name:cleanText(q.body.name,100)||email}];}else{const d=await db.from("tp_users").select("email,full_name").eq("marketing_opt_in",true).order("created_at",{ascending:true}).limit(10000);if(d.error)throw d.error;recipients=(d.data||[]).map(u=>({email:u.email,name:u.full_name}));if(!recipients.length)return errorJson(r,400,"NO_SUBSCRIBERS","No users have opted into product/news emails.");}const j=await queueJob(q.user.id,mode,subject,body,recipients);if(!j||j.status!=="queued")return errorJson(r,400,"EMAIL_NOT_QUEUED","No email job was queued.");runEmailQueue();r.status(202).json({ok:true,jobId:j.job_id,queuedCount:j.count,message:mode==="broadcast"?"Queued for opted-in users and paced to the daily cap.":"Queued for delivery."});}catch(e){logFailure("email-enqueue",e);errorJson(r,503,"EMAIL_QUEUE_FAILED","The email job could not be queued.");}}));
+app.post("/api/admin/email",csrf,authLimit,authenticated,isAdmin,asyncRoute(async(q,r)=>{if(!backendReady(r,true))return;const mode=cleanText(q.body&&q.body.mode,20),subject=cleanText(q.body&&q.body.subject,150),body=cleanText(q.body&&q.body.bodyText,15000);if(!["single","broadcast"].includes(mode))return errorJson(r,400,"INVALID_MODE","Choose one person or an opted-in broadcast.");if(subject.length<3||body.length<5)return errorJson(r,400,"INVALID_MESSAGE","Add an email subject and a message of at least five characters.");if(mode==="broadcast"&&(!q.body.confirmBroadcast||!process.env.BREVO_MARKETING_LIST_ID||!/^[0-9]+$/.test(process.env.BREVO_MARKETING_LIST_ID)||!process.env.UNSUBSCRIBE_SECRET||process.env.UNSUBSCRIBE_SECRET.length<32))return errorJson(r,400,"BROADCAST_NOT_CONFIGURED","Confirm the broadcast and configure a numeric Brevo marketing list ID plus the unsubscribe signing secret.");try{let recipients;if(mode==="single"){const email=normalizeEmail(q.body.email);if(!isValidEmail(email))return errorJson(r,400,"INVALID_EMAIL","Enter a valid recipient address.");recipients=[{email,name:cleanText(q.body.name,100)||email}];}else{const d=await db.from("tp_users").select("email,full_name").eq("marketing_opt_in",true).order("created_at",{ascending:true}).limit(10000);if(d.error)throw d.error;recipients=(d.data||[]).map(u=>({email:u.email,name:u.full_name}));if(!recipients.length)return errorJson(r,400,"NO_SUBSCRIBERS","No users have opted into product/news emails.");}const j=await queueJob(q.user.id,mode,subject,body,recipients);if(!j||j.status!=="queued")return errorJson(r,400,"EMAIL_NOT_QUEUED","No email job was queued.");runEmailQueue();r.status(202).json({ok:true,jobId:j.job_id,queuedCount:j.count,message:mode==="broadcast"?"Queued for opted-in users and paced to the daily cap.":"Queued for delivery."});}catch(e){logFailure("email-enqueue",e);errorJson(r,503,"EMAIL_QUEUE_FAILED","The email job could not be queued.");}}));
 app.post("/api/unsubscribe",csrf,asyncRoute(async(q,r)=>{if(!backendReady(r,false))return;const email=normalizeEmail(q.body&&q.body.email),sig=String(q.body&&q.body.sig||"");if(!isValidEmail(email)||!/^[a-f0-9]{64}$/.test(sig)||!process.env.UNSUBSCRIBE_SECRET||process.env.UNSUBSCRIBE_SECRET.length<32)return errorJson(r,400,"INVALID_UNSUBSCRIBE_LINK","This unsubscribe link is invalid or incomplete.");if(!safeStringEqual(signedUnsubscribe(email,process.env.UNSUBSCRIBE_SECRET),sig))return errorJson(r,400,"INVALID_UNSUBSCRIBE_LINK","This unsubscribe link is invalid or incomplete.");try{const d=await db.from("tp_users").update({marketing_opt_in:false,marketing_opt_in_at:null,updated_at:new Date().toISOString()}).eq("email",email);if(d.error)throw d.error;r.json({ok:true,message:"If this email was subscribed to product/news email, it has been unsubscribed."});}catch(e){logFailure("unsubscribe",e);errorJson(r,503,"UNSUBSCRIBE_FAILED","Could not update your preference. Please try again.");}}));
 
 app.use((q,r,n)=>{if(!["GET","HEAD"].includes(q.method)||!/\.html$/i.test(q.path))return n();let t=/\/index\.html$/i.test(q.path)?(q.path.slice(0,-10)||"/"):q.path.slice(0,-5);if(!t.startsWith("/"))t="/"+t;if(t!=="/"&&!t.endsWith("/"))t+="/";r.redirect(301,t+(q.url.includes("?")?q.url.slice(q.url.indexOf("?")):""));});
