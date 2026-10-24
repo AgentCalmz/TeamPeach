@@ -1,0 +1,10 @@
+"use strict";
+const test=require("node:test"),assert=require("node:assert/strict");
+const{normalizeEmail,isValidEmail,htmlEscape,otpHash,safeStringEqual,hashPassword,verifyPassword,generateOtp,hashSessionToken,adminEmailsFromEnv}=require("../src/security");
+test("email normalization and validation",()=>{assert.equal(normalizeEmail(" PERSON@Example.COM "),"person@example.com");assert.equal(isValidEmail("person@example.com"),true);assert.equal(isValidEmail("no-at.example.com"),false);});
+test("HTML is escaped",()=>assert.equal(htmlEscape('<img src=x onerror="alert(1)">'),"&lt;img src=x onerror=&quot;alert(1)&quot;&gt;"));
+test("OTP hash is address, code and purpose scoped",()=>{const k="some-test-pepper-at-least-32-characters-long";const h=otpHash("A@Example.com","123456",k,"registration");assert.equal(h,otpHash("a@example.com","123456",k,"registration"));assert.notEqual(h,otpHash("a@example.com","123456",k,"password-reset"));assert.notEqual(h,otpHash("a@example.com","123457",k,"registration"));assert.equal(safeStringEqual(h,h),true);assert.equal(safeStringEqual(h,h+"x"),false);});
+test("password hash is salted and verified",async()=>{const p="A sample password longer than twelve characters!";const h=await hashPassword(p);assert.equal(await verifyPassword(p,h),true);assert.equal(await verifyPassword("wrong password",h),false);assert.notEqual(h,await hashPassword(p));});
+test("OTP has six digits",()=>{for(let i=0;i<50;i++)assert.match(generateOtp(),/^\d{6}$/);});
+test("session token is hashed",()=>{assert.match(hashSessionToken("random session token"),/^[a-f0-9]{64}$/);});
+test("admin emails normalize",()=>assert.deepEqual(adminEmailsFromEnv(" ADMIN@Example.com,nope,other@example.org "),["admin@example.com","other@example.org"]));

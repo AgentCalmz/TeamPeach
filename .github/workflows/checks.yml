@@ -1,0 +1,22 @@
+name: TeamPeach checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run build
+      - run: npm test
+      - run: node --check server.js
+      - run: node --check src/security.js
+      - run: node --check src/email-templates.js
+      - run: node --check public/js/auth.js
+      - run: node --check public/js/main.js

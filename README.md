@@ -1,46 +1,39 @@
-# TeamPeach — public website
-
-A premium, editorial-style AI tools and automation hub. Root assets use relative URLs so the public pages can work both at a Render root domain and on GitHub Pages under a project path. This is the public-site phase; it intentionally does not implement authentication, payment processing, or live AI execution yet.
+# TeamPeach
+TeamPeach is a peach/ivory/navy AI-tools and automation website served by one Node.js/Express Web Service on Render. Public pages live in public/; server code and secrets are outside that folder.
 
 ## Included
-- Responsive landing page, mobile navigation, and animated editorial-style hero
-- Searchable/filterable tool-concept catalogue with real stock-photo URLs from Unsplash
-- Individual SEO Content Brief concept page and an original AI-agent explainer
-- Reduced-motion support, keyboard focus states, responsive cards and accessible labels
-- SEO basics: unique page titles/descriptions, Open Graph metadata, Organization and WebSite structured data
-- robots.txt, sitemap template, SVG favicon, custom 404 page
-- GitHub + Render Static Site structure
+- Existing responsive brand theme, home page, tool concept and AI-agent article.
+- Clean URLs, redirects away from .html URLs, canonical URLs and a generated sitemap.
+- Custom six-digit email OTP registration and password-reset codes. A user record is created only after the OTP is verified.
+- Interruption-friendly registration: only name/email are kept as browser draft; neither password nor OTP is persisted in browser storage.
+- Server-side scrypt password hashes, hashed opaque session cookies, logout/session revocation, CSRF checks, rate limits, CSP/security headers and validation.
+- Brevo email sender, persistent Supabase email queue, one-person admin email, opt-in broadcasts and signed unsubscribe links.
+- Admin allowlist, project inquiry storage and email notifications.
+- Sitemap/robots support including explicit OAI-SearchBot access.
 
-## Truthful status
-The catalogue describes planned concepts, not live purchasable products. The inquiry form is a front-end preview and does not send or store details.
+## Setup
+1. Run supabase/migrations/001_teampeach.sql in Supabase SQL Editor before enabling account features.
+2. Authenticate your sending domain in Brevo and verify the sender. Generate a Brevo API key; the SMTP password is not the API key used by the HTTP integration.
+3. Generate three different secrets with openssl rand -hex 32 for OTP_PEPPER, SESSION_SECRET and UNSUBSCRIBE_SECRET.
+4. Add variables from .env.example to Render Environment. Never expose SUPABASE_SERVICE_ROLE_KEY, BREVO_API_KEY or any of these secrets to client JavaScript.
+5. Set Render service type to Web Service, build command npm install && npm run build, start command npm start, Node.js 20+.
+6. Set APP_BASE_URL to the currently live primary host; once connected, use https://teampeach.org. Set SITE_URL to https://teampeach.org before build.
+7. Add teampeach.org in Render Custom Domains and follow the DNS instructions. Preserve Brevo TXT/CNAME/MX records.
+8. Add the intended administrator email(s) to ADMIN_EMAILS, create and verify an account with one of those addresses, then test OTP, reload, login, logout, reset, preferences, inquiry and one-to-one admin email before broadcasts.
 
-## Before launch
-1. Replace the placeholder host in sitemap.xml with the actual Render URL or custom domain.
-2. Add absolute canonical URLs and the correct live site URL in structured data once the production hostname is known.
-3. Add the sitemap line to robots.txt and submit the sitemap in Google Search Console and Bing Webmaster Tools.
-4. Connect the project form to a secure endpoint before soliciting real customer details.
-5. Add real privacy, terms, refund/cancellation, and contact information before accounts or payments.
-6. Verify all external photos and links, run mobile/accessibility checks, and validate structured data after deployment.
-7. Never put API keys, payment secrets, OTP secrets, or customer data into these static files.
+## Security and launch notes
+- RLS is enabled on custom tables and no browser policies are created. The server uses the service-role key on the server only.
+- IP rate limits are in-process and reset when a free Render instance restarts. OTP attempts, expiry, account uniqueness and email queue state are persisted in Supabase.
+- The email worker caps sending at 250/day by default. Broadcast sends include an unsubscribe link and are limited to explicitly opted-in users.
+- Exact-once email delivery cannot be guaranteed if the provider accepts a message just before the server crashes; interrupted queue rows are marked for operator inspection rather than automatically resent.
+- Free Render services may sleep after inactivity; background work pauses while sleeping and resumes on wake.
+- Before live launch, add a real privacy notice, terms and business/operator contact information; verify sender SPF/DKIM/DMARC; review retention, deletion, backups and abuse monitoring. This implementation has not yet been tested against your private Supabase/Brevo configuration and is not certified production-ready simply by committing.
 
-## Deployment
+## Public routes
+/ ; /journal/what-is-an-ai-agent/ ; /tools/seo-content-brief/ ; /register/ ; /verify-email/ ; /login/ ; /forgot-password/ ; /account/ ; /admin/ ; /unsubscribe/.
 
-The asset links are intentionally relative. This supports Render at the domain root and GitHub Pages at a project URL such as `/TeamPeach/`.
+## SEO, AEO and GEO
+Public pages use absolute canonical URLs. The build script generates a sitemap from eligible public index pages and excludes noindex account routes. robots.txt permits OAI-SearchBot and points to the sitemap. Prioritize original, factual, useful answers, clear headings, descriptive titles, internal links and accurate structured data; none can guarantee ranking or AI citations. Each new article should be added as its own public/journal/<slug>/index.html file.
 
-### Deploy to Render
-1. Connect repository MrCalmz/TeamPeach as a Static Site.
-2. Build command: leave blank.
-3. Publish directory: .
-4. Deploy. Static sites do not require a keep-alive cron job.
-5. Once Render generates the service URL, update sitemap.xml and SEO metadata. Relative asset paths are cache-busted via the stylesheet URL's `?v=3` query.
-
-## Later phases
-Custom email OTP authentication, a secure backend for AI execution, credit ledger, subscription billing, payment verification, and an admin dashboard.
-
-## SEO, AEO/GEO and social sharing
-- The homepage repeats the main positioning phrase in visible body copy so heading words are supported by page text.
-- The site includes Organization/WebSite structured data and a substantive explanatory article. These are foundations, not a guarantee of ranking or AI recommendations.
-- Social sharing controls include Web Share where available and links for WhatsApp, LinkedIn and Facebook plus copy-link fallback.
-- Once the final production hostname is known, configure absolute canonical URLs, `og:url` values and sitemap URLs.
-- For a custom domain on Render, add the root or `www` domain in the Render service's Custom Domains settings. Render automatically adds the counterpart and redirects it to the chosen primary form. The alternate hostname cannot be correctly configured in repository HTML alone.
-
+## Local development
+Run npm install, copy .env.example to an untracked .env, then npm run build, npm test and npm start. Set real credentials only in the local untracked file or Render Environment.
