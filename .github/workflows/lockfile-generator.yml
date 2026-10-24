@@ -5,23 +5,29 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   generate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: true
       - uses: actions/setup-node@v7
         with:
           node-version: 22
           package-manager-cache: false
-      - name: Generate npm lockfile
+      - name: Generate npm lockfile without running package lifecycle scripts
         run: npm install --package-lock-only --ignore-scripts --no-audit
-      - name: Publish lockfile artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: teampeach-lockfile
-          path: package-lock.json
-          if-no-files-found: error
-          retention-days: 1
+      - name: Commit lockfile if dependency manifest changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Add reproducible npm dependency lockfile"
+            git push
+          else
+            echo "Lockfile is already current."
+          fi
