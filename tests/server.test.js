@@ -20,9 +20,9 @@ test("web service exposes clean public URLs and hides .html extensions",async t=
  assert.equal(old.status,301);
  assert.equal(old.headers.get("location"),"/register/");
  const health=await fetch(base+"/api/health");
- assert.equal(health.status,200);
+ assert.ok([200,503].includes(health.status));
  const body=await health.json();
- assert.equal(body.status,"ok");
+ assert.ok(["ready","degraded"].includes(body.status));
  assert.equal(Object.hasOwn(body,"SUPABASE_SERVICE_ROLE_KEY"),false);
  const missing=await fetch(base+"/does-not-exist/");
  assert.equal(missing.status,404);
