@@ -13,7 +13,7 @@ TeamPeach is a peach/ivory/navy AI-tools and automation website served by one No
 
 ## Setup
 1. Run supabase/migrations/001_teampeach.sql in Supabase SQL Editor before enabling account features. Visit /api/health after deployment: it reports whether the database schema and mail/auth environment are ready, without returning secret values. It also adds missing columns and refreshes the queue status constraint when re-run, so upgrades from the earlier schema stay compatible.
-2. Authenticate your sending domain in Brevo and verify the sender. Generate a Brevo API key; the SMTP password is not the API key used by the HTTP integration. Create a dedicated marketing list in Brevo and set its numeric ID as BREVO_MARKETING_LIST_ID. Transactional account emails use the transactional endpoint; opt-in broadcasts use the Brevo Marketing Campaign API. Configure a Brevo marketing webhook for the unsubscribe event to POST to https://teampeach.org/api/webhooks/brevo?token=YOUR_BREVO_WEBHOOK_TOKEN; the server uses it to sync unsubscribe events back to TeamPeach.
+2. Authenticate your sending domain in Brevo and verify the sender. Generate a Brevo API key; the SMTP password is not the API key used by the HTTP integration. Create a dedicated marketing list in Brevo and set its numeric ID as BREVO_MARKETING_LIST_ID. Transactional account emails use the transactional endpoint; opt-in broadcasts use the Brevo Marketing Campaign API. Configure a **marketing** Brevo webhook for the `unsubscribe` event to POST to `https://teampeach.org/api/webhooks/brevo`, with Bearer authentication using `BREVO_WEBHOOK_TOKEN`. The server syncs unsubscribe events back to TeamPeach; do not put the token in the URL.
 3. Generate three different secrets with openssl rand -hex 32 for OTP_PEPPER, SESSION_SECRET and BREVO_WEBHOOK_TOKEN. Keep them separate from the Brevo API key and Supabase service-role key.
 4. Add variables from .env.example to Render Environment. Never expose SUPABASE_SERVICE_ROLE_KEY, BREVO_API_KEY or any of these secrets to client JavaScript.
 5. Create a Render **Web Service** (Render does not convert a Static Site into a Web Service), build command npm install && npm run build, start command npm start, Node.js 20+. Set NODE_ENV=production in Render Environment; keep NODE_ENV=development only for local HTTP testing.
@@ -23,7 +23,7 @@ TeamPeach is a peach/ivory/navy AI-tools and automation website served by one No
 
 ## Security and launch notes
 - RLS is enabled on custom tables and no browser policies are created. The server uses the service-role key on the server only.
-- IP rate limits are in-process and reset when a free Render instance restarts. OTP attempts, expiry, account uniqueness and email queue state are persisted in Supabase.
+- Auth, registration, password recovery, login and project inquiries use HMAC-keyed, database-backed rate-limit buckets in Supabase alongside a per-process limiter. The database stores only HMACed bucket identifiers, not raw IPs or email addresses.
 - The email worker caps sending at 250/day by default. Broadcast sends include an unsubscribe link, are sent only to opted-in users, and re-check the user's preference immediately before sending.
 - Exact-once email delivery cannot be guaranteed if the provider accepts a message just before the server crashes; interrupted queue rows are marked for operator inspection rather than automatically resent.
 - Free Render services may sleep after inactivity; background work pauses while sleeping and resumes on wake.
@@ -37,3 +37,10 @@ Public pages use absolute canonical URLs. The build script generates a sitemap f
 
 ## Local development
 Run npm install, copy .env.example to an untracked .env, then npm run build, npm test and npm start. Set real credentials only in the local untracked file or Render Environment.
+
+## Security review follow-up (2026-10-24)
+
+- The service requires a dedicated `SESSION_SECRET` for session-token HMACs.
+- Persistent per-IP and per-email throttles protect authentication, verification-code sends, password recovery and project inquiries.
+- Verification email addresses are kept out of URL query strings; inline JavaScript is blocked by CSP; Brevo webhook authentication uses a Bearer header.
+- Automated checks do not replace a deployment test or independent security review. Validate the migration and provider configuration before accepting real customer data.

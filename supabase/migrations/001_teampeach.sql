@@ -45,6 +45,13 @@ alter table public.tp_email_queue drop constraint if exists tp_email_queue_statu
 alter table public.tp_email_queue add constraint tp_email_queue_status_check check(status in('pending','processing','sent','failed','skipped'));
 create index if not exists tp_email_queue_pending_idx on public.tp_email_queue(status,created_at);
 create index if not exists tp_email_queue_sent_idx on public.tp_email_queue(status,sent_at);
+create table if not exists public.tp_rate_limits(
+ bucket_hash text primary key check(bucket_hash ~ '^[0-9a-f]{64}$'),
+ window_started_at timestamptz not null,
+ request_count integer not null check(request_count>=1),
+ updated_at timestamptz not null default now()
+);
+create index if not exists tp_rate_limits_updated_idx on public.tp_rate_limits(updated_at);
 alter table public.tp_users enable row level security;
 alter table public.tp_pending_registrations enable row level security;
 alter table public.tp_password_resets enable row level security;
@@ -52,7 +59,8 @@ alter table public.tp_sessions enable row level security;
 alter table public.tp_project_requests enable row level security;
 alter table public.tp_email_jobs enable row level security;
 alter table public.tp_email_queue enable row level security;
-revoke all on public.tp_users,public.tp_pending_registrations,public.tp_password_resets,public.tp_sessions,public.tp_project_requests,public.tp_email_jobs,public.tp_email_queue from anon,authenticated;
+alter table public.tp_rate_limits enable row level security;
+revoke all on public.tp_users,public.tp_pending_registrations,public.tp_password_resets,public.tp_sessions,public.tp_project_requests,public.tp_email_jobs,public.tp_email_queue,public.tp_rate_limits from anon,authenticated;
 
 create or replace function public.tp_complete_registration(p_email text,p_otp_hash text)
 returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
@@ -157,16 +165,38 @@ begin
  select c.id,c.subject,c.body_text,c.total_count from claimed c;
 end $$;
 
+
+create or replace function public.tp_consume_rate_limit(p_bucket_hash text,p_limit integer,p_window_seconds integer)
+returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare current_count integer;current_started timestamptz;retry_after integer;
+begin
+ if p_bucket_hash !~ '^[0-9a-f]{64}$' or p_limit is null or p_limit<1 or p_limit>1000
+    or p_window_seconds is null or p_window_seconds<1 or p_window_seconds>604800 then
+  return jsonb_build_object('allowed',false,'retry_after',60);
+ end if;
+ insert into public.tp_rate_limits as existing(bucket_hash,window_started_at,request_count,updated_at)
+ values(p_bucket_hash,now(),1,now())
+ on conflict(bucket_hash) do update set
+  window_started_at=case when existing.window_started_at<=now()-make_interval(secs=>p_window_seconds) then now() else existing.window_started_at end,
+  request_count=case when existing.window_started_at<=now()-make_interval(secs=>p_window_seconds) then 1 else existing.request_count+1 end,
+  updated_at=now()
+ returning request_count,window_started_at into current_count,current_started;
+ retry_after:=greatest(1,ceil(extract(epoch from (current_started+make_interval(secs=>p_window_seconds)-now())))::integer);
+ return jsonb_build_object('allowed',current_count<=p_limit,'count',current_count,'retry_after',retry_after);
+end $$;
+
 revoke all on function public.tp_complete_registration(text,text) from public,anon,authenticated;
 revoke all on function public.tp_complete_password_reset(text,text,text) from public,anon,authenticated;
 revoke all on function public.tp_enqueue_email_job(uuid,text,text,text,jsonb) from public,anon,authenticated;
 revoke all on function public.tp_claim_email_queue(integer,integer) from public,anon,authenticated;
 revoke all on function public.tp_refresh_email_job_status(uuid) from public,anon,authenticated;
 revoke all on function public.tp_claim_broadcast_jobs(integer) from public,anon,authenticated;
+revoke all on function public.tp_consume_rate_limit(text,integer,integer) from public,anon,authenticated;
 grant execute on function public.tp_complete_registration(text,text) to service_role;
 grant execute on function public.tp_complete_password_reset(text,text,text) to service_role;
 grant execute on function public.tp_enqueue_email_job(uuid,text,text,text,jsonb) to service_role;
 grant execute on function public.tp_claim_email_queue(integer,integer) to service_role;
 grant execute on function public.tp_refresh_email_job_status(uuid) to service_role;
 grant execute on function public.tp_claim_broadcast_jobs(integer) to service_role;
+grant execute on function public.tp_consume_rate_limit(text,integer,integer) to service_role;
 -- Optional manual cleanup: delete expired pending registrations, password resets and old sessions.
