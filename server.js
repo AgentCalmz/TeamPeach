@@ -20,9 +20,9 @@ function asyncRoute(fn){return(req,res,next)=>Promise.resolve(fn(req,res,next)).
 
 function persistentRateLimit(scope,limit,windowSeconds,materialForRequest){
  return asyncRoute(async function(req,res,next){
-  if(!db||!process.env.SESSION_SECRET||process.env.SESSION_SECRET.length<32)return next();
+  if(!db||!process.env.RATE_LIMIT_SECRET||process.env.RATE_LIMIT_SECRET.length<32)return next();
   const material=String((typeof materialForRequest==="function"?materialForRequest(req):req.ip)||"unknown").trim().slice(0,512)||"unknown";
-  const bucketHash=crypto.createHmac("sha256",process.env.SESSION_SECRET).update("teampeach-rate:"+scope+":"+material).digest("hex");
+  const bucketHash=crypto.createHmac("sha256",process.env.RATE_LIMIT_SECRET).update("teampeach-rate:"+scope+":"+material).digest("hex");
   const result=await db.rpc("tp_consume_rate_limit",{p_bucket_hash:bucketHash,p_limit:limit,p_window_seconds:windowSeconds});
   if(result.error){logFailure("persistent-rate-limit",result.error);return errorJson(res,503,"RATE_LIMIT_UNAVAILABLE","A security check is temporarily unavailable. Please try again shortly.");}
   if(!result.data||result.data.allowed!==true){
@@ -40,7 +40,7 @@ const persistentLoginEmailLimit=persistentRateLimit("login-email-hour",10,3600,r
 const persistentInquiryIpLimit=persistentRateLimit("project-inquiry-ip-hour",10,3600,req=>req.ip);
 const persistentInquiryEmailLimit=persistentRateLimit("project-inquiry-email-day",5,86400,req=>normalizeEmail(req.body&&req.body.email)||req.ip);
 
-function authReady(){return Boolean(db&&process.env.OTP_PEPPER&&process.env.OTP_PEPPER.length>=32&&process.env.SESSION_SECRET&&process.env.SESSION_SECRET.length>=32);}
+function authReady(){return Boolean(db&&process.env.OTP_PEPPER&&process.env.OTP_PEPPER.length>=32&&process.env.SESSION_SECRET&&process.env.SESSION_SECRET.length>=32&&process.env.RATE_LIMIT_SECRET&&process.env.RATE_LIMIT_SECRET.length>=32);}
 function emailReady(){return Boolean(process.env.BREVO_API_KEY&&isValidEmail(process.env.BREVO_SENDER_EMAIL));}
 function backendReady(res,needEmail){if(!authReady()){errorJson(res,503,"SERVICE_NOT_CONFIGURED","Account services are being configured. Your information has not been submitted.");return false;}if(needEmail&&!emailReady()){errorJson(res,503,"EMAIL_NOT_CONFIGURED","Email delivery is not configured yet. Your information has not been submitted.");return false;}return true;}
 function cookies(){return{httpOnly:true,secure:isProd,sameSite:"lax",path:"/",maxAge:SESSION_DAYS*86400000};}
