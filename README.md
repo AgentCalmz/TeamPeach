@@ -44,3 +44,12 @@ Run npm install, copy .env.example to an untracked .env, then npm run build, npm
 - Persistent per-IP and per-email throttles protect authentication, verification-code sends, password recovery and project inquiries.
 - Verification email addresses are kept out of URL query strings; inline JavaScript is blocked by CSP; Brevo webhook authentication uses a Bearer header.
 - Automated checks do not replace a deployment test or independent security review. Validate the migration and provider configuration before accepting real customer data.
+
+
+## Security review follow-up (2026-10-24)
+
+- Account services require a dedicated `SESSION_SECRET` for HMAC-protected session-token hashes.
+- Persistent per-IP and per-email throttles protect auth, verification, recovery and inquiry routes; only HMACed bucket identifiers are stored.
+- Email capacity reservations are atomic. If the provider response is ambiguous, the reservation is retained rather than risking duplicate sends or daily-cap overruns.
+- Verification email addresses stay out of URL query strings, inline JavaScript is blocked by CSP, and Brevo webhook authentication uses a Bearer header.
+- This is not launch-certified until the migration runs successfully in the actual Supabase project and live auth/delivery flows are tested.

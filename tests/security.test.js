@@ -15,12 +15,17 @@ test("SQL migration keeps function delimiters balanced and supports schema upgra
  const sql = fs.readFileSync(path.join(__dirname, "..", "supabase", "migrations", "001_teampeach.sql"), "utf8");
  const fnCount = (sql.match(/create (?:or replace )?function/g) || []).length;
  const delimiterCount = sql.split("$$").length - 1;
- assert.equal(fnCount, 7);
+ assert.equal(fnCount, 11);
  assert.equal(delimiterCount, fnCount * 2);
  assert.equal((sql.match(/language plpgsql[\s\S]*?as \$\$/g) || []).length, fnCount);
  assert.match(sql, /add column if not exists skipped_count/i);
  assert.match(sql, /tp_email_queue_status_check/);
  assert.match(sql, /tp_claim_broadcast_jobs/);
+ assert.match(sql, /create table if not exists public\.tp_email_usage/);
+ assert.match(sql, /tp_complete_campaign_email_usage/);
+ assert.match(sql, /tp_reserve_campaign_email_usage/);
+ assert.match(sql, /tp_complete_email_usage/);
+ assert.match(sql, /tp_reserve_email_usage/);
  assert.match(sql, /tp_consume_rate_limit/);
  assert.match(sql, /create table if not exists public\.tp_rate_limits/);
 });
