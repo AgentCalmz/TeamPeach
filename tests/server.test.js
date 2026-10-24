@@ -21,6 +21,7 @@ test("web service exposes clean public URLs and hides .html extensions",async t=
  assert.equal(old.headers.get("location"),"/register/");
  const health=await fetch(base+"/api/health");
  assert.ok([200,503].includes(health.status));
+ assert.equal(health.headers.get("cache-control"),"no-store");
  const body=await health.json();
  assert.ok(["ready","degraded"].includes(body.status));
  assert.equal(Object.hasOwn(body,"SUPABASE_SERVICE_ROLE_KEY"),false);
@@ -36,4 +37,15 @@ test("CSP blocks inline executable scripts",async t=>{
  const policy=response.headers.get("content-security-policy")||"";
  assert.match(policy,/script-src 'self'/);
  assert.doesNotMatch(policy,/script-src[^;]*unsafe-inline/);
+});
+
+
+test("Brevo webhook never accepts a token in the query string",async t=>{
+ const server=app.listen(0,"127.0.0.1");
+ await once(server,"listening");
+ t.after(()=>new Promise(resolve=>server.close(resolve)));
+ const response=await fetch("http://127.0.0.1:"+server.address().port+"/api/webhooks/brevo?token=not-a-real-secret",{
+  method:"POST",headers:{"Content-Type":"application/json"},body:"{}"
+ });
+ assert.equal(response.status,401);
 });
