@@ -41,9 +41,11 @@ create table if not exists public.tp_email_queue(
  attempt_count integer not null default 0 check(attempt_count>=0),brevo_message_id text,last_error text,
  created_at timestamptz not null default now(),claimed_at timestamptz,sent_at timestamptz,completed_at timestamptz,unique(job_id,recipient_email));
 alter table public.tp_email_queue add column if not exists claimed_at timestamptz;
+alter table public.tp_email_queue add column if not exists next_attempt_at timestamptz;
 alter table public.tp_email_queue drop constraint if exists tp_email_queue_status_check;
 alter table public.tp_email_queue add constraint tp_email_queue_status_check check(status in('pending','processing','sent','failed','skipped'));
 create index if not exists tp_email_queue_pending_idx on public.tp_email_queue(status,created_at);
+create index if not exists tp_email_queue_due_idx on public.tp_email_queue(status,next_attempt_at);
 create index if not exists tp_email_queue_sent_idx on public.tp_email_queue(status,sent_at);
 create table if not exists public.tp_email_usage(
  id uuid primary key default gen_random_uuid(),
@@ -136,7 +138,7 @@ begin
  update public.tp_email_queue set status='failed',last_error='worker_interrupted_check_provider_before_retry',completed_at=now(),claimed_at=null where status='processing' and claimed_at<now()-interval '15 minutes';
  select count(*) into sent_today from public.tp_email_queue where status='sent' and sent_at>=date_trunc('day',now());
  remaining:=greatest(0,least(250,p_daily_limit)-sent_today);if remaining<=0 then return;end if;
- return query with picked as(select q.id from public.tp_email_queue q where q.status='pending' and exists(select 1 from public.tp_email_jobs j where j.id=q.job_id and j.mode in('single','system')) order by q.created_at,q.id limit least(greatest(1,p_limit),remaining) for update skip locked),
+ return query with picked as(select q.id from public.tp_email_queue q where q.status='pending' and (q.next_attempt_at is null or q.next_attempt_at<=now()) and exists(select 1 from public.tp_email_jobs j where j.id=q.job_id and j.mode in('single','system')) order by q.created_at,q.id limit least(greatest(1,p_limit),remaining) for update skip locked),
  claimed as(update public.tp_email_queue q set status='processing',claimed_at=now(),attempt_count=q.attempt_count+1 from picked where q.id=picked.id returning q.id,q.job_id,q.recipient_email,q.recipient_name)
  select c.id,c.job_id,c.recipient_email,c.recipient_name,j.subject,j.body_text,j.mode from claimed c join public.tp_email_jobs j on j.id=c.job_id;
 end $$;

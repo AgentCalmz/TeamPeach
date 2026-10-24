@@ -27,3 +27,13 @@ test("web service exposes clean public URLs and hides .html extensions",async t=
  const missing=await fetch(base+"/does-not-exist/");
  assert.equal(missing.status,404);
 });
+
+test("CSP blocks inline executable scripts",async t=>{
+ const server=app.listen(0,"127.0.0.1");
+ await once(server,"listening");
+ t.after(()=>new Promise(resolve=>server.close(resolve)));
+ const response=await fetch("http://127.0.0.1:"+server.address().port+"/");
+ const policy=response.headers.get("content-security-policy")||"";
+ assert.match(policy,/script-src 'self'/);
+ assert.doesNotMatch(policy,/script-src[^;]*unsafe-inline/);
+});
