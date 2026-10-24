@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+Disallow: /api/
+
+Sitemap: https://teampeach.org/sitemap.xml
