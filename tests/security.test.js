@@ -15,7 +15,7 @@ test("SQL migration keeps function delimiters balanced and supports schema upgra
  const sql = fs.readFileSync(path.join(__dirname, "..", "supabase", "migrations", "001_teampeach.sql"), "utf8");
  const fnCount = (sql.match(/create (?:or replace )?function/g) || []).length;
  const delimiterCount = sql.split("$$").length - 1;
- assert.equal(fnCount, 9);
+ assert.equal(fnCount, 10);
  assert.equal(delimiterCount, fnCount * 2);
  assert.equal((sql.match(/language plpgsql[\s\S]*?as \$\$/g) || []).length, fnCount);
  assert.match(sql, /add column if not exists skipped_count/i);
