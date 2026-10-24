@@ -12,11 +12,11 @@ TeamPeach is a peach/ivory/navy AI-tools and automation website served by one No
 - Sitemap/robots support including explicit OAI-SearchBot access.
 
 ## Setup
-1. Run supabase/migrations/001_teampeach.sql in Supabase SQL Editor before enabling account features. It is designed to be re-runnable for the provider campaign ID column and function definitions.
+1. Run supabase/migrations/001_teampeach.sql in Supabase SQL Editor before enabling account features. Visit /api/health after deployment: it reports whether the database schema and mail/auth environment are ready, without returning secret values. It is designed to be re-runnable for the provider campaign ID column and function definitions.
 2. Authenticate your sending domain in Brevo and verify the sender. Generate a Brevo API key; the SMTP password is not the API key used by the HTTP integration. Create a dedicated marketing list in Brevo and set its numeric ID as BREVO_MARKETING_LIST_ID. Transactional account emails use the transactional endpoint; opt-in broadcasts use the Brevo Marketing Campaign API.
 3. Generate two different secrets with openssl rand -hex 32 for OTP_PEPPER and UNSUBSCRIBE_SECRET.
 4. Add variables from .env.example to Render Environment. Never expose SUPABASE_SERVICE_ROLE_KEY, BREVO_API_KEY or any of these secrets to client JavaScript.
-5. Set Render service type to Web Service, build command npm install && npm run build, start command npm start, Node.js 20+.
+5. Create a Render **Web Service** (Render does not convert a Static Site into a Web Service), build command npm install && npm run build, start command npm start, Node.js 20+. Set NODE_ENV=production in Render Environment; keep NODE_ENV=development only for local HTTP testing.
 6. Set APP_BASE_URL to the currently live primary host; once connected, use https://teampeach.org. Set SITE_URL to https://teampeach.org before build.
 7. Add teampeach.org in Render Custom Domains and follow the DNS instructions. Preserve Brevo TXT/CNAME/MX records.
 8. Add the intended administrator email(s) to ADMIN_EMAILS, create and verify an account with one of those addresses, then test OTP, reload, login, logout, reset, preferences, inquiry and one-to-one admin email before broadcasts.
