@@ -53,3 +53,8 @@ Run npm install, copy .env.example to an untracked .env, then npm run build, npm
 - Email capacity reservations are atomic. If the provider response is ambiguous, the reservation is retained rather than risking duplicate sends or daily-cap overruns.
 - Verification email addresses stay out of URL query strings, inline JavaScript is blocked by CSP, and Brevo webhook authentication uses a Bearer header.
 - This is not launch-certified until the migration runs successfully in the actual Supabase project and live auth/delivery flows are tested.
+
+
+## Automated supply-chain checks
+
+The GitHub Actions pipeline runs `npm audit --audit-level=high`. CodeQL advanced analysis runs on pushes, pull requests and a weekly schedule using the current CodeQL v4 action, and Dependabot checks npm and GitHub Actions versions weekly. Review automated dependency/security PRs before merging; never bypass failed security checks merely to deploy.

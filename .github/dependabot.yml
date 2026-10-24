@@ -1,0 +1,26 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:00"
+    open-pull-requests-limit: 5
+    groups:
+      production-dependencies:
+        patterns:
+          - "@supabase/*"
+          - "cookie-parser"
+          - "dotenv"
+          - "express"
+          - "express-rate-limit"
+          - "helmet"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:15"
+    open-pull-requests-limit: 5
