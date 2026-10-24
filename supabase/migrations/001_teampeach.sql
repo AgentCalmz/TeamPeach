@@ -172,7 +172,7 @@ begin
  return query
  with picked as(
   select j.id from public.tp_email_jobs j
-  where j.mode='broadcast' and j.status='queued'
+  where j.mode='broadcast' and j.status='queued' and (j.claimed_at is null or j.claimed_at<=now())
   order by j.created_at limit least(greatest(1,p_limit),5) for update skip locked
  ), claimed as(
   update public.tp_email_jobs j set status='processing',completed_at=null,claimed_at=now()

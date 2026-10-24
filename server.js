@@ -5,7 +5,7 @@ const{createClient}=require("@supabase/supabase-js");
 const{normalizeEmail,isValidEmail,cleanText,otpHash,hashPassword,verifyPassword,generateOtp,hashSessionToken,adminEmailsFromEnv,normalizePersonName,safeStringEqual}=require("./src/security");
 const{otpEmail,plainNotificationEmail}=require("./src/email-templates");
 const app=express(),PUBLIC_DIR=path.join(__dirname,"public"),isProd=process.env.NODE_ENV==="production";
-const OTP_MINS=Math.max(5,Math.min(15,Number(process.env.OTP_TTL_MINUTES||10))),SESSION_DAYS=Math.max(1,Math.min(30,Number(process.env.SESSION_TTL_DAYS||7))),DAILY_LIMIT=Math.max(1,Math.min(250,Number(process.env.EMAIL_DAILY_SOFT_LIMIT||250)));
+const OTP_MINS=Math.max(5,Math.min(15,Number(process.env.OTP_TTL_MINUTES||10))),SESSION_DAYS=Math.max(1,Math.min(30,Number(process.env.SESSION_TTL_DAYS||7))),DAILY_LIMIT=Math.max(1,Math.min(250,Number(process.env.EMAIL_DAILY_SOFT_LIMIT||250))),TRANSACTIONAL_RESERVE=Math.max(0,Math.min(DAILY_LIMIT-1,Number.isFinite(Number(process.env.EMAIL_TRANSACTIONAL_RESERVE))&&String(process.env.EMAIL_TRANSACTIONAL_RESERVE||"")!==""?Number(process.env.EMAIL_TRANSACTIONAL_RESERVE):Math.ceil(DAILY_LIMIT*0.2))),CAMPAIGN_DAILY_LIMIT=Math.max(1,DAILY_LIMIT-TRANSACTIONAL_RESERVE);
 const origins=new Set([process.env.APP_BASE_URL,process.env.SITE_URL,process.env.RENDER_EXTERNAL_URL,...String(process.env.TRUSTED_ORIGINS||"").split(",")].filter(Boolean).map(v=>{try{return new URL(v.trim()).origin;}catch(_){return"";}}).filter(Boolean));
 if(!isProd){origins.add("http://localhost:3000");origins.add("http://127.0.0.1:3000");}
 const db=process.env.SUPABASE_URL&&process.env.SUPABASE_SERVICE_ROLE_KEY?createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}}):null;
@@ -51,7 +51,7 @@ async function reserveEmailUsage(to,category){
  const result=await db.rpc("tp_reserve_email_usage",{p_recipient_email:normalizeEmail(to),p_category:category,p_daily_limit:DAILY_LIMIT});
  if(result.error)throw result.error;
  const data=result.data||{};
- if(data.status!=="reserved"){const code=data.status==="limit_reached"?"EMAIL_DAILY_LIMIT":"EMAIL_USAGE_RESERVATION_FAILED";const error=new Error(code==="EMAIL_DAILY_LIMIT"?"The daily email allowance has been reached. Please try again tomorrow.":"Email capacity could not be reserved.");error.code=code;throw error;}
+ if(data.status!=="reserved"){const code=data.status==="limit_reached"?"EMAIL_DAILY_LIMIT":"EMAIL_USAGE_RESERVATION_FAILED";const error=new Error(code==="EMAIL_DAILY_LIMIT"?"The daily email allowance has been reached. Please try again later.":"Email capacity could not be reserved.");error.code=code;error.retryAfter=Math.max(60,Number(data.retry_after)||3600);throw error;}
  return data.usage_id;
 }
 async function completeEmailUsage(usageId,status,messageId){
@@ -153,11 +153,11 @@ async function runMarketingQueue(){
     const users=await claimableUsers();
     const audience=users.filter(user=>user.marketing_opt_in);
     if(!audience.length)throw Object.assign(new Error("NO_MARKETING_RECIPIENTS"),{code:"NO_MARKETING_RECIPIENTS"});
-    if(audience.length>DAILY_LIMIT)throw Object.assign(new Error("BROADCAST_EXCEEDS_DAILY_CAP"),{code:"BROADCAST_EXCEEDS_DAILY_CAP"});
-    const quota=await db.rpc("tp_reserve_campaign_email_usage",{p_job_id:job.job_id,p_recipients:audience.map(user=>({email:user.email,name:user.full_name})),p_daily_limit:DAILY_LIMIT});
+    if(audience.length>CAMPAIGN_DAILY_LIMIT)throw Object.assign(new Error("BROADCAST_EXCEEDS_DAILY_CAP"),{code:"BROADCAST_EXCEEDS_DAILY_CAP"});
+    const quota=await db.rpc("tp_reserve_campaign_email_usage",{p_job_id:job.job_id,p_recipients:audience.map(user=>({email:user.email,name:user.full_name})),p_daily_limit:CAMPAIGN_DAILY_LIMIT});
     if(quota.error)throw quota.error;
     if(quota.data&&quota.data.status==="limit_reached"){
-     const parked=await db.from("tp_email_jobs").update({status:"queued",claimed_at:new Date().toISOString(),completed_at:null}).eq("id",job.job_id);
+     const deferSeconds=Math.max(60,Math.min(604800,Number(quota.data.retry_after)||3600));const parked=await db.from("tp_email_jobs").update({status:"queued",claimed_at:new Date(Date.now()+deferSeconds*1000).toISOString(),completed_at:null}).eq("id",job.job_id);
      if(parked.error)throw parked.error;
      break;
     }
@@ -172,7 +172,7 @@ async function runMarketingQueue(){
     const idUpdate=await db.from("tp_email_jobs").update({provider_campaign_id:String(campaignId)}).eq("id",job.job_id);if(idUpdate.error)throw idUpdate.error;
     // An ambiguous sendNow network failure keeps its quota reservation so an accepted campaign can't be duplicated.
     sendAttempted=true;
-    await brevoApi("POST","/emailCampaigns/"+campaignId+"/sendNow",{});
+    try{await brevoApi("POST","/emailCampaigns/"+campaignId+"/sendNow",{});}catch(sendError){const match=String(sendError.code||"").match(/^BREVO_HTTP_(\d{3})$/);const status=match?Number(match[1]):0;if(status>=400&&status<500&&status!==408)sendAttempted=false;throw sendError;}
     const completed=await db.rpc("tp_complete_campaign_email_usage",{p_job_id:job.job_id,p_status:"sent",p_provider_campaign_id:String(campaignId)});
     if(completed.error)throw completed.error;
     const sentAt=new Date().toISOString();

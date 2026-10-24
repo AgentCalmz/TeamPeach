@@ -24,7 +24,7 @@ TeamPeach is a peach/ivory/navy AI-tools and automation website served by one No
 ## Security and launch notes
 - RLS is enabled on custom tables and no browser policies are created. The server uses the service-role key on the server only.
 - Auth, registration, password recovery, login and project inquiries use HMAC-keyed, database-backed rate-limit buckets in Supabase alongside a per-process limiter. The database stores only HMACed bucket identifiers, not raw IPs or email addresses.
-- The email worker caps sending at 250/day by default. Broadcast sends include an unsubscribe link, are sent only to opted-in users, and re-check the user's preference immediately before sending.
+- The email worker caps sending at 250/day by default, with a separate reserve of 50/day for transactional and project-notification email (`EMAIL_TRANSACTIONAL_RESERVE`). Broadcasts are restricted to opted-in users and use Brevo's marketing campaign unsubscribe handling.
 - Exact-once email delivery cannot be guaranteed if the provider accepts a message just before the server crashes; interrupted queue rows are marked for operator inspection rather than automatically resent.
 - Free Render services may sleep after inactivity; background work pauses while sleeping and resumes on wake.
 - Before live launch, add a real privacy notice, terms and business/operator contact information; verify sender SPF/DKIM/DMARC; review retention, deletion, backups and abuse monitoring. This implementation has not yet been tested against your private Supabase/Brevo configuration and is not certified production-ready simply by committing.
