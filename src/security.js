@@ -12,5 +12,4 @@ function generateOtp(){return String(crypto.randomInt(0,1000000)).padStart(6,"0"
 function hashSessionToken(token,secret){const key=String(secret||"");if(key.length>=32)return crypto.createHmac("sha256",key).update(String(token||"")).digest("hex");return crypto.createHash("sha256").update(String(token||"")).digest("hex");}
 function adminEmailsFromEnv(v){return String(v||"").split(",").map(normalizeEmail).filter(isValidEmail);}
 function normalizePersonName(v){return cleanText(v,100).replace(/\s+/g," ");}
-function signedUnsubscribe(email,secret){if(!secret||secret.length<32)throw new Error("UNSUBSCRIBE_SECRET must contain at least 32 characters.");return crypto.createHmac("sha256",secret).update("unsubscribe:"+normalizeEmail(email)).digest("hex");}
-module.exports={normalizeEmail,isValidEmail,cleanText,htmlEscape,otpHash,safeStringEqual,hashPassword,verifyPassword,generateOtp,hashSessionToken,adminEmailsFromEnv,normalizePersonName,signedUnsubscribe};
+module.exports={normalizeEmail,isValidEmail,cleanText,htmlEscape,otpHash,safeStringEqual,hashPassword,verifyPassword,generateOtp,hashSessionToken,adminEmailsFromEnv,normalizePersonName};
