@@ -1,1 +1,24 @@
-{"name":"teampeach","version":"1.0.0","private":true,"description":"TeamPeach web service, custom OTP authentication and email services.","main":"server.js","engines":{"node":">=20 <25"},"scripts":{"start":"node server.js","dev":"node --watch server.js","build":"node scripts/generate-sitemap.js","test":"node --test"},"dependencies":{"@supabase/supabase-js":"^2.57.4","cookie-parser":"^1.4.7","dotenv":"^17.2.2","express":"^4.21.2","express-rate-limit":"^8.1.0","helmet":"^8.1.0"}}
+{
+  "name": "teampeach",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TeamPeach web service, custom OTP authentication and email services.",
+  "main": "server.js",
+  "engines": {
+    "node": ">=22 <25"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "build": "node scripts/generate-sitemap.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.4",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^17.2.2",
+    "express": "^4.21.2",
+    "express-rate-limit": "^8.1.0",
+    "helmet": "^8.1.0"
+  }
+}

@@ -16,7 +16,7 @@ TeamPeach is a peach/ivory/navy AI-tools and automation website served by one No
 2. Authenticate your sending domain in Brevo and verify the sender. Generate a Brevo API key; the SMTP password is not the API key used by the HTTP integration. Create a dedicated marketing list in Brevo and set its numeric ID as BREVO_MARKETING_LIST_ID. Transactional account emails use the transactional endpoint; opt-in broadcasts use the Brevo Marketing Campaign API. Configure a **marketing** Brevo webhook for the `unsubscribed` event to POST to `https://teampeach.org/api/webhooks/brevo`, with Bearer authentication using `BREVO_WEBHOOK_TOKEN`. The server syncs unsubscribe events back to TeamPeach; do not put the token in the URL. Keep that Brevo list dedicated to TeamPeach opt-in contacts and do not add unrelated contacts manually.
 3. Generate four different secrets with `openssl rand -hex 32` for `OTP_PEPPER`, `SESSION_SECRET`, `RATE_LIMIT_SECRET` and `BREVO_WEBHOOK_TOKEN`. Do not reuse a secret for multiple purposes. Keep them separate from the Brevo API key and Supabase service-role key.
 4. Add variables from .env.example to Render Environment. Never expose SUPABASE_SERVICE_ROLE_KEY, BREVO_API_KEY or any of these secrets to client JavaScript.
-5. Create a Render **Web Service** (Render does not convert a Static Site into a Web Service), build command npm install && npm run build, start command npm start, Node.js 20+. Set NODE_ENV=production in Render Environment; keep NODE_ENV=development only for local HTTP testing.
+5. Create a Render **Web Service** (Render does not convert a Static Site into a Web Service), build command `npm ci && npm run build`, start command `npm start`, Node.js 22+. Set NODE_ENV=production in Render Environment; keep NODE_ENV=development only for local HTTP testing.
 6. Set APP_BASE_URL to the currently live primary host; once connected, use https://teampeach.org. Set SITE_URL to https://teampeach.org before build.
 7. Add teampeach.org in Render Custom Domains and follow the DNS instructions. Preserve Brevo TXT/CNAME/MX records.
 8. Add the intended administrator email(s) to ADMIN_EMAILS, create and verify an account with one of those addresses, then test OTP, reload, login, logout, reset, preferences, inquiry and one-to-one admin email before broadcasts.
@@ -36,25 +36,13 @@ TeamPeach is a peach/ivory/navy AI-tools and automation website served by one No
 Public pages use absolute canonical URLs. The build script generates a sitemap from eligible public index pages and excludes noindex account routes. robots.txt permits OAI-SearchBot and points to the sitemap. Prioritize original, factual, useful answers, clear headings, descriptive titles, internal links and accurate structured data; none can guarantee ranking or AI citations. Each new article should be added as its own public/journal/<slug>/index.html file.
 
 ## Local development
-Run npm install, copy .env.example to an untracked .env, then npm run build, npm test and npm start. Set real credentials only in the local untracked file or Render Environment.
+Run `npm ci`, copy `.env.example` to an untracked `.env`, then run `npm run build`, `npm test` and `npm start`. Set real credentials only in the local untracked file or Render Environment.
 
-## Security review follow-up (2026-10-24)
+## Security and launch checklist
 
-- The service requires a dedicated `SESSION_SECRET` for session-token HMACs.
-- Persistent per-IP and per-email throttles protect authentication, verification-code sends, password recovery and project inquiries.
-- Verification email addresses are kept out of URL query strings; inline JavaScript is blocked by CSP; Brevo webhook authentication uses a Bearer header.
-- Automated checks do not replace a deployment test or independent security review. Validate the migration and provider configuration before accepting real customer data.
-
-
-## Security review follow-up (2026-10-24)
-
-- Account services require a dedicated `SESSION_SECRET` for HMAC-protected session-token hashes.
-- Persistent per-IP and per-email throttles protect auth, verification, recovery and inquiry routes; only HMACed bucket identifiers are stored.
-- Email capacity reservations are atomic. If the provider response is ambiguous, the reservation is retained rather than risking duplicate sends or daily-cap overruns.
-- Verification email addresses stay out of URL query strings, inline JavaScript is blocked by CSP, and Brevo webhook authentication uses a Bearer header.
-- This is not launch-certified until the migration runs successfully in the actual Supabase project and live auth/delivery flows are tested.
-
-
-## Automated supply-chain checks
-
-The GitHub Actions pipeline runs `npm audit --audit-level=high`. CodeQL advanced analysis runs on pushes, pull requests and a weekly schedule using the current CodeQL v4 action, and Dependabot checks npm and GitHub Actions versions weekly. Review automated dependency/security PRs before merging; never bypass failed security checks merely to deploy.
+- Account services require four different secrets: `OTP_PEPPER`, `SESSION_SECRET`, `RATE_LIMIT_SECRET`, and `BREVO_WEBHOOK_TOKEN`. Keep API and Supabase service-role credentials server-side only.
+- Persistent per-IP and per-email throttles protect auth, verification, recovery and project-inquiry routes. The database stores HMACed bucket identifiers, not raw IP/email keys.
+- API responses use `Cache-Control: no-store`; verification email addresses stay out of query strings; inline executable JavaScript is blocked by CSP; and the Brevo webhook uses a Bearer header.
+- Email reservations are recorded transactionally. If the provider's response is ambiguous, capacity remains reserved rather than risking duplicate sends or daily-cap overruns. Marketing opt-outs are synchronized from Brevo; campaigns must not bulk re-subscribe contacts.
+- Repository checks include dependency auditing, HTTP/security regression tests, CodeQL scanning and weekly Dependabot updates. A green CI run is not a live deployment test or a third-party security certification.
+- Before launch, run the SQL migration in the real Supabase project; verify every API setting in Brevo; configure secrets in Render; then test registration/OTP/resend/login/logout/password-reset/preferences/inquiry/unsubscribe using a test account. Add real privacy, terms and operator-contact pages and review retention, deletion, backups and abuse monitoring.
