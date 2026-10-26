@@ -14,7 +14,7 @@
   function text(node,value){if(node)node.textContent=value==null?"":String(value);}
   function node(tag,className,value){const item=document.createElement(tag);if(className)item.className=className;if(value!==undefined)item.textContent=String(value);return item;}
   function say(selector,message,state){const item=$(selector);if(!item)return;item.textContent=message||"";item.dataset.state=state||"";}
-  function titleCase(value){return String(value||"").trim().split(/\s+/).map(word=>word.length<=3?word.toUpperCase():word.charAt(0).toUpperCase()+word.slice(1)).join(" ");}
+  function titleCase(value){const acronyms=new Set(["seo","ai","crm","b2b","b2c","api","diy","url","roi","faq","uk","us","saas"]);const smallWords=new Set(["and","or","the","for","to","of","in","on","with","a","an"]);return String(value||"").trim().split(/\s+/).map((word,index)=>{const lower=word.toLowerCase();if(acronyms.has(lower))return lower.toUpperCase();if(index>0&&smallWords.has(lower))return lower;return lower.charAt(0).toUpperCase()+lower.slice(1);}).join(" ");}
   function cleanLines(value){const seen=new Set();return String(value||"").split(/\r?\n/).map(line=>line.trim().replace(/^[-*•]\s*/,"")).filter(line=>line.length>2).filter(line=>{const key=line.toLowerCase();if(seen.has(key))return false;seen.add(key);return true;}).slice(0,8);}
   function slugPart(value){return String(value||"topic").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,65)||"topic";}
   function buildBrief(values){
@@ -155,8 +155,8 @@
     const values=valuesFromForm();if(values.topic.length<2){say("#brief-form-feedback","Enter a topic with at least two characters.","error");return;}
     const brief=buildBrief(values);currentProjectId=currentProjectId||null;renderBrief(brief);say("#brief-form-feedback","Your structured content brief is ready. Review and adjust it before using it.","success");say("#brief-save-feedback","");
   }
-  form?.addEventListener("submit",event=>{event.preventDefault();currentProjectId=null;makeBrief();});
-  $("#regenerate-brief")?.addEventListener("click",()=>{currentProjectId=null;makeBrief();});
+  form?.addEventListener("submit",event=>{event.preventDefault();makeBrief();});
+  $("#regenerate-brief")?.addEventListener("click",makeBrief);
   $("#copy-brief")?.addEventListener("click",async()=>{
     if(!currentBrief)return;
     try{await navigator.clipboard.writeText(toMarkdown(currentBrief));say("#brief-save-feedback","Brief copied as Markdown.","success");}
