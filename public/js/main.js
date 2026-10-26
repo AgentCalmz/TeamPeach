@@ -124,4 +124,22 @@
 
   const year = document.querySelector("#current-year");
   if (year) year.textContent = new Date().getFullYear();
+  const authLinks = document.querySelectorAll(".nav-links .nav-auth-link");
+  if (authLinks.length) {
+    fetch("/api/auth/me", { credentials: "same-origin", cache: "no-store" })
+      .then(response => response.ok ? response.json() : null)
+      .then(data => {
+        if (!data || !data.user) return;
+        const workspaceLink = authLinks[0];
+        workspaceLink.href = "/dashboard/";
+        workspaceLink.textContent = "Workspace";
+        const accountLink = authLinks[1];
+        if (accountLink) {
+          accountLink.href = "/account/";
+          accountLink.textContent = "Account";
+        }
+      })
+      .catch(() => {});
+  }
+
 })();

@@ -2,7 +2,7 @@
 TeamPeach is a peach/ivory/navy AI-tools and automation website served by one Node.js/Express Web Service on Render. Public pages live in public/; server code and secrets are outside that folder.
 
 ## Included
-- Existing responsive brand theme, home page, tool concept and AI-agent article.
+- Responsive public website plus a signed-in workspace dashboard, saved projects, task tracking, an interactive SEO content brief builder and an AI-agent explainer article. The brief builder currently uses a structured local template; it does not call an LLM or pull live SERP data.
 - Clean URLs, redirects away from .html URLs, canonical URLs and a generated sitemap.
 - Custom six-digit email OTP registration and password-reset codes. A user record is created only after the OTP is verified.
 - Interruption-friendly registration: only name/email are kept as browser draft; neither password nor OTP is persisted in browser storage.
@@ -12,7 +12,7 @@ TeamPeach is a peach/ivory/navy AI-tools and automation website served by one No
 - Sitemap/robots support including explicit OAI-SearchBot access.
 
 ## Setup
-1. Run `supabase/migrations/001_teampeach.sql` in Supabase SQL Editor before enabling account features. Visit `/api/health` after deployment: it reports database and email readiness without exposing secrets.
+1. Run `supabase/migrations/001_teampeach.sql` in Supabase SQL Editor before enabling account features. Then run `supabase/migrations/002_workspace_dashboard.sql` to create private workspace project/task storage. Visit `/api/health` after deployment: it reports database and email readiness without exposing secrets.
 2. In Brevo, verify the sender email and copy the SMTP login and SMTP key from Settings → SMTP & API → SMTP (the SMTP login is not necessarily your account email, and the SMTP key is not your account password or API key). For a Render Free service, set `EMAIL_TRANSPORT=smtp`, `SMTP_HOST=smtp-relay.brevo.com`, and `SMTP_PORT=2525`; Render blocks outbound ports `25`, `465` and `587` on free web services, while Brevo supports `2525`. Fill `SMTP_USER`, `SMTP_PASS` and `BREVO_SENDER_EMAIL` from your new Brevo account. If you deliberately want HTTPS API sending instead, set `EMAIL_TRANSPORT=brevo-api` and supply a standard `BREVO_API_KEY`. `EMAIL_TRANSPORT=auto` chooses the API when a non-empty API key is present, otherwise SMTP. Explicit `smtp` mode ignores even an old or invalid `BREVO_API_KEY`.
 3. Generate three different secrets with `openssl rand -hex 32` for `OTP_PEPPER`, `SESSION_SECRET` and `RATE_LIMIT_SECRET`. Do not reuse a secret. Keep credentials only in Render Environment or an untracked local `.env`.
 4. Add the values from `.env.example` to Render Environment. Never expose `SUPABASE_SERVICE_ROLE_KEY`, `BREVO_API_KEY`, `SMTP_PASS`, `SMTP_USER` or application secrets to browser JavaScript or GitHub.
