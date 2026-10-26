@@ -46,10 +46,12 @@ function smtpSettings(){
  const port=Number(process.env.SMTP_PORT||587);
  return{host:String(process.env.SMTP_HOST||"smtp-relay.brevo.com").trim(),port,user:String(process.env.SMTP_USER||"").trim(),pass:String(process.env.SMTP_PASS||""),senderEmail:normalizeEmail(process.env.BREVO_SENDER_EMAIL),senderName:cleanText(process.env.BREVO_SENDER_NAME||"TeamPeach",70)};
 }
-function emailReady(){const s=smtpSettings();return Boolean(s.host&&Number.isInteger(s.port)&&s.port>=1&&s.port<=65535&&s.user&&s.pass&&isValidEmail(s.senderEmail));}
+function hasBrevoApiKey(){return Boolean(String(process.env.BREVO_API_KEY||"").trim());}
+function smtpReady(){const s=smtpSettings();return Boolean(s.host&&Number.isInteger(s.port)&&s.port>=1&&s.port<=65535&&s.user&&s.pass&&isValidEmail(s.senderEmail));}
+function emailReady(){const s=smtpSettings();return Boolean(isValidEmail(s.senderEmail)&&(hasBrevoApiKey()||smtpReady()));}
 let smtpTransporter=null;
 function getSmtpTransporter(){
- if(!emailReady())throw new Error("EMAIL_NOT_CONFIGURED");
+ if(!smtpReady())throw new Error("SMTP_NOT_CONFIGURED");
  if(!smtpTransporter){
   const s=smtpSettings();
   smtpTransporter=nodemailer.createTransport({host:s.host,port:s.port,secure:s.port===465,requireTLS:s.port!==465,auth:{user:s.user,pass:s.pass},tls:{minVersion:"TLSv1.2",rejectUnauthorized:true},connectionTimeout:10000,greetingTimeout:10000,socketTimeout:20000,pool:true,maxConnections:2,maxMessages:100,rateDelta:1000,rateLimit:5});
@@ -58,7 +60,7 @@ function getSmtpTransporter(){
 }
 function backendReady(res,needEmail){if(!authReady()){errorJson(res,503,"SERVICE_NOT_CONFIGURED","Account services are being configured. Your information has not been submitted.");return false;}if(needEmail&&!emailReady()){errorJson(res,503,"EMAIL_NOT_CONFIGURED","Email delivery is not configured yet. Your information has not been submitted.");return false;}return true;}
 function cookies(){return{httpOnly:true,secure:isProd,sameSite:"lax",path:"/",maxAge:SESSION_DAYS*86400000};}
-function logFailure(area,e){console.error("["+area+"] operation failed ("+String(e&&(e.code||e.status||e.name)||"unknown").slice(0,40)+").");}
+function logFailure(area,e){const code=String(e&&(e.code||e.status||e.name)||"unknown").slice(0,40),details=[e&&e.responseCode?"response="+String(e.responseCode).slice(0,12):"",e&&e.providerCode?"provider="+String(e.providerCode).replace(/[^a-zA-Z0-9_. -]/g,"").slice(0,70):"",e&&e.deliveryCause?"cause="+String(e.deliveryCause).replace(/[^a-zA-Z0-9_. -]/g,"").slice(0,40):""].filter(Boolean).join(" ");console.error("["+area+"] operation failed ("+code+(details?" "+details:"")+").");}
 function trusted(req){const o=req.get("origin");if(!o)return true;try{return origins.has(new URL(o).origin);}catch(_){return false;}}
 function csrf(req,res,next){const c=Buffer.from(String(req.cookies.tp_csrf||"")),h=Buffer.from(String(req.get("x-csrf-token")||""));if(!trusted(req)||c.length<24||h.length<24||c.length!==h.length||!crypto.timingSafeEqual(c,h))return errorJson(res,403,"CSRF_CHECK_FAILED","Refresh the page and try again.");next();}
 function baseUrl(){return cleanText(process.env.APP_BASE_URL||process.env.SITE_URL||process.env.RENDER_EXTERNAL_URL||"https://teampeach.org",300);}
@@ -91,25 +93,53 @@ async function sendSmtp(to,name,message,tags,usageId,category){
  let result;
  try{
   const settings=smtpSettings();
-  result=await getSmtpTransporter().sendMail({
-   from:{name:settings.senderName,address:settings.senderEmail},
-   to:{name:cleanText(name||"",100)||normalized,address:normalized},
-   subject:cleanText(message.subject,150),
-   html:message.html,
-   text:cleanText(message.text,15000),
-   ...(headers?{headers}:{})
-  });
+  if(hasBrevoApiKey()){
+   const payload={
+    sender:{name:settings.senderName,email:settings.senderEmail},
+    to:[{name:cleanText(name||"",100)||normalized,email:normalized}],
+    subject:cleanText(message.subject,150),
+    htmlContent:message.html,
+    textContent:cleanText(message.text,15000),
+    ...(Array.isArray(tags)&&tags.length?{tags:tags.map(tag=>cleanText(tag,50)).filter(Boolean).slice(0,10)}:{}),
+    ...(headers?{headers}:{})
+   };
+   const response=await fetch("https://api.brevo.com/v3/smtp/email",{
+    method:"POST",
+    headers:{"accept":"application/json","api-key":String(process.env.BREVO_API_KEY).trim(),"content-type":"application/json"},
+    body:JSON.stringify(payload),
+    signal:AbortSignal.timeout(15000)
+   });
+   const body=await response.json().catch(()=>({}));
+   if(!response.ok){
+    const error=new Error("Brevo HTTPS API request failed.");
+    error.code="BREVO_API_HTTP_"+response.status;
+    error.responseCode=response.status;
+    error.providerCode=cleanText(body&&((body.code&&String(body.code))||(body.message&&String(body.message)))||"",80);
+    throw error;
+   }
+   result={messageId:body&&body.messageId};
+  }else{
+   result=await getSmtpTransporter().sendMail({
+    from:{name:settings.senderName,address:settings.senderEmail},
+    to:{name:cleanText(name||"",100)||normalized,address:normalized},
+    subject:cleanText(message.subject,150),
+    html:message.html,
+    text:cleanText(message.text,15000),
+    ...(headers?{headers}:{})
+   });
+  }
  }catch(error){
   const responseCode=Number(error&&error.responseCode)||0;
   if(responseCode>=400&&responseCode<600){
    try{await completeEmailUsage(id,"failed",null);}catch(markError){logFailure("email-usage-release",markError);}
   }else{
+   error.deliveryCause=String(error&&(error.code||error.name)||"network_error").slice(0,40);
    error.code="EMAIL_DELIVERY_UNCERTAIN";
   }
   throw error;
  }
  const messageId=cleanText(result&&result.messageId||"",200);
- // If SMTP accepted the message but quota accounting fails, retain the reservation to avoid duplicates.
+ // If the provider accepted the message but quota accounting fails, retain the reservation to avoid duplicates.
  await completeEmailUsage(id,"sent",messageId);
  return{messageId};
 }
@@ -170,7 +200,7 @@ async function runTransactionalQueue(){
 async function runEmailQueue(){if(emailCoordinatorBusy)return;emailCoordinatorBusy=true;try{await runTransactionalQueue();}finally{emailCoordinatorBusy=false;}}
 async function cleanup(){if(!db)return;try{await db.from("tp_pending_registrations").delete().lt("expires_at",new Date(Date.now()-86400000).toISOString());await db.from("tp_password_resets").delete().lt("expires_at",new Date(Date.now()-86400000).toISOString());await db.from("tp_sessions").delete().lt("expires_at",new Date().toISOString());await db.from("tp_sessions").delete().lt("revoked_at",new Date(Date.now()-30*86400000).toISOString());}catch(e){logFailure("cleanup",e);}}
 
-app.get("/api/health",asyncRoute(async(_q,r)=>{let schemaReady=false;if(db){const check=await db.from("tp_users").select("id",{head:true,count:"exact"});const rateCheck=await db.from("tp_rate_limits").select("bucket_hash",{head:true,count:"exact"});const usageCheck=await db.from("tp_email_usage").select("id",{head:true,count:"exact"});schemaReady=!check.error&&!rateCheck.error&&!usageCheck.error;if(check.error)logFailure("health-schema",check.error);}const ready=authReady()&&schemaReady&&emailReady();r.status(ready?200:503).json({status:ready?"ready":"degraded",service:"teampeach",accountServicesConfigured:authReady(),databaseSchemaReady:schemaReady,emailDeliveryConfigured:emailReady()});}));
+app.get("/api/health",asyncRoute(async(_q,r)=>{let schemaReady=false;if(db){const check=await db.from("tp_users").select("id",{head:true,count:"exact"});const rateCheck=await db.from("tp_rate_limits").select("bucket_hash",{head:true,count:"exact"});const usageCheck=await db.from("tp_email_usage").select("id",{head:true,count:"exact"});schemaReady=!check.error&&!rateCheck.error&&!usageCheck.error;if(check.error)logFailure("health-schema",check.error);}const ready=authReady()&&schemaReady&&emailReady();r.status(ready?200:503).json({status:ready?"ready":"degraded",service:"teampeach",accountServicesConfigured:authReady(),databaseSchemaReady:schemaReady,emailDeliveryConfigured:emailReady(),emailTransport:emailReady()?(hasBrevoApiKey()?"brevo-api":"smtp"):"unconfigured"});}));
 app.get("/api/csrf",(_q,r)=>{const token=crypto.randomBytes(32).toString("base64url");r.cookie("tp_csrf",token,{httpOnly:false,secure:isProd,sameSite:"lax",path:"/",maxAge:7200000});r.json({token});});
 app.post("/api/auth/register/start",authLimit,csrf,persistentAuthIpLimit,persistentRegistrationEmailLimit,asyncRoute(async(q,r)=>{if(!backendReady(r,true))return;const name=normalizePersonName(q.body&&q.body.fullName),email=normalizeEmail(q.body&&q.body.email),password=q.body&&q.body.password,opt=Boolean(q.body&&q.body.marketingOptIn);if(name.length<2)return errorJson(r,400,"INVALID_NAME","Enter your name (at least 2 characters).");if(!isValidEmail(email))return errorJson(r,400,"INVALID_EMAIL","Enter a valid email address.");if(!validPassword(password))return errorJson(r,400,"INVALID_PASSWORD","Use a password between 12 and 128 characters.");try{if(await findUser(email))return errorJson(r,409,"ACCOUNT_EXISTS","This email already has a verified TeamPeach account. Sign in or reset your password.");const old=await db.from("tp_pending_registrations").select("expires_at,last_sent_at").eq("email",email).maybeSingle();if(old.error)throw old.error;const now=Date.now();if(old.data&&new Date(old.data.expires_at).getTime()>now&&now-new Date(old.data.last_sent_at).getTime()<60000)return r.json({ok:true,pending:true,message:"A code was already requested. Check your inbox or wait one minute before requesting another."});const code=generateOtp(),hashed=await hashPassword(password),saved=await db.from("tp_pending_registrations").upsert({email,full_name:name,password_hash:hashed,otp_hash:otpHash(email,code,process.env.OTP_PEPPER,"registration"),marketing_opt_in:opt,expires_at:new Date(now+OTP_MINS*60000).toISOString(),attempt_count:0,last_sent_at:new Date(now).toISOString()},{onConflict:"email"});if(saved.error)throw saved.error;try{await sendSmtp(email,name,otpEmail(code,"registration",OTP_MINS,baseUrl()),["teampeach","registration-otp"],null,"registration_otp");}catch(e){logFailure("register-email",e);if(e.code==="EMAIL_DELIVERY_UNCERTAIN"){return r.status(202).json({ok:true,pending:true,message:"We could not confirm delivery. Check your inbox; the current code remains valid if the email was accepted. If needed, request a fresh code after one minute."});}await db.from("tp_pending_registrations").delete().eq("email",email);if(e.code==="EMAIL_DAILY_LIMIT")return errorJson(r,429,"EMAIL_DAILY_LIMIT","The daily email allowance has been reached. Please try again later.");return errorJson(r,502,"EMAIL_SEND_FAILED","We could not send a verification code. Please try again shortly.");}r.json({ok:true,pending:true,message:"We sent a verification code. Enter it to finish creating your account."});}catch(e){logFailure("register-start",e);errorJson(r,503,"REGISTRATION_UNAVAILABLE","Registration is temporarily unavailable. Please try again.");}}));
 app.post("/api/auth/register/resend",authLimit,csrf,persistentAuthIpLimit,persistentRegistrationEmailLimit,asyncRoute(async(q,r)=>{if(!backendReady(r,true))return;const email=normalizeEmail(q.body&&q.body.email);if(!isValidEmail(email))return errorJson(r,400,"INVALID_EMAIL","Enter a valid email address.");try{const old=await db.from("tp_pending_registrations").select("full_name,expires_at,last_sent_at").eq("email",email).maybeSingle();if(old.error)throw old.error;if(!old.data||new Date(old.data.expires_at).getTime()<=Date.now())return r.json({ok:true,message:"If there is an active registration for this address, a fresh code may be sent. You can also return to registration and start again."});if(Date.now()-new Date(old.data.last_sent_at).getTime()<60000)return r.json({ok:true,message:"If you recently requested a code, check your inbox. Please wait a minute before requesting another."});const code=generateOtp(),u=await db.from("tp_pending_registrations").update({otp_hash:otpHash(email,code,process.env.OTP_PEPPER,"registration"),expires_at:new Date(Date.now()+OTP_MINS*60000).toISOString(),attempt_count:0,last_sent_at:new Date().toISOString()}).eq("email",email);if(u.error)throw u.error;try{await sendSmtp(email,old.data.full_name,otpEmail(code,"registration",OTP_MINS,baseUrl()),["teampeach","registration-otp"],null,"registration_otp");}catch(e){logFailure("register-resend-email",e);return r.status(202).json({ok:true,message:"If a registration is active, check your inbox; if delivery could not be confirmed, the current code may still work. You can request a fresh code shortly."});}r.json({ok:true,message:"A fresh code has been sent. Only the newest code will work."});}catch(e){logFailure("register-resend",e);r.json({ok:true,message:"If a registration is active, check your inbox or try again shortly."});}}));
