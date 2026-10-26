@@ -60,7 +60,7 @@
   <div class="workspace-lower-grid">
     <section class="workspace-section tasks-section" id="tasks">
       <div class="workspace-section-heading compact-heading"><div><p class="eyebrow"><span></span> ONE THING AT A TIME</p><h2>Your next steps</h2><p>Progress is made in small moves.</p></div><span class="tasks-heading-mark">✳</span></div>
-      <form id="new-task-form" class="new-task-form"><label class="sr-only" for="new-task-title">Task title</label><input id="new-task-title" name="title" maxlength="180" minlength="2" placeholder="Add a task to move things forward…" required><button type="submit" aria-label="Add task">＋</button></form>
+      <form id="new-task-form" class="new-task-form"><label class="sr-only" for="new-task-title">Task title</label><input id="new-task-title" name="title" maxlength="180" minlength="2" placeholder="Add a task to move things forward…" required><label class="sr-only" for="new-task-project">Link task to a project</label><select id="new-task-project" name="projectId" aria-label="Link task to a project"><option value="">No project</option></select><button type="submit" aria-label="Add task">＋</button></form>
       <div id="tasks-list" class="tasks-list" aria-live="polite"><div class="workspace-loading"><span class="loading-spinner"></span> Gathering your tasks…</div></div>
       <div id="tasks-feedback" class="workspace-feedback" role="status" aria-live="polite"></div>
     </section>
