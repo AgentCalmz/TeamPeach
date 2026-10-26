@@ -9,12 +9,12 @@ test("web service exposes clean public URLs and hides .html extensions",async t=
  await once(server,"listening");
  t.after(()=>new Promise(resolve=>server.close(resolve)));
  const base="http://127.0.0.1:"+server.address().port;
- for(const route of ["/","/journal/what-is-an-ai-agent/","/tools/seo-content-brief/","/register/","/verify-email/","/login/","/forgot-password/","/account/","/admin/","/unsubscribe/"]){
+ for(const route of ["/","/journal/what-is-an-ai-agent/","/tools/seo-content-brief/","/register/","/verify-email/","/login/","/forgot-password/","/dashboard/","/account/","/admin/","/unsubscribe/"]){
   const response=await fetch(base+route);
   assert.equal(response.status,200,"expected 200 for "+route);
   assert.match(response.headers.get("content-type")||"",/text\/html/);
   const html=await response.text();
-  if(route==="/account/"||route==="/admin/")assert.match(html,/noindex,nofollow/);
+  if(route==="/account/"||route==="/admin/"||route==="/dashboard/")assert.match(html,/noindex,nofollow/);
  }
  const old=await fetch(base+"/register/index.html",{redirect:"manual"});
  assert.equal(old.status,301);
@@ -76,4 +76,45 @@ test("email broadcasts include signed unsubscribe handling and re-check opt-in",
  assert.match(server,/preference\.data\.marketing_opt_in!==true/);
  assert.match(server,/app\.post\("\/api\/unsubscribe"/);
  assert.match(sql,/j\.mode in\('single','system','broadcast'\)/);
+});
+
+test("workspace dashboard has scoped project/task APIs and a protected storage migration",function(){
+ const fs=require("node:fs");
+ const path=require("node:path");
+ const server=fs.readFileSync(path.join(__dirname,"..","server.js"),"utf8");
+ const migration=fs.readFileSync(path.join(__dirname,"..","supabase","migrations","002_workspace_dashboard.sql"),"utf8");
+ const dashboard=fs.readFileSync(path.join(__dirname,"..","public","dashboard","index.html"),"utf8");
+ for(const route of [
+  'app.get("/api/workspace"',
+  'app.post("/api/workspace/projects"',
+  'app.patch("/api/workspace/projects/:id"',
+  'app.delete("/api/workspace/projects/:id"',
+  'app.post("/api/workspace/tasks"',
+  'app.patch("/api/workspace/tasks/:id"',
+  'app.delete("/api/workspace/tasks/:id"'
+ ])assert.ok(server.includes(route),"missing "+route);
+ assert.match(server,/\.eq\("user_id",q\.user\.id\)/);
+ assert.match(migration,/create table if not exists public\.tp_workspace_projects/);
+ assert.match(migration,/create table if not exists public\.tp_workspace_tasks/);
+ assert.match(migration,/alter table public\.tp_workspace_projects enable row level security/);
+ assert.match(migration,/alter table public\.tp_workspace_tasks enable row level security/);
+ assert.match(migration,/grant select, insert, update, delete on public\.tp_workspace_projects, public\.tp_workspace_tasks to service_role/);
+ assert.match(dashboard,/id="projects-list"/);
+ assert.match(dashboard,/id="tasks-list"/);
+ assert.match(dashboard,/id="new-project-form"/);
+ assert.match(dashboard,/id="new-task-form"/);
+});
+
+test("SEO content brief builder is interactive and states its current data limitations",function(){
+ const fs=require("node:fs");
+ const path=require("node:path");
+ const html=fs.readFileSync(path.join(__dirname,"..","public","tools","seo-content-brief","index.html"),"utf8");
+ const builder=fs.readFileSync(path.join(__dirname,"..","public","js","brief-builder.js"),"utf8");
+ assert.match(html,/id="brief-form"/);
+ assert.match(html,/id="brief-output"/);
+ assert.match(html,/does not call an AI model or fetch live Google results yet/);
+ assert.match(builder,/function buildBrief\(values\)/);
+ assert.match(builder,/api\("\/api\/workspace\/projects","POST"/);
+ assert.match(builder,/api\("\/api\/workspace\/projects\/"/);
+ assert.match(builder,/Copy as Markdown/);
 });
