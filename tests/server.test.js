@@ -25,6 +25,7 @@ test("web service exposes clean public URLs and hides .html extensions",async t=
  const body=await health.json();
  assert.ok(["ready","degraded"].includes(body.status));
  assert.equal(Object.hasOwn(body,"SUPABASE_SERVICE_ROLE_KEY"),false);
+ assert.equal(Object.hasOwn(body,"emailTransport"),true);
  const missing=await fetch(base+"/does-not-exist/");
  assert.equal(missing.status,404);
 });
@@ -40,23 +41,27 @@ test("CSP blocks inline executable scripts",async t=>{
 });
 
 
-test("email delivery uses SMTP credentials rather than Brevo HTTP API keys",function(){
+test("email delivery prefers Brevo HTTPS API when configured and retains SMTP fallback",function(){
  const fs=require("node:fs");
  const path=require("node:path");
  const server=fs.readFileSync(path.join(__dirname,"..","server.js"),"utf8");
  const env=fs.readFileSync(path.join(__dirname,"..",".env.example"),"utf8");
  assert.match(server,/require\("nodemailer"\)/);
+ assert.match(server,/BREVO_API_KEY/);
+ assert.match(server,/https:\/\/api\.brevo\.com\/v3\/smtp\/email/);
+ assert.match(server,/"api-key":/);
+ assert.match(server,/function smtpReady\(\)/);
  assert.match(server,/SMTP_HOST/);
  assert.match(server,/SMTP_PORT/);
  assert.match(server,/SMTP_USER/);
  assert.match(server,/SMTP_PASS/);
- assert.doesNotMatch(server,/BREVO_API_KEY|api\.brevo\.com\/v3\/smtp\/email|api\/webhooks\/brevo/);
+ assert.match(env,/BREVO_API_KEY=/);
  assert.match(env,/SMTP_HOST=smtp-relay\.brevo\.com/);
  assert.match(env,/SMTP_PASS=REPLACE_WITH_YOUR_BREVO_SMTP_KEY/);
- assert.doesNotMatch(env,/BREVO_API_KEY|BREVO_MARKETING_LIST_ID|BREVO_WEBHOOK_TOKEN/);
+ assert.doesNotMatch(env,/BREVO_MARKETING_LIST_ID|BREVO_WEBHOOK_TOKEN/);
 });
 
-test("SMTP broadcasts include signed unsubscribe handling and re-check opt-in",function(){
+test("email broadcasts include signed unsubscribe handling and re-check opt-in",function(){
  const fs=require("node:fs");
  const path=require("node:path");
  const server=fs.readFileSync(path.join(__dirname,"..","server.js"),"utf8");
