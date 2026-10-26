@@ -232,6 +232,82 @@ app.post("/api/auth/password-reset/start",authLimit,csrf,persistentAuthIpLimit,p
 app.post("/api/auth/password-reset/complete",authLimit,csrf,persistentAuthIpLimit,persistentResetEmailLimit,asyncRoute(async(q,r)=>{if(!backendReady(r,false))return;const email=normalizeEmail(q.body&&q.body.email),code=q.body&&q.body.code,pw=q.body&&q.body.password;if(!isValidEmail(email)||!validOtp(code))return errorJson(r,400,"INVALID_CODE","Enter your email and six-digit recovery code.");if(!validPassword(pw))return errorJson(r,400,"INVALID_PASSWORD","Use a password between 12 and 128 characters.");try{const v=await db.rpc("tp_complete_password_reset",{p_email:email,p_otp_hash:otpHash(email,code,process.env.OTP_PEPPER,"password-reset"),p_password_hash:await hashPassword(pw)});if(v.error)throw v.error;const s=v.data&&v.data.status;if(s==="invalid")return errorJson(r,400,"INVALID_CODE","That recovery code is not correct.");if(s==="expired")return errorJson(r,410,"CODE_EXPIRED","The recovery code expired. Request another.");if(s==="too_many_attempts")return errorJson(r,429,"TOO_MANY_ATTEMPTS","Too many incorrect codes. Request another.");if(s!=="ok")return errorJson(r,400,"RESET_NOT_FOUND","No active recovery request was found.");r.clearCookie("tp_session",{httpOnly:true,secure:isProd,sameSite:"lax",path:"/"});r.json({ok:true,message:"Your password has changed. Sign in with your new password."});}catch(e){logFailure("reset-complete",e);errorJson(r,503,"RESET_COMPLETE_FAILED","Password recovery is temporarily unavailable.");}}));
 app.post("/api/auth/logout",csrf,asyncRoute(async(q,r)=>{if(db&&q.cookies.tp_session){const d=await db.from("tp_sessions").update({revoked_at:new Date().toISOString()}).eq("token_hash",hashSessionToken(q.cookies.tp_session,process.env.SESSION_SECRET)).is("revoked_at",null);if(d.error)logFailure("logout",d.error);}r.clearCookie("tp_session",{httpOnly:true,secure:isProd,sameSite:"lax",path:"/"});r.json({ok:true,message:"Signed out."});}));
 app.get("/api/auth/me",authenticated,(q,r)=>r.json({ok:true,user:{id:q.user.id,email:q.user.email,fullName:q.user.full_name,marketingOptIn:q.user.marketing_opt_in},isAdmin:q.isAdmin}));
+
+// Authenticated workspace API. The service-role key stays server-side; every query is scoped to the current user.
+const workspaceProjectFields="id,title,description,project_type,status,data,created_at,updated_at";
+const workspaceTaskFields="id,title,project_id,due_on,priority,completed,created_at,updated_at";
+function validWorkspaceId(value){return typeof value==="string"&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);}
+function validWorkspaceDate(value){if(value===null||value==="")return true;if(typeof value!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;const date=new Date(value+"T00:00:00.000Z");return Number.isFinite(date.getTime())&&date.toISOString().slice(0,10)===value;}
+function workspaceObject(value){return value&&typeof value==="object"&&!Array.isArray(value)?value:{};}
+function workspaceDataFits(value){try{return JSON.stringify(workspaceObject(value)).length<=18000;}catch(_){return false;}}
+app.get("/api/workspace",authenticated,asyncRoute(async(q,r)=>{
+ const [projects,tasks]=await Promise.all([
+  db.from("tp_workspace_projects").select(workspaceProjectFields).eq("user_id",q.user.id).order("updated_at",{ascending:false}).limit(100),
+  db.from("tp_workspace_tasks").select(workspaceTaskFields).eq("user_id",q.user.id).order("completed",{ascending:true}).order("due_on",{ascending:true,nullsFirst:false}).order("created_at",{ascending:false}).limit(200)
+ ]);
+ if(projects.error||tasks.error){logFailure("workspace-read",projects.error||tasks.error);return errorJson(r,503,"WORKSPACE_UNAVAILABLE","Your workspace is temporarily unavailable. Confirm the workspace database migration has been applied, then retry.");}
+ r.json({ok:true,user:{id:q.user.id,email:q.user.email,fullName:q.user.full_name},projects:projects.data||[],tasks:tasks.data||[]});
+}));
+app.post("/api/workspace/projects",csrf,authenticated,asyncRoute(async(q,r)=>{
+ const body=q.body||{},title=cleanText(body.title,120),description=cleanText(body.description,1200),type=String(body.projectType||"general"),data=workspaceObject(body.data);
+ if(title.length<2)return errorJson(r,400,"INVALID_PROJECT","Give this project a title of at least two characters.");
+ if(!["general","seo-brief","content","automation"].includes(type))return errorJson(r,400,"INVALID_PROJECT_TYPE","Choose a supported project type.");
+ if(!workspaceDataFits(data))return errorJson(r,400,"PROJECT_DATA_TOO_LARGE","This project contains too much data to save.");
+ const saved=await db.from("tp_workspace_projects").insert({user_id:q.user.id,title,description,project_type:type,status:"active",data}).select(workspaceProjectFields).single();
+ if(saved.error){logFailure("workspace-project-create",saved.error);return errorJson(r,503,"PROJECT_CREATE_FAILED","We could not save this project. Confirm the workspace database migration has been applied.");}
+ r.status(201).json({ok:true,project:saved.data});
+}));
+app.patch("/api/workspace/projects/:id",csrf,authenticated,asyncRoute(async(q,r)=>{
+ if(!validWorkspaceId(q.params.id))return errorJson(r,400,"INVALID_PROJECT_ID","This project link is invalid.");
+ const body=q.body||{},updates={updated_at:new Date().toISOString()};
+ if(Object.prototype.hasOwnProperty.call(body,"title")){const title=cleanText(body.title,120);if(title.length<2)return errorJson(r,400,"INVALID_PROJECT","Project title must contain at least two characters.");updates.title=title;}
+ if(Object.prototype.hasOwnProperty.call(body,"description"))updates.description=cleanText(body.description,1200);
+ if(Object.prototype.hasOwnProperty.call(body,"status")){if(!["active","paused","completed"].includes(body.status))return errorJson(r,400,"INVALID_PROJECT_STATUS","Choose active, paused or completed.");updates.status=body.status;}
+ if(Object.prototype.hasOwnProperty.call(body,"data")){if(!workspaceDataFits(body.data))return errorJson(r,400,"PROJECT_DATA_TOO_LARGE","This project contains too much data to save.");updates.data=workspaceObject(body.data);}
+ if(Object.keys(updates).length===1)return errorJson(r,400,"EMPTY_PROJECT_UPDATE","There are no project changes to save.");
+ const saved=await db.from("tp_workspace_projects").update(updates).eq("id",q.params.id).eq("user_id",q.user.id).select(workspaceProjectFields).maybeSingle();
+ if(saved.error){logFailure("workspace-project-update",saved.error);return errorJson(r,503,"PROJECT_UPDATE_FAILED","We could not update this project.");}
+ if(!saved.data)return errorJson(r,404,"PROJECT_NOT_FOUND","This project could not be found.");
+ r.json({ok:true,project:saved.data});
+}));
+app.delete("/api/workspace/projects/:id",csrf,authenticated,asyncRoute(async(q,r)=>{
+ if(!validWorkspaceId(q.params.id))return errorJson(r,400,"INVALID_PROJECT_ID","This project link is invalid.");
+ const removed=await db.from("tp_workspace_projects").delete().eq("id",q.params.id).eq("user_id",q.user.id).select("id").maybeSingle();
+ if(removed.error){logFailure("workspace-project-delete",removed.error);return errorJson(r,503,"PROJECT_DELETE_FAILED","We could not delete this project.");}
+ if(!removed.data)return errorJson(r,404,"PROJECT_NOT_FOUND","This project could not be found.");
+ r.json({ok:true,id:removed.data.id});
+}));
+app.post("/api/workspace/tasks",csrf,authenticated,asyncRoute(async(q,r)=>{
+ const body=q.body||{},title=cleanText(body.title,180),priority=String(body.priority||"normal"),projectId=body.projectId||null,dueOn=body.dueOn||null;
+ if(title.length<2)return errorJson(r,400,"INVALID_TASK","Task title must contain at least two characters.");
+ if(!["low","normal","high"].includes(priority))return errorJson(r,400,"INVALID_TASK_PRIORITY","Choose a supported task priority.");
+ if(!validWorkspaceDate(dueOn))return errorJson(r,400,"INVALID_DUE_DATE","Choose a valid due date.");
+ if(projectId){if(!validWorkspaceId(projectId))return errorJson(r,400,"INVALID_PROJECT_ID","Choose a valid project.");const project=await db.from("tp_workspace_projects").select("id").eq("id",projectId).eq("user_id",q.user.id).maybeSingle();if(project.error){logFailure("workspace-task-project",project.error);return errorJson(r,503,"TASK_CREATE_FAILED","We could not check the selected project.");}if(!project.data)return errorJson(r,400,"INVALID_PROJECT_ID","That project does not belong to your workspace.");}
+ const saved=await db.from("tp_workspace_tasks").insert({user_id:q.user.id,title,priority,project_id:projectId,due_on:dueOn}).select(workspaceTaskFields).single();
+ if(saved.error){logFailure("workspace-task-create",saved.error);return errorJson(r,503,"TASK_CREATE_FAILED","We could not save this task. Confirm the workspace database migration has been applied.");}
+ r.status(201).json({ok:true,task:saved.data});
+}));
+app.patch("/api/workspace/tasks/:id",csrf,authenticated,asyncRoute(async(q,r)=>{
+ if(!validWorkspaceId(q.params.id))return errorJson(r,400,"INVALID_TASK_ID","This task link is invalid.");
+ const body=q.body||{},updates={updated_at:new Date().toISOString()};
+ if(Object.prototype.hasOwnProperty.call(body,"completed")){if(typeof body.completed!=="boolean")return errorJson(r,400,"INVALID_TASK_STATUS","Choose a valid task status.");updates.completed=body.completed;}
+ if(Object.prototype.hasOwnProperty.call(body,"title")){const title=cleanText(body.title,180);if(title.length<2)return errorJson(r,400,"INVALID_TASK","Task title must contain at least two characters.");updates.title=title;}
+ if(Object.prototype.hasOwnProperty.call(body,"priority")){if(!["low","normal","high"].includes(body.priority))return errorJson(r,400,"INVALID_TASK_PRIORITY","Choose a supported task priority.");updates.priority=body.priority;}
+ if(Object.prototype.hasOwnProperty.call(body,"dueOn")){if(!validWorkspaceDate(body.dueOn))return errorJson(r,400,"INVALID_DUE_DATE","Choose a valid due date.");updates.due_on=body.dueOn||null;}
+ if(Object.keys(updates).length===1)return errorJson(r,400,"EMPTY_TASK_UPDATE","There are no task changes to save.");
+ const saved=await db.from("tp_workspace_tasks").update(updates).eq("id",q.params.id).eq("user_id",q.user.id).select(workspaceTaskFields).maybeSingle();
+ if(saved.error){logFailure("workspace-task-update",saved.error);return errorJson(r,503,"TASK_UPDATE_FAILED","We could not update this task.");}
+ if(!saved.data)return errorJson(r,404,"TASK_NOT_FOUND","This task could not be found.");
+ r.json({ok:true,task:saved.data});
+}));
+app.delete("/api/workspace/tasks/:id",csrf,authenticated,asyncRoute(async(q,r)=>{
+ if(!validWorkspaceId(q.params.id))return errorJson(r,400,"INVALID_TASK_ID","This task link is invalid.");
+ const removed=await db.from("tp_workspace_tasks").delete().eq("id",q.params.id).eq("user_id",q.user.id).select("id").maybeSingle();
+ if(removed.error){logFailure("workspace-task-delete",removed.error);return errorJson(r,503,"TASK_DELETE_FAILED","We could not delete this task.");}
+ if(!removed.data)return errorJson(r,404,"TASK_NOT_FOUND","This task could not be found.");
+ r.json({ok:true,id:removed.data.id});
+}));
+
 app.patch("/api/account/preferences",csrf,authenticated,asyncRoute(async(q,r)=>{
  if(typeof(q.body&&q.body.marketingOptIn)!=="boolean")return errorJson(r,400,"INVALID_PREFERENCE","Choose an email preference.");
  const optedIn=q.body.marketingOptIn,now=new Date().toISOString();
