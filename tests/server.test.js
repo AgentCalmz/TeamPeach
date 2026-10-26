@@ -40,12 +40,30 @@ test("CSP blocks inline executable scripts",async t=>{
 });
 
 
-test("Brevo webhook never accepts a token in the query string",async t=>{
- const server=app.listen(0,"127.0.0.1");
- await once(server,"listening");
- t.after(()=>new Promise(resolve=>server.close(resolve)));
- const response=await fetch("http://127.0.0.1:"+server.address().port+"/api/webhooks/brevo?token=not-a-real-secret",{
-  method:"POST",headers:{"Content-Type":"application/json"},body:"{}"
- });
- assert.equal(response.status,401);
+test("email delivery uses SMTP credentials rather than Brevo HTTP API keys",function(){
+ const fs=require("node:fs");
+ const path=require("node:path");
+ const server=fs.readFileSync(path.join(__dirname,"..","server.js"),"utf8");
+ const env=fs.readFileSync(path.join(__dirname,"..",".env.example"),"utf8");
+ assert.match(server,/require\("nodemailer"\)/);
+ assert.match(server,/SMTP_HOST/);
+ assert.match(server,/SMTP_PORT/);
+ assert.match(server,/SMTP_USER/);
+ assert.match(server,/SMTP_PASS/);
+ assert.doesNotMatch(server,/BREVO_API_KEY|api\.brevo\.com\/v3\/smtp\/email|api\/webhooks\/brevo/);
+ assert.match(env,/SMTP_HOST=smtp-relay\.brevo\.com/);
+ assert.match(env,/SMTP_PASS=REPLACE_WITH_YOUR_BREVO_SMTP_KEY/);
+ assert.doesNotMatch(env,/BREVO_API_KEY|BREVO_MARKETING_LIST_ID|BREVO_WEBHOOK_TOKEN/);
+});
+
+test("SMTP broadcasts include signed unsubscribe handling and re-check opt-in",function(){
+ const fs=require("node:fs");
+ const path=require("node:path");
+ const server=fs.readFileSync(path.join(__dirname,"..","server.js"),"utf8");
+ const sql=fs.readFileSync(path.join(__dirname,"..","supabase","migrations","001_teampeach.sql"),"utf8");
+ assert.match(server,/unsubscribeSignature/);
+ assert.match(server,/List-Unsubscribe/);
+ assert.match(server,/preference\.data\.marketing_opt_in!==true/);
+ assert.match(server,/app\.post\("\/api\/unsubscribe"/);
+ assert.match(sql,/j\.mode in\('single','system','broadcast'\)/);
 });

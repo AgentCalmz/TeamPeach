@@ -15,7 +15,7 @@ test("SQL migration keeps function delimiters balanced and supports schema upgra
  const sql = fs.readFileSync(path.join(__dirname, "..", "supabase", "migrations", "001_teampeach.sql"), "utf8");
  const fnCount = (sql.match(/create (?:or replace )?function/g) || []).length;
  const delimiterCount = sql.split("$$").length - 1;
- assert.equal(fnCount, 11);
+ assert.equal(fnCount, 12);
  assert.equal(delimiterCount, fnCount * 2);
  assert.equal((sql.match(/language plpgsql[\s\S]*?as \$\$/g) || []).length, fnCount);
  assert.match(sql, /add column if not exists skipped_count/i);
@@ -26,15 +26,17 @@ test("SQL migration keeps function delimiters balanced and supports schema upgra
  assert.match(sql, /tp_reserve_campaign_email_usage/);
  assert.match(sql, /tp_complete_email_usage/);
  assert.match(sql, /tp_reserve_email_usage/);
+ assert.match(sql, /tp_reserve_email_usage_v2/);
  assert.match(sql, /tp_consume_rate_limit/);
  assert.match(sql, /create table if not exists public\.tp_rate_limits/);
 });
 
 
-test("Brevo unsubscribe event is handled and campaign does not resubscribe every user",function(){
+test("SMTP unsubscribe signatures are server-verified and no marketing API resync exists",function(){
  const fs=require("node:fs");
  const path=require("node:path");
  const server=fs.readFileSync(path.join(__dirname,"..","server.js"),"utf8");
- assert.match(server,/unsubscribed/);
- assert.doesNotMatch(server,/await mapLimit\(users,4,user=>syncMarketingContact/);
+ assert.match(server,/function unsubscribeSignature/);
+ assert.match(server,/safeStringEqual\(sig,expected\)/);
+ assert.doesNotMatch(server,/syncMarketingContact|BREVO_MARKETING_LIST_ID|BREVO_WEBHOOK_TOKEN/);
 });

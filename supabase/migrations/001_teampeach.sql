@@ -140,7 +140,7 @@ begin
  update public.tp_email_queue set status='failed',last_error='worker_interrupted_check_provider_before_retry',completed_at=now(),claimed_at=null where status='processing' and claimed_at<now()-interval '15 minutes';
  select count(*) into sent_today from public.tp_email_queue where status='sent' and sent_at>=date_trunc('day',now());
  remaining:=greatest(0,least(250,p_daily_limit)-sent_today);if remaining<=0 then return;end if;
- return query with picked as(select q.id from public.tp_email_queue q where q.status='pending' and (q.next_attempt_at is null or q.next_attempt_at<=now()) and exists(select 1 from public.tp_email_jobs j where j.id=q.job_id and j.mode in('single','system')) order by q.created_at,q.id limit least(greatest(1,p_limit),remaining) for update skip locked),
+ return query with picked as(select q.id from public.tp_email_queue q where q.status='pending' and (q.next_attempt_at is null or q.next_attempt_at<=now()) and exists(select 1 from public.tp_email_jobs j where j.id=q.job_id and j.mode in('single','system','broadcast')) order by q.created_at,q.id limit least(greatest(1,p_limit),remaining) for update skip locked),
  claimed as(update public.tp_email_queue q set status='processing',claimed_at=now(),attempt_count=q.attempt_count+1 from picked where q.id=picked.id returning q.id,q.job_id,q.recipient_email,q.recipient_name)
  select c.id,c.job_id,c.recipient_email,c.recipient_name,j.subject,j.body_text,j.mode from claimed c join public.tp_email_jobs j on j.id=c.job_id;
 end $$;
@@ -227,6 +227,39 @@ begin
  return jsonb_build_object('status','reserved','usage_id',new_id);
 end $$;
 
+create or replace function public.tp_reserve_email_usage_v2(p_recipient_email text,p_category text,p_daily_limit integer,p_campaign_limit integer)
+returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare recipient text;active_count integer;broadcast_count integer;new_id uuid;oldest timestamptz;retry_after integer;
+begin
+ recipient:=lower(btrim(coalesce(p_recipient_email,'')));
+ if recipient !~ '^[^@[:space:]]+@[^@[:space:]]+[.][^@[:space:]]+$'
+    or p_category not in('single','system','registration_otp','password_reset','broadcast')
+    or p_daily_limit is null or p_daily_limit<1 or p_daily_limit>10000
+    or p_campaign_limit is null or p_campaign_limit<1 or p_campaign_limit>10000 then
+  return jsonb_build_object('status','invalid_request');
+ end if;
+ perform pg_advisory_xact_lock(74531,12007);
+ select count(*) into active_count from public.tp_email_usage
+  where status in('reserved','sent') and created_at>=now()-interval '24 hours';
+ if active_count>=p_daily_limit then
+  select min(created_at) into oldest from public.tp_email_usage where status in('reserved','sent') and created_at>=now()-interval '24 hours';
+  retry_after:=greatest(60,ceil(extract(epoch from (coalesce(oldest,now())+interval '24 hours'-now())))::integer);
+  return jsonb_build_object('status','limit_reached','retry_after',retry_after);
+ end if;
+ if p_category='broadcast' then
+  select count(*) into broadcast_count from public.tp_email_usage
+   where category='broadcast' and status in('reserved','sent') and created_at>=now()-interval '24 hours';
+  if broadcast_count>=p_campaign_limit then
+   select min(created_at) into oldest from public.tp_email_usage
+    where category='broadcast' and status in('reserved','sent') and created_at>=now()-interval '24 hours';
+   retry_after:=greatest(60,ceil(extract(epoch from (coalesce(oldest,now())+interval '24 hours'-now())))::integer);
+   return jsonb_build_object('status','limit_reached','retry_after',retry_after);
+  end if;
+ end if;
+ insert into public.tp_email_usage(recipient_email,category,status) values(recipient,p_category,'reserved') returning id into new_id;
+ return jsonb_build_object('status','reserved','usage_id',new_id);
+end $$;
+
 create or replace function public.tp_complete_email_usage(p_usage_id uuid,p_status text,p_provider_message_id text)
 returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
 declare row_status text;
@@ -291,6 +324,7 @@ begin
 end $$;
 
 revoke all on function public.tp_reserve_email_usage(text,text,integer) from public,anon,authenticated;
+revoke all on function public.tp_reserve_email_usage_v2(text,text,integer,integer) from public,anon,authenticated;
 revoke all on function public.tp_complete_email_usage(uuid,text,text) from public,anon,authenticated;
 revoke all on function public.tp_reserve_campaign_email_usage(uuid,jsonb,integer) from public,anon,authenticated;
 revoke all on function public.tp_complete_campaign_email_usage(uuid,text,text) from public,anon,authenticated;
@@ -302,6 +336,7 @@ revoke all on function public.tp_refresh_email_job_status(uuid) from public,anon
 revoke all on function public.tp_claim_broadcast_jobs(integer) from public,anon,authenticated;
 revoke all on function public.tp_consume_rate_limit(text,integer,integer) from public,anon,authenticated;
 grant execute on function public.tp_reserve_email_usage(text,text,integer) to service_role;
+grant execute on function public.tp_reserve_email_usage_v2(text,text,integer,integer) to service_role;
 grant execute on function public.tp_complete_email_usage(uuid,text,text) to service_role;
 grant execute on function public.tp_reserve_campaign_email_usage(uuid,jsonb,integer) to service_role;
 grant execute on function public.tp_complete_campaign_email_usage(uuid,text,text) to service_role;
