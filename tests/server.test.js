@@ -48,6 +48,9 @@ test("email delivery prefers Brevo HTTPS API when configured and retains SMTP fa
  const env=fs.readFileSync(path.join(__dirname,"..",".env.example"),"utf8");
  assert.match(server,/require\("nodemailer"\)/);
  assert.match(server,/BREVO_API_KEY/);
+ assert.match(server,/function emailTransportMode\(\)/);
+ assert.match(server,/requested==="smtp"\|\|requested==="brevo-api"/);
+ assert.match(server,/emailTransportMode\(\)==="brevo-api"/);
  assert.match(server,/https:\/\/api\.brevo\.com\/v3\/smtp\/email/);
  assert.match(server,/"api-key":/);
  assert.match(server,/function smtpReady\(\)/);
@@ -56,6 +59,8 @@ test("email delivery prefers Brevo HTTPS API when configured and retains SMTP fa
  assert.match(server,/SMTP_USER/);
  assert.match(server,/SMTP_PASS/);
  assert.match(env,/BREVO_API_KEY=/);
+ assert.match(env,/EMAIL_TRANSPORT=smtp/);
+ assert.match(env,/SMTP_PORT=2525/);
  assert.match(env,/SMTP_HOST=smtp-relay\.brevo\.com/);
  assert.match(env,/SMTP_PASS=REPLACE_WITH_YOUR_BREVO_SMTP_KEY/);
  assert.doesNotMatch(env,/BREVO_MARKETING_LIST_ID|BREVO_WEBHOOK_TOKEN/);
