@@ -7,15 +7,15 @@ TeamPeach is a peach/ivory/navy AI-tools and automation website served by one No
 - Custom six-digit email OTP registration and password-reset codes. A user record is created only after the OTP is verified.
 - Interruption-friendly registration: only name/email are kept as browser draft; neither password nor OTP is persisted in browser storage.
 - Server-side scrypt password hashes, HMAC-hashed opaque session cookies, logout/session revocation, CSRF checks, rate limits, CSP/security headers and validation.
-- Brevo SMTP transactional email, persistent Supabase queue, one-person admin email and opt-in SMTP broadcasts with signed unsubscribe links.
+- Brevo transactional email over HTTPS API (recommended on Render Free), with SMTP fallback, persistent Supabase queue, one-person admin email and opt-in broadcasts with signed unsubscribe links.
 - Admin allowlist, project inquiry storage and email notifications.
 - Sitemap/robots support including explicit OAI-SearchBot access.
 
 ## Setup
 1. Run `supabase/migrations/001_teampeach.sql` in Supabase SQL Editor before enabling account features. Visit `/api/health` after deployment: it reports database and email readiness without exposing secrets.
-2. In Brevo, authenticate your sending domain and verify the sender email. Use the SMTP relay host, port, login and **SMTP key** from your Brevo SMTP settings. The SMTP key is not your Brevo account password and is not an API key. Default relay settings are `smtp-relay.brevo.com` and port `587`.
+2. In Brevo, authenticate your sending domain and verify the sender email. **For Render Free, create a Brevo API key** under Settings → SMTP & API → API Keys, then set `BREVO_API_KEY` in Render. TeamPeach uses Brevo's HTTPS transactional email API when this variable is present, avoiding SMTP port restrictions. The API key is different from an SMTP key. If you host somewhere that permits SMTP and want the fallback instead, leave `BREVO_API_KEY` empty and configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` and `SMTP_PASS` using the SMTP login and SMTP key from Brevo. The default SMTP relay is `smtp-relay.brevo.com` on port `587`.
 3. Generate three different secrets with `openssl rand -hex 32` for `OTP_PEPPER`, `SESSION_SECRET` and `RATE_LIMIT_SECRET`. Do not reuse a secret. Keep credentials only in Render Environment or an untracked local `.env`.
-4. Add the values from `.env.example` to Render Environment. Never expose `SUPABASE_SERVICE_ROLE_KEY`, `SMTP_PASS`, `SMTP_USER` or application secrets to browser JavaScript or GitHub.
+4. Add the values from `.env.example` to Render Environment. Never expose `SUPABASE_SERVICE_ROLE_KEY`, `BREVO_API_KEY`, `SMTP_PASS`, `SMTP_USER` or application secrets to browser JavaScript or GitHub.
 5. Create a Render **Web Service**, Node.js 22+, with build command `npm ci && npm run build` and start command `npm start`. Set `NODE_ENV=production`.
 6. Initially, `SITE_URL`, `APP_BASE_URL` and `TRUSTED_ORIGINS` can be omitted: the app detects Render's temporary external URL. When your custom domain is ready, set them to your real HTTPS domain before rebuilding/redeploying.
 7. In Render, add your custom domain and follow its DNS instructions when you're ready. Preserve Brevo's email-authentication TXT/CNAME records.
@@ -24,7 +24,7 @@ TeamPeach is a peach/ivory/navy AI-tools and automation website served by one No
 ## Security and launch notes
 - RLS is enabled on custom tables and no browser policies are created. The server uses the Supabase service-role key only on the server.
 - Auth, registration, password recovery, login and project inquiries use HMAC-keyed, database-backed rate limits alongside a per-process limiter. The database stores HMACed bucket identifiers, not raw IPs or email addresses.
-- Transactional and marketing messages are sent through Brevo SMTP using `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` and `SMTP_PASS`; there is no dependency on Brevo's HTTP API key, marketing list ID or provider webhook.
+- When `BREVO_API_KEY` is set, transactional and marketing messages use Brevo's HTTPS API; otherwise they use SMTP via `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` and `SMTP_PASS`. API and SMTP credentials are different. There is no dependency on a marketing list ID or provider webhook.
 - Email usage reservations cap total email at 250 per rolling 24 hours by default, with up to 200 reserved for opt-in broadcasts, leaving at least 50 of that configured daily allowance available for transactional/project-notification email.
 - Broadcast recipients are drawn only from users who opted in. Messages include a signed TeamPeach unsubscribe link, and the queue checks the saved preference again immediately before sending.
 - If SMTP delivery is ambiguous, the reservation is retained rather than risking duplicate sends. Interrupted queue rows are marked for operator inspection rather than automatically resent.
