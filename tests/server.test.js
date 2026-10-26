@@ -60,7 +60,7 @@ test("email delivery prefers Brevo HTTPS API when configured and retains SMTP fa
  assert.match(server,/SMTP_PASS/);
  assert.match(env,/BREVO_API_KEY=/);
  assert.match(env,/EMAIL_TRANSPORT=smtp/);
- assert.match(env,/SMTP_PORT=587/);
+ assert.match(env,/SMTP_PORT=2525/);
  assert.match(env,/SMTP_HOST=smtp-relay\.brevo\.com/);
  assert.match(env,/SMTP_PASS=REPLACE_WITH_YOUR_BREVO_SMTP_KEY/);
  assert.doesNotMatch(env,/BREVO_MARKETING_LIST_ID|BREVO_WEBHOOK_TOKEN/);
