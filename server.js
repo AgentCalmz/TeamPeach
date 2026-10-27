@@ -698,22 +698,23 @@ app.get("/api/commerce/catalog",asyncRoute(async(_q,r)=>{
 app.get("/api/commerce/overview",authenticated,asyncRoute(async(q,r)=>{
  if(!db)return errorJson(r,503,"COMMERCE_NOT_CONFIGURED","Billing and usage records are not configured yet.");
  try{
-  const [sub,balance,ledger,payments,licenses,deployments,catalog]=await Promise.all([
+  const [sub,balance,ledger,payments,licenses,deployments,catalog,runs]=await Promise.all([
    currentSubscription(q.user.id),
    db.rpc("tp_credit_balance",{p_user_id:q.user.id}),
    db.from("tp_credit_ledger").select("id,amount,entry_type,description,idempotency_key,payment_id,created_at").eq("user_id",q.user.id).order("created_at",{ascending:false}).limit(50),
    db.from("tp_payments").select("id,gateway,reference,payment_type,amount_minor,currency,status,created_at,fulfilled_at,product_id,plan_id,credit_pack_id").eq("user_id",q.user.id).order("created_at",{ascending:false}).limit(30),
    db.from("tp_tool_licenses").select("id,license_key,status,deployment_mode,delivery_status,source_code_url,delivery_notes,included_setup_hours,purchased_at,updated_at,product_id,tp_products(name,slug,description)").eq("user_id",q.user.id).order("purchased_at",{ascending:false}).limit(50),
    db.from("tp_deployments").select("id,license_id,hosting_provider,deployment_url,status,notes,created_at,updated_at").eq("user_id",q.user.id).order("updated_at",{ascending:false}).limit(50),
-   db.from("tp_products").select(publicProductFields).eq("active",true).eq("visible_publicly",true).order("created_at",{ascending:false}).limit(100)
+   db.from("tp_products").select(publicProductFields).eq("active",true).eq("visible_publicly",true).order("created_at",{ascending:false}).limit(100),
+   db.from("tp_tool_runs").select("id,reference,credits_charged,status,metadata,created_at,tp_products(name,slug)").eq("user_id",q.user.id).order("created_at",{ascending:false}).limit(50)
   ]);
-  const failure=[ledger,payments,licenses,deployments,catalog].find(x=>x.error);
+  const failure=[ledger,payments,licenses,deployments,catalog,runs].find(x=>x.error);
   if(failure||balance.error){logFailure("commerce-overview",failure&&failure.error||balance.error);return errorJson(r,503,"COMMERCE_OVERVIEW_UNAVAILABLE","Your billing dashboard could not be loaded.");}
   const subEnd=sub&&sub.current_period_end;
   const memberActive=Boolean(subEnd&&new Date(subEnd).getTime()>Date.now()&&["active","past_due","cancelled"].includes(sub.status));
   r.json({ok:true,user:{id:q.user.id,email:q.user.email,fullName:q.user.full_name},subscription:sub?{id:sub.id,status:sub.status,gateway:sub.gateway,currentPeriodStart:sub.current_period_start,currentPeriodEnd:sub.current_period_end,cancelAtPeriodEnd:sub.cancel_at_period_end,plan:sub.tp_subscription_plans||null}:null,
    membershipActive:memberActive,credits:Number(balance.data||0),ledger:ledger.data||[],payments:(payments.data||[]).map(p=>({...p,amount_minor:Number(p.amount_minor)})),
-   licenses:(licenses.data||[]).map(l=>({...l,product:l.tp_products||null})),deployments:deployments.data||[],
+   licenses:(licenses.data||[]).map(l=>({...l,product:l.tp_products||null})),deployments:deployments.data||[],runs:(runs.data||[]).map(run=>({...run,credits_charged:Number(run.credits_charged),product:run.tp_products||null})),
    products:(catalog.data||[]).map(publicProduct),gateways:{paystack:paymentReady("paystack"),flutterwave:paymentReady("flutterwave"),mode:paymentMode()}});
  }catch(e){logFailure("commerce-overview",e);errorJson(r,503,"COMMERCE_OVERVIEW_UNAVAILABLE","Your billing dashboard could not be loaded.");}
 }));
