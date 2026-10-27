@@ -343,7 +343,7 @@ app.get("/api/support/conversations",authenticated,asyncRoute(async(q,r)=>{
   r.json({ok:true,conversations});
  }catch(e){logFailure("support-user-list",e);errorJson(r,503,"SUPPORT_UNAVAILABLE","Support chat is unavailable. Confirm that supabase/migrations/003_support_chat.sql has been applied, then retry.");}
 }));
-app.post("/api/support/conversations",csrf,authenticated,asyncRoute(async(q,r)=>{
+app.post("/api/support/conversations",csrf,authLimit,authenticated,asyncRoute(async(q,r)=>{
  const body=q.body||{},subject=cleanText(body.subject,120),messageBody=cleanText(body.body,4000);
  if(subject.length<3)return errorJson(r,400,"INVALID_SUPPORT_SUBJECT","Use a subject between 3 and 120 characters.");
  if(messageBody.length<1)return errorJson(r,400,"INVALID_SUPPORT_MESSAGE","Write a message before sending.");
@@ -376,7 +376,7 @@ app.get("/api/support/conversations/:id/messages",authenticated,asyncRoute(async
   r.json({ok:true,conversation:conversation.data,messages:(result.data||[]).reverse()});
  }catch(e){logFailure("support-messages",e);errorJson(r,503,"SUPPORT_MESSAGES_FAILED","We could not load these messages. Please refresh and try again.");}
 }));
-app.post("/api/support/conversations/:id/messages",csrf,authenticated,asyncRoute(async(q,r)=>{
+app.post("/api/support/conversations/:id/messages",csrf,authLimit,authenticated,asyncRoute(async(q,r)=>{
  if(!validWorkspaceId(q.params.id))return errorJson(r,400,"INVALID_SUPPORT_ID","This conversation link is invalid.");
  const messageBody=cleanText(q.body&&q.body.body,4000);
  if(messageBody.length<1)return errorJson(r,400,"INVALID_SUPPORT_MESSAGE","Write a message before sending.");
