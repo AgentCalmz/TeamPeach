@@ -116,5 +116,41 @@ test("SEO content brief builder is interactive and states its current data limit
  assert.match(builder,/function buildBrief\(values\)/);
  assert.match(builder,/api\("\/api\/workspace\/projects","POST"/);
  assert.match(builder,/api\("\/api\/workspace\/projects\/"/);
- assert.match(builder,/Copy as Markdown/);
+ assert.match(html,/id="copy-brief"/);
+ assert.match(builder,/#copy-brief/);
+ assert.match(builder,/navigator\.clipboard\.writeText\(toMarkdown\(currentBrief\)\)/);
+});
+
+
+test("in-dashboard support chat connects private user conversations to the admin inbox",function(){
+ const fs=require("node:fs");
+ const path=require("node:path");
+ const root=path.join(__dirname,"..");
+ const server=fs.readFileSync(path.join(root,"server.js"),"utf8");
+ const migration=fs.readFileSync(path.join(root,"supabase","migrations","003_support_chat.sql"),"utf8");
+ const dashboard=fs.readFileSync(path.join(root,"public","dashboard","index.html"),"utf8");
+ const admin=fs.readFileSync(path.join(root,"public","admin","index.html"),"utf8");
+ const client=fs.readFileSync(path.join(root,"public","js","support-chat.js"),"utf8");
+ for(const route of [
+  'app.get("/api/support/conversations"',
+  'app.post("/api/support/conversations"',
+  'app.get("/api/support/conversations/:id/messages"',
+  'app.post("/api/support/conversations/:id/messages"',
+  'app.get("/api/admin/support/conversations"',
+  'app.patch("/api/admin/support/conversations/:id/status"'
+ ])assert.ok(server.includes(route),"missing "+route);
+ assert.match(server,/conversationQuery=conversationQuery\.eq\("user_id",q\.user\.id\)/);
+ assert.match(server,/app\.get\("\/api\/admin\/support\/conversations",authenticated,isAdmin/);
+ assert.match(migration,/create table if not exists public\.tp_support_conversations/);
+ assert.match(migration,/create table if not exists public\.tp_support_messages/);
+ assert.match(migration,/alter table public\.tp_support_conversations enable row level security/);
+ assert.match(migration,/alter table public\.tp_support_messages enable row level security/);
+ assert.match(migration,/revoke all on public\.tp_support_conversations, public\.tp_support_messages from anon, authenticated/);
+ assert.match(dashboard,/id="support-conversations"/);
+ assert.match(dashboard,/id="support-reply-form"/);
+ assert.match(dashboard,/id="support-unread-count"/);
+ assert.match(admin,/id="support-admin-list"/);
+ assert.match(admin,/id="support-admin-reply-form"/);
+ assert.match(client,/bubble\.textContent=message\.body/);
+ assert.match(client,/setInterval\(async\(\)=>/);
 });
