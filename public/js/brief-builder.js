@@ -2,7 +2,7 @@
 (function(){
   const $=selector=>document.querySelector(selector);
   const form=$("#brief-form");
-  let csrfToken="",signedIn=false,currentProjectId=null,currentBrief=null;
+  let csrfToken="",signedIn=false,membershipActive=false,availableCredits=0,accessChecked=false,currentProjectId=null,currentBrief=null;
   const intentLabels={informational:"Learn / understand",commercial:"Compare options",transactional:"Take action / buy",navigational:"Find a specific brand"};
   const formatLabels={guide:"Practical guide",listicle:"List / roundup",comparison:"Comparison",tutorial:"Step-by-step tutorial","landing-page":"Service / landing page"};
   const intentGuidance={
@@ -149,11 +149,41 @@
     return result;
   }
   async function checkSession(){
-    try{const response=await fetch("/api/auth/me",{credentials:"same-origin",cache:"no-store"});if(!response.ok)return false;const result=await response.json();signedIn=Boolean(result&&result.user);$("#signin-save").hidden=signedIn;$("#save-brief").hidden=!signedIn;return signedIn;}catch(_){return false;}
+    try{
+      const response=await fetch("/api/auth/me",{credentials:"same-origin",cache:"no-store"});
+      if(!response.ok){signedIn=false;return false;}
+      const result=await response.json();signedIn=Boolean(result&&result.user);
+      $("#signin-save").hidden=signedIn;$("#save-brief").hidden=!signedIn;
+      if(signedIn){
+        try{
+          const billing=await fetch("/api/commerce/overview",{credentials:"same-origin",cache:"no-store"});
+          if(billing.ok){const data=await billing.json();membershipActive=Boolean(data.membershipActive);availableCredits=Number(data.credits||0);accessChecked=true;}
+        }catch(_){}
+      }
+      return signedIn;
+    }catch(_){return false;}
   }
-  function makeBrief(){
-    const values=valuesFromForm();if(values.topic.length<2){say("#brief-form-feedback","Enter a topic with at least two characters.","error");return;}
-    const brief=buildBrief(values);currentProjectId=currentProjectId||null;renderBrief(brief);say("#brief-form-feedback","Your structured content brief is ready. Review and adjust it before using it.","success");say("#brief-save-feedback","");
+  async function makeBrief(){
+    const values=valuesFromForm();
+    if(values.topic.length<2){say("#brief-form-feedback","Enter a topic with at least two characters.","error");return;}
+    if(!signedIn){say("#brief-form-feedback","Sign in and choose a membership before running this tool. You can still review the product information and sample output.","error");return;}
+    if(!accessChecked){try{const access=await api("/api/commerce/overview","GET");membershipActive=Boolean(access.membershipActive);availableCredits=Number(access.credits||0);accessChecked=true;}catch(error){say("#brief-form-feedback","We could not check your membership or credits: "+error.message,"error");return;}}
+    if(!membershipActive){say("#brief-form-feedback","An active membership is required to run hosted tools. Open your dashboard and choose a plan under Billing & tools.","error");return;}
+    if(availableCredits<1){say("#brief-form-feedback","Your available credit balance is too low. Buy a credit top-up or choose a plan with a larger monthly allowance.","error");return;}
+    const button=$("#generate-brief"),regenerate=$("#regenerate-brief");
+    if(button)button.disabled=true;if(regenerate)regenerate.disabled=true;
+    say("#brief-form-feedback","Checking access and charging the configured run cost…","");
+    try{
+      const run=await api("/api/commerce/tool-runs","POST",{productSlug:"seo-content-brief"});
+      availableCredits=Number(run.creditsRemaining||0);
+      const brief=buildBrief(values);currentProjectId=currentProjectId||null;renderBrief(brief);
+      say("#brief-form-feedback","Your structured content brief is ready. Charged "+Number(run.creditsCharged||0)+" credit(s); "+availableCredits.toLocaleString()+" remain. This tool uses a structured template, not a live AI or search call.","success");
+      say("#brief-save-feedback","");
+    }catch(error){
+      if(error.code==="MEMBERSHIP_REQUIRED"){membershipActive=false;say("#brief-form-feedback","An active membership is required. Open your dashboard and choose a plan under Billing & tools.","error");}
+      else if(error.code==="INSUFFICIENT_CREDITS"){availableCredits=Number(error.balance||0);say("#brief-form-feedback","You do not have enough credits to run this tool. Buy a top-up or choose another membership plan.","error");}
+      else say("#brief-form-feedback",error.message,"error");
+    }finally{if(button)button.disabled=false;if(regenerate)regenerate.disabled=false;}
   }
   form?.addEventListener("submit",event=>{event.preventDefault();makeBrief();});
   $("#regenerate-brief")?.addEventListener("click",makeBrief);
