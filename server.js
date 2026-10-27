@@ -422,7 +422,7 @@ app.patch("/api/admin/support/conversations/:id/status",csrf,authenticated,isAdm
 }));
 
 
-const publicProductFields="id,slug,name,summary,description,category,product_type,price_minor,currency,hosted_enabled,self_hosted_enabled,credit_cost_per_run,member_discount_percent,included_setup_hours,features";
+const publicProductFields="id,slug,name,summary,description,category,product_type,hosted_path,price_minor,currency,hosted_enabled,self_hosted_enabled,credit_cost_per_run,member_discount_percent,included_setup_hours,features";
 const publicPlanFields="id,slug,name,description,price_minor,currency,monthly_credits,member_discount_percent,sort_order,paystack_plan_code,flutterwave_payment_plan_id,active";
 const paymentTypeValues=["membership","credit_topup","tool_license"];
 function safeEqualText(left,right){
@@ -466,7 +466,7 @@ function cleanProviderText(value,max){
  return cleanText(typeof value==="string"?value:"",max||200);
 }
 function publicProduct(row){
- return {id:row.id,slug:row.slug,name:row.name,summary:row.summary,description:row.description,category:row.category,productType:row.product_type,
+ return {id:row.id,slug:row.slug,name:row.name,summary:row.summary,description:row.description,category:row.category,productType:row.product_type,hostedPath:row.hosted_path||"",
   priceMinor:Number(row.price_minor),currency:row.currency,hostedEnabled:row.hosted_enabled,selfHostedEnabled:row.self_hosted_enabled,
   creditCostPerRun:row.credit_cost_per_run,memberDiscountPercent:row.member_discount_percent,includedSetupHours:Number(row.included_setup_hours||0),
   features:Array.isArray(row.features)?row.features:[]};
@@ -831,10 +831,11 @@ app.post("/api/admin/commerce/products",csrf,authLimit,authenticated,isAdmin,asy
   return errorJson(r,400,"INVALID_PRODUCT","Check the product slug, name, price, credit cost, discount and setup hours.");
  if(!["tool","agent","automation","service"].includes(category)||!["hosted_tool","self_hosted_tool","hosted_and_self_hosted","service"].includes(productType))
   return errorJson(r,400,"INVALID_PRODUCT_TYPE","Choose a supported product category and type.");
- const sourceUrl=String(b.sourceCodeUrl||"").trim();
+ const sourceUrl=String(b.sourceCodeUrl||"").trim(),hostedPath=String(b.hostedPath||"").trim();
+ if(hostedPath&&(hostedPath.length>300||!hostedPath.startsWith("/")||hostedPath.startsWith("//")))return errorJson(r,400,"INVALID_HOSTED_PATH","Hosted path must be a site-local path beginning with a single slash.");
  if(sourceUrl&&(!/^https:\/\//i.test(sourceUrl)||sourceUrl.length>1000))return errorJson(r,400,"INVALID_SOURCE_URL","Source delivery URL must be an HTTPS link.");
  const features=Array.isArray(b.features)?b.features.map(x=>cleanText(x,200)).filter(Boolean).slice(0,20):String(b.features||"").split(/\r?\n/).map(x=>cleanText(x,200)).filter(Boolean).slice(0,20);
- const result=await db.from("tp_products").insert({slug,name,summary,description,category,product_type:productType,price_minor:Math.round(price*100),currency:"NGN",
+ const result=await db.from("tp_products").insert({slug,name,summary,description,category,product_type:productType,hosted_path:String(b.hostedPath||"").trim(),price_minor:Math.round(price*100),currency:"NGN",
   hosted_enabled:Boolean(b.hostedEnabled),self_hosted_enabled:Boolean(b.selfHostedEnabled),visible_publicly:Boolean(b.visiblePublicly),active:Boolean(b.active),
   credit_cost_per_run:cost,source_code_url:sourceUrl||null,source_delivery_notes:cleanText(b.sourceDeliveryNotes,3000),included_setup_hours:hours,member_discount_percent:discount,features,updated_at:new Date().toISOString()})
   .select("*").single();
@@ -853,6 +854,7 @@ app.patch("/api/admin/commerce/products/:id",csrf,authLimit,authenticated,isAdmi
  if(Object.hasOwn(b,"creditCostPerRun")){const cost=Number(b.creditCostPerRun);if(!Number.isSafeInteger(cost)||cost<0||cost>1000000)return errorJson(r,400,"INVALID_CREDIT_COST","Enter a non-negative whole-number credit cost.");patch.credit_cost_per_run=cost;}
  if(Object.hasOwn(b,"memberDiscountPercent")){const discount=Number(b.memberDiscountPercent);if(!Number.isInteger(discount)||discount<0||discount>90)return errorJson(r,400,"INVALID_DISCOUNT","Discount must be between 0 and 90 percent.");patch.member_discount_percent=discount;}
  if(Object.hasOwn(b,"includedSetupHours")){const hours=Number(b.includedSetupHours);if(!Number.isFinite(hours)||hours<0||hours>100)return errorJson(r,400,"INVALID_SETUP_HOURS","Setup hours must be between 0 and 100.");patch.included_setup_hours=hours;}
+ if(Object.hasOwn(b,"hostedPath")){const url=String(b.hostedPath||"").trim();if(url&&(url.length>300||!url.startsWith("/")||url.startsWith("//")))return errorJson(r,400,"INVALID_HOSTED_PATH","Hosted path must be a site-local path beginning with a single slash.");patch.hosted_path=url;}
  if(Object.hasOwn(b,"sourceCodeUrl")){const url=String(b.sourceCodeUrl||"").trim();if(url&&(!/^https:\/\//i.test(url)||url.length>1000))return errorJson(r,400,"INVALID_SOURCE_URL","Source code delivery URL must be an HTTPS link.");patch.source_code_url=url||null;}
  if(Object.hasOwn(b,"features"))patch.features=(Array.isArray(b.features)?b.features:String(b.features||"").split(/\r?\n/)).map(x=>cleanText(x,200)).filter(Boolean).slice(0,20);
  const result=await db.from("tp_products").update(patch).eq("id",q.params.id).select("*").maybeSingle();
