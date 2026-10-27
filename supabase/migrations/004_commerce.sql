@@ -305,3 +305,121 @@ grant execute on function public.tp_credit_balance(uuid) to service_role;
 grant execute on function public.tp_credit_apply(uuid,integer,text,text,text,uuid,uuid) to service_role;
 grant execute on function public.tp_fulfill_payment(uuid,text,jsonb) to service_role;
 grant execute on function public.tp_start_tool_run(uuid,text,text,jsonb) to service_role;
+
+
+-- Credits are kept in buckets so monthly grants can expire at the paid period end,
+-- while top-ups and manual grants remain available until spent. A debit is allocated
+-- atomically to earliest-expiring credits first.
+create table if not exists public.tp_credit_buckets (
+ id uuid primary key default gen_random_uuid(),
+ user_id uuid not null references public.tp_users(id) on delete cascade,
+ source_type text not null check (source_type in ('monthly_grant','credit_topup','admin_adjustment','refund','promotion')),
+ original_amount integer not null check (original_amount > 0 and original_amount <= 1000000000),
+ remaining_amount integer not null check (remaining_amount >= 0 and remaining_amount <= original_amount),
+ idempotency_key text not null unique,
+ payment_id uuid references public.tp_payments(id) on delete set null,
+ created_by uuid references public.tp_users(id) on delete set null,
+ expires_at timestamptz,
+ created_at timestamptz not null default now()
+);
+create index if not exists tp_credit_buckets_user_expiry_idx
+ on public.tp_credit_buckets(user_id,expires_at,created_at) where remaining_amount > 0;
+
+create table if not exists public.tp_credit_consumptions (
+ id uuid primary key default gen_random_uuid(),
+ user_id uuid not null references public.tp_users(id) on delete cascade,
+ bucket_id uuid not null references public.tp_credit_buckets(id) on delete restrict,
+ ledger_id uuid not null references public.tp_credit_ledger(id) on delete restrict,
+ amount integer not null check (amount > 0 and amount <= 1000000000),
+ idempotency_key text not null unique,
+ description text not null default '' check (char_length(description) <= 500),
+ created_at timestamptz not null default now()
+);
+create index if not exists tp_credit_consumptions_user_created_idx on public.tp_credit_consumptions(user_id,created_at desc);
+create index if not exists tp_credit_consumptions_bucket_idx on public.tp_credit_consumptions(bucket_id,created_at desc);
+
+alter table public.tp_credit_buckets enable row level security;
+alter table public.tp_credit_consumptions enable row level security;
+revoke all on public.tp_credit_buckets,public.tp_credit_consumptions from anon,authenticated;
+grant select,insert,update,delete on public.tp_credit_buckets,public.tp_credit_consumptions to service_role;
+
+create or replace function public.tp_credit_balance(p_user_id uuid)
+returns integer language sql security definer set search_path=public,pg_temp as $$
+ select coalesce(sum(remaining_amount),0)::integer
+ from public.tp_credit_buckets
+ where user_id=p_user_id and (expires_at is null or expires_at>now())
+$$;
+
+create or replace function public.tp_credit_apply(
+ p_user_id uuid,p_amount integer,p_entry_type text,p_description text,p_idempotency_key text,p_payment_id uuid default null,p_created_by uuid default null
+) returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare
+ existing public.tp_credit_ledger%rowtype;
+ current_balance integer;
+ new_id uuid;
+ expiry timestamptz;
+ remaining_to_consume integer;
+ consume_amount integer;
+ bucket_row record;
+begin
+ if p_user_id is null or p_amount is null or p_amount=0 or abs(p_amount)>1000000000
+    or p_entry_type not in ('monthly_grant','credit_topup','tool_run','admin_adjustment','refund','promotion')
+    or p_idempotency_key is null or char_length(p_idempotency_key)<8 or char_length(p_idempotency_key)>180 then
+   return jsonb_build_object('status','invalid_request');
+ end if;
+ if p_entry_type='monthly_grant' and p_amount<0 then
+   return jsonb_build_object('status','invalid_request');
+ end if;
+ if p_entry_type='tool_run' and p_amount>0 then
+   return jsonb_build_object('status','invalid_request');
+ end if;
+ perform 1 from public.tp_users where id=p_user_id for update;
+ if not found then return jsonb_build_object('status','user_not_found'); end if;
+
+ select * into existing from public.tp_credit_ledger where idempotency_key=p_idempotency_key;
+ if found then return jsonb_build_object('status','duplicate','balance',public.tp_credit_balance(p_user_id),'entry_id',existing.id); end if;
+
+ current_balance:=public.tp_credit_balance(p_user_id);
+ if p_amount<0 and current_balance+p_amount<0 then
+   return jsonb_build_object('status','insufficient_credits','balance',current_balance);
+ end if;
+
+ if p_amount>0 and p_entry_type='monthly_grant' then
+   select current_period_end into expiry from public.tp_subscriptions
+   where user_id=p_user_id and status='active' and current_period_end>now()
+   order by current_period_end desc limit 1;
+   if expiry is null then return jsonb_build_object('status','membership_required','balance',current_balance); end if;
+ end if;
+
+ insert into public.tp_credit_ledger(user_id,amount,entry_type,description,idempotency_key,payment_id,created_by)
+ values(p_user_id,p_amount,p_entry_type,left(coalesce(p_description,''),500),p_idempotency_key,p_payment_id,p_created_by)
+ on conflict(idempotency_key) do nothing returning id into new_id;
+ if new_id is null then return jsonb_build_object('status','duplicate','balance',public.tp_credit_balance(p_user_id)); end if;
+
+ if p_amount>0 then
+   insert into public.tp_credit_buckets(user_id,source_type,original_amount,remaining_amount,idempotency_key,payment_id,created_by,expires_at)
+   values(p_user_id,p_entry_type,p_amount,p_amount,p_idempotency_key,p_payment_id,p_created_by,expiry);
+ else
+   remaining_to_consume:=abs(p_amount);
+   for bucket_row in
+    select id,remaining_amount from public.tp_credit_buckets
+    where user_id=p_user_id and remaining_amount>0 and (expires_at is null or expires_at>now())
+    order by (expires_at is null) asc,expires_at asc nulls last,created_at asc,id asc
+    for update
+   loop
+    exit when remaining_to_consume<=0;
+    consume_amount:=least(bucket_row.remaining_amount,remaining_to_consume);
+    update public.tp_credit_buckets set remaining_amount=remaining_amount-consume_amount where id=bucket_row.id;
+    insert into public.tp_credit_consumptions(user_id,bucket_id,ledger_id,amount,idempotency_key,description)
+    values(p_user_id,bucket_row.id,new_id,consume_amount,p_idempotency_key||':bucket:'||bucket_row.id::text,left(coalesce(p_description,''),500));
+    remaining_to_consume:=remaining_to_consume-consume_amount;
+   end loop;
+   if remaining_to_consume<>0 then raise exception 'credit bucket allocation did not match the reserved balance'; end if;
+ end if;
+ return jsonb_build_object('status','applied','balance',public.tp_credit_balance(p_user_id),'entry_id',new_id);
+end $$;
+
+revoke all on function public.tp_credit_balance(uuid) from public,anon,authenticated;
+revoke all on function public.tp_credit_apply(uuid,integer,text,text,text,uuid,uuid) from public,anon,authenticated;
+grant execute on function public.tp_credit_balance(uuid) to service_role;
+grant execute on function public.tp_credit_apply(uuid,integer,text,text,text,uuid,uuid) to service_role;
