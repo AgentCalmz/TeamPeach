@@ -116,7 +116,9 @@ test("SEO content brief builder is interactive and states its current data limit
  assert.match(builder,/function buildBrief\(values\)/);
  assert.match(builder,/api\("\/api\/workspace\/projects","POST"/);
  assert.match(builder,/api\("\/api\/workspace\/projects\/"/);
- assert.match(builder,/Copy as Markdown/);
+ assert.match(html,/id="copy-brief"/);
+ assert.match(builder,/#copy-brief/);
+ assert.match(builder,/navigator\.clipboard\.writeText\(toMarkdown\(currentBrief\)\)/);
 });
 
 
