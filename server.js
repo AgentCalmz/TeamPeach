@@ -856,6 +856,10 @@ app.post("/api/admin/commerce/products",csrf,authLimit,authenticated,isAdmin,asy
   return errorJson(r,400,"INVALID_PRODUCT","Check the product slug, name, price, credit cost, discount and setup hours.");
  if(!["tool","agent","automation","service"].includes(category)||!["hosted_tool","self_hosted_tool","hosted_and_self_hosted","service"].includes(productType))
   return errorJson(r,400,"INVALID_PRODUCT_TYPE","Choose a supported product category and type.");
+ if(Boolean(b.active)&&Boolean(b.selfHostedEnabled)&&price<1)
+  return errorJson(r,400,"LICENSE_PRICE_REQUIRED","Set a positive one-time licence price before publishing a self-hosted product.");
+ if(Boolean(b.active)&&Boolean(b.hostedEnabled)&&cost<1)
+  return errorJson(r,400,"HOSTED_RUN_COST_REQUIRED","Set a positive credit cost before publishing a hosted tool.");
  const sourceUrl=String(b.sourceCodeUrl||"").trim(),hostedPath=String(b.hostedPath||"").trim();
  if(hostedPath&&(hostedPath.length>300||!hostedPath.startsWith("/")||hostedPath.startsWith("//")))return errorJson(r,400,"INVALID_HOSTED_PATH","Hosted path must be a site-local path beginning with a single slash.");
  if(sourceUrl&&(!/^https:\/\//i.test(sourceUrl)||sourceUrl.length>1000))return errorJson(r,400,"INVALID_SOURCE_URL","Source delivery URL must be an HTTPS link.");
@@ -869,6 +873,9 @@ app.post("/api/admin/commerce/products",csrf,authLimit,authenticated,isAdmin,asy
 }));
 app.patch("/api/admin/commerce/products/:id",csrf,authLimit,authenticated,isAdmin,asyncRoute(async(q,r)=>{
  if(!validWorkspaceId(q.params.id))return errorJson(r,400,"INVALID_PRODUCT_ID","This product link is invalid.");
+ const current=await db.from("tp_products").select("active,self_hosted_enabled,hosted_enabled,price_minor,credit_cost_per_run").eq("id",q.params.id).maybeSingle();
+ if(current.error){logFailure("admin-product-current",current.error);return errorJson(r,503,"PRODUCT_UPDATE_FAILED","The current product could not be checked.");}
+ if(!current.data)return errorJson(r,404,"PRODUCT_NOT_FOUND","That product was not found.");
  const b=q.body||{},patch={updated_at:new Date().toISOString()};
  if(Object.hasOwn(b,"slug")){const slug=String(b.slug||"").trim().toLowerCase();if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))return errorJson(r,400,"INVALID_PRODUCT_SLUG","Use lowercase letters, numbers and hyphens for the product slug.");patch.slug=slug;}
  if(Object.hasOwn(b,"name")){patch.name=cleanText(b.name,120);if(patch.name.length<2)return errorJson(r,400,"INVALID_PRODUCT_NAME","Product name is too short.");}
@@ -882,6 +889,13 @@ app.patch("/api/admin/commerce/products/:id",csrf,authLimit,authenticated,isAdmi
  if(Object.hasOwn(b,"hostedPath")){const url=String(b.hostedPath||"").trim();if(url&&(url.length>300||!url.startsWith("/")||url.startsWith("//")))return errorJson(r,400,"INVALID_HOSTED_PATH","Hosted path must be a site-local path beginning with a single slash.");patch.hosted_path=url;}
  if(Object.hasOwn(b,"sourceCodeUrl")){const url=String(b.sourceCodeUrl||"").trim();if(url&&(!/^https:\/\//i.test(url)||url.length>1000))return errorJson(r,400,"INVALID_SOURCE_URL","Source code delivery URL must be an HTTPS link.");patch.source_code_url=url||null;}
  if(Object.hasOwn(b,"features"))patch.features=(Array.isArray(b.features)?b.features:String(b.features||"").split(/\r?\n/)).map(x=>cleanText(x,200)).filter(Boolean).slice(0,20);
+ const finalActive=Object.hasOwn(patch,"active")?patch.active:current.data.active;
+ const finalSelfHosted=Object.hasOwn(patch,"self_hosted_enabled")?patch.self_hosted_enabled:current.data.self_hosted_enabled;
+ const finalHosted=Object.hasOwn(patch,"hosted_enabled")?patch.hosted_enabled:current.data.hosted_enabled;
+ const finalPrice=Object.hasOwn(patch,"price_minor")?patch.price_minor:Number(current.data.price_minor);
+ const finalCost=Object.hasOwn(patch,"credit_cost_per_run")?patch.credit_cost_per_run:current.data.credit_cost_per_run;
+ if(finalActive&&finalSelfHosted&&finalPrice<1)return errorJson(r,400,"LICENSE_PRICE_REQUIRED","Set a positive one-time licence price before publishing a self-hosted product.");
+ if(finalActive&&finalHosted&&finalCost<1)return errorJson(r,400,"HOSTED_RUN_COST_REQUIRED","Set a positive credit cost before publishing a hosted tool.");
  const result=await db.from("tp_products").update(patch).eq("id",q.params.id).select("*").maybeSingle();
  if(result.error){logFailure("admin-product-update",result.error);return errorJson(r,503,"PRODUCT_UPDATE_FAILED","The product could not be updated.");}
  if(!result.data)return errorJson(r,404,"PRODUCT_NOT_FOUND","That product was not found.");
@@ -897,10 +911,14 @@ app.post("/api/admin/commerce/plans",csrf,authLimit,authenticated,isAdmin,asyncR
 }));
 app.patch("/api/admin/commerce/plans/:id",csrf,authLimit,authenticated,isAdmin,asyncRoute(async(q,r)=>{
  if(!validWorkspaceId(q.params.id))return errorJson(r,400,"INVALID_PLAN_ID","This plan link is invalid.");
- const active=await db.from("tp_subscriptions").select("id",{head:true,count:"exact"}).eq("plan_id",q.params.id).in("status",["active","past_due"]).gt("current_period_end",new Date().toISOString());
- if(active.error){logFailure("admin-plan-subscriber-check",active.error);return errorJson(r,503,"PLAN_CHECK_FAILED","Could not check plan subscribers.");}
- if((active.count||0)>0)return errorJson(r,409,"PLAN_IN_USE","This plan has current subscribers. Create a new plan instead of changing its price or billing terms.");
- const b=q.body||{},patch={updated_at:new Date().toISOString()};
+ const b=q.body||{};
+ const changesBillingTerms=Object.hasOwn(b,"priceNaira")||Object.hasOwn(b,"monthlyCredits")||Object.hasOwn(b,"slug");
+ if(changesBillingTerms){
+  const active=await db.from("tp_subscriptions").select("id",{head:true,count:"exact"}).eq("plan_id",q.params.id).in("status",["active","past_due","cancelled"]).gt("current_period_end",new Date().toISOString());
+  if(active.error){logFailure("admin-plan-subscriber-check",active.error);return errorJson(r,503,"PLAN_CHECK_FAILED","Could not check plan subscribers.");}
+  if((active.count||0)>0)return errorJson(r,409,"PLAN_IN_USE","This plan has current subscribers. Create a new plan instead of changing its price or monthly credit allowance.");
+ }
+ const patch={updated_at:new Date().toISOString()};
  if(Object.hasOwn(b,"slug")){const slug=String(b.slug||"").trim().toLowerCase();if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))return errorJson(r,400,"INVALID_PLAN_SLUG","Use lowercase letters, numbers and hyphens.");patch.slug=slug;}
  if(Object.hasOwn(b,"name")){patch.name=cleanText(b.name,100);if(patch.name.length<2)return errorJson(r,400,"INVALID_PLAN_NAME","Plan name is too short.");}
  if(Object.hasOwn(b,"description"))patch.description=cleanText(b.description,1200);
