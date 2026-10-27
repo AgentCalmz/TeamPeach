@@ -1,4 +1,5 @@
 /* Shared customer/staff support chat */
+[hidden]{display:none!important}
 .support-chat-section{margin-top:28px}
 .support-chat-shell{border:1px solid var(--ws-line,#e7e1d8);border-radius:16px;background:var(--ws-white,#fffdfa);overflow:hidden}
 .support-chat-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:20px 22px;border-bottom:1px solid var(--ws-line,#e7e1d8)}
