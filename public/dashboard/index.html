@@ -7,7 +7,7 @@
 <link rel="canonical" href="https://teampeach.org/dashboard/"><link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/styles.css?v=4"><link rel="stylesheet" href="/css/dashboard.css?v=1">
+<link rel="stylesheet" href="/css/styles.css?v=4"><link rel="stylesheet" href="/css/dashboard.css?v=1"><link rel="stylesheet" href="/css/support-chat.css?v=1">
 <title>Your workspace | TeamPeach</title>
 </head>
 <body class="workspace-body">
@@ -20,6 +20,7 @@
     <a class="workspace-nav-link active" href="/dashboard/" aria-current="page"><span class="nav-glyph">⌂</span> Overview</a>
     <a class="workspace-nav-link" href="#projects"><span class="nav-glyph">▦</span> Projects <span class="nav-count" id="nav-project-count">0</span></a>
     <a class="workspace-nav-link" href="#tasks"><span class="nav-glyph">✓</span> Tasks <span class="nav-count" id="nav-task-count">0</span></a>
+    <a class="workspace-nav-link" href="#support-chat"><span class="nav-glyph">✉</span> Support chat <span class="nav-count" id="support-unread-count" hidden>0</span></a>
   </nav>
   <div class="workspace-label workspace-label-tools">TOOLS & IDEAS</div>
   <nav class="workspace-nav" aria-label="Tools">
@@ -71,6 +72,42 @@
       <div class="workspace-note"><span>✧</span><p><strong>Thoughtfully built, honestly described.</strong> The brief builder uses a structured template; live search data and an AI model are not connected yet.</p></div>
     </aside>
   </div>
+  <section class="workspace-section support-chat-section" id="support-chat">
+    <div class="workspace-section-heading">
+      <div><p class="eyebrow"><span></span> HERE WHEN YOU NEED US</p><h2>Chat with support</h2><p>Ask a question and keep the whole conversation in your TeamPeach dashboard.</p></div>
+      <span class="tasks-heading-mark" aria-hidden="true">✉</span>
+    </div>
+    <div class="support-chat-shell">
+      <div class="support-chat-heading"><div><p class="eyebrow">PRIVATE SUPPORT INBOX</p><h2>Your conversations</h2><p>Replies from our team appear here. You do not need to leave the website to check email.</p></div></div>
+      <div class="support-chat-layout">
+        <aside class="support-chat-sidebar" aria-label="Support conversations">
+          <div class="support-chat-sidebar-top"><strong>Your inbox</strong><button class="support-chat-btn primary" id="support-new-toggle" type="button">＋ New message</button></div>
+          <form id="support-new-form" class="support-chat-new-form" hidden>
+            <label for="support-new-subject">What do you need help with?</label>
+            <input id="support-new-subject" name="subject" type="text" maxlength="120" minlength="3" placeholder="A short subject" required>
+            <label for="support-new-body">Message</label>
+            <textarea id="support-new-body" name="body" rows="4" maxlength="4000" placeholder="Tell us how we can help…" required></textarea>
+            <div class="support-chat-reply-row"><button class="support-chat-btn" id="support-new-cancel" type="button">Cancel</button><button class="support-chat-btn primary" type="submit">Send message ↗</button></div>
+            <p class="support-chat-feedback" id="support-new-feedback" role="status" aria-live="polite"></p>
+          </form>
+          <div class="support-chat-list" id="support-conversations" aria-live="polite"><div class="support-chat-empty-inline">Loading your conversations…</div></div>
+        </aside>
+        <div class="support-chat-main">
+          <div id="support-thread-empty" class="support-chat-empty"><div><strong>Talk to a real person.</strong>Start a conversation or select one from your inbox. Your messages are visible to you and the authorised support team.</div></div>
+          <div id="support-thread" hidden>
+            <div class="support-chat-thread-header"><div><h3 id="support-thread-title">Support conversation</h3><p id="support-thread-detail">Messages are private to you and the TeamPeach support team.</p></div><span id="support-thread-status" class="support-chat-status">Open</span></div>
+            <div class="support-chat-messages" id="support-messages" role="log" aria-live="polite" aria-label="Conversation messages"></div>
+            <form id="support-reply-form" class="support-chat-reply">
+              <label class="sr-only" for="support-reply-message">Write a reply</label>
+              <textarea id="support-reply-message" name="body" rows="3" maxlength="4000" placeholder="Write your message…" required></textarea>
+              <div class="support-chat-reply-row"><span class="support-chat-helper">Up to 4,000 characters · replies stay in this inbox</span><button class="support-chat-btn primary" type="submit">Send reply ↗</button></div>
+              <p class="support-chat-feedback" id="support-feedback" role="status" aria-live="polite"></p>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
   <footer class="workspace-footer"><span>TeamPeach · Practical AI, human judgement.</span><a href="/account/">Manage your account</a><a href="/#custom">Need help? Contact us ↗</a></footer>
 </main>
 </div>
@@ -87,5 +124,6 @@
 </dialog>
 <div class="workspace-toast" id="workspace-toast" role="status" aria-live="polite"></div>
 <script src="/js/dashboard.js?v=1" defer></script>
+<script src="/js/support-chat.js?v=1" defer></script>
 </body>
 </html>
