@@ -10,6 +10,7 @@ create table if not exists public.tp_products (
  description text not null default '' check (char_length(description) <= 5000),
  category text not null default 'tool' check (category in ('tool','agent','automation','service')),
  product_type text not null default 'hosted_tool' check (product_type in ('hosted_tool','self_hosted_tool','hosted_and_self_hosted','service')),
+ hosted_path text not null default '' check (char_length(hosted_path)<=300 and (hosted_path='' or (left(hosted_path,1)='/' and left(hosted_path,2)<>'//'))),
  price_minor bigint not null default 0 check (price_minor >= 0 and price_minor <= 100000000000),
  currency text not null default 'NGN' check (currency = 'NGN'),
  hosted_enabled boolean not null default false,
@@ -177,13 +178,13 @@ revoke all on public.tp_products,public.tp_subscription_plans,public.tp_credit_p
 grant select,insert,update,delete on public.tp_products,public.tp_subscription_plans,public.tp_credit_packs,public.tp_payments,public.tp_subscriptions,public.tp_credit_ledger,public.tp_tool_licenses,public.tp_deployments,public.tp_tool_runs to service_role;
 
 insert into public.tp_products(
- slug,name,summary,description,category,product_type,price_minor,currency,
+ slug,name,summary,description,category,product_type,hosted_path,price_minor,currency,
  hosted_enabled,self_hosted_enabled,visible_publicly,active,credit_cost_per_run,features
 ) values(
  'seo-content-brief','SEO Content Brief Builder',
  'Turn a topic into a structured editorial plan and save it to your workspace.',
  'This version uses a structured template. It does not yet call an AI model or fetch live search results. Configure a price and hosted credit cost in the admin dashboard before enabling access.',
- 'tool','hosted_tool',0,'NGN',false,false,true,false,1,
+ 'tool','hosted_tool','/tools/seo-content-brief/',0,'NGN',false,false,true,false,1,
  '["Structured content brief","Save a brief to your workspace","Template-based; not currently AI-powered"]'::jsonb
 ) on conflict(slug) do nothing;
 
