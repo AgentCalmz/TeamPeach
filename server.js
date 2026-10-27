@@ -206,7 +206,7 @@ async function runTransactionalQueue(){
 async function runEmailQueue(){if(emailCoordinatorBusy)return;emailCoordinatorBusy=true;try{await runTransactionalQueue();}finally{emailCoordinatorBusy=false;}}
 async function cleanup(){if(!db)return;try{await db.from("tp_pending_registrations").delete().lt("expires_at",new Date(Date.now()-86400000).toISOString());await db.from("tp_password_resets").delete().lt("expires_at",new Date(Date.now()-86400000).toISOString());await db.from("tp_sessions").delete().lt("expires_at",new Date().toISOString());await db.from("tp_sessions").delete().lt("revoked_at",new Date(Date.now()-30*86400000).toISOString());}catch(e){logFailure("cleanup",e);}}
 
-app.get("/api/health",asyncRoute(async(_q,r)=>{let schemaReady=false;if(db){const [check,rateCheck,usageCheck,workspaceProjects,workspaceTasks]=await Promise.all([db.from("tp_users").select("id",{head:true,count:"exact"}),db.from("tp_rate_limits").select("bucket_hash",{head:true,count:"exact"}),db.from("tp_email_usage").select("id",{head:true,count:"exact"}),db.from("tp_workspace_projects").select("id",{head:true,count:"exact"}),db.from("tp_workspace_tasks").select("id",{head:true,count:"exact"})]);schemaReady=!check.error&&!rateCheck.error&&!usageCheck.error&&!workspaceProjects.error&&!workspaceTasks.error;const schemaError=check.error||rateCheck.error||usageCheck.error||workspaceProjects.error||workspaceTasks.error;if(schemaError)logFailure("health-schema",schemaError);}const ready=authReady()&&schemaReady&&emailReady();r.status(ready?200:503).json({status:ready?"ready":"degraded",service:"teampeach",accountServicesConfigured:authReady(),databaseSchemaReady:schemaReady,emailDeliveryConfigured:emailReady(),emailTransport:emailReady()?emailTransportMode():"unconfigured"});}));
+app.get("/api/health",asyncRoute(async(_q,r)=>{let schemaReady=false;if(db){const [check,rateCheck,usageCheck,workspaceProjects,workspaceTasks,supportConversations,supportMessages]=await Promise.all([db.from("tp_users").select("id",{head:true,count:"exact"}),db.from("tp_rate_limits").select("bucket_hash",{head:true,count:"exact"}),db.from("tp_email_usage").select("id",{head:true,count:"exact"}),db.from("tp_workspace_projects").select("id",{head:true,count:"exact"}),db.from("tp_workspace_tasks").select("id",{head:true,count:"exact"}),db.from("tp_support_conversations").select("id",{head:true,count:"exact"}),db.from("tp_support_messages").select("id",{head:true,count:"exact"})]);schemaReady=!check.error&&!rateCheck.error&&!usageCheck.error&&!workspaceProjects.error&&!workspaceTasks.error&&!supportConversations.error&&!supportMessages.error;const schemaError=check.error||rateCheck.error||usageCheck.error||workspaceProjects.error||workspaceTasks.error||supportConversations.error||supportMessages.error;if(schemaError)logFailure("health-schema",schemaError);}const ready=authReady()&&schemaReady&&emailReady();r.status(ready?200:503).json({status:ready?"ready":"degraded",service:"teampeach",accountServicesConfigured:authReady(),databaseSchemaReady:schemaReady,emailDeliveryConfigured:emailReady(),emailTransport:emailReady()?emailTransportMode():"unconfigured"});}));
 app.get("/api/csrf",(_q,r)=>{const token=crypto.randomBytes(32).toString("base64url");r.cookie("tp_csrf",token,{httpOnly:false,secure:isProd,sameSite:"lax",path:"/",maxAge:7200000});r.json({token});});
 app.post("/api/auth/register/start",authLimit,csrf,persistentAuthIpLimit,persistentRegistrationEmailLimit,asyncRoute(async(q,r)=>{if(!backendReady(r,true))return;const name=normalizePersonName(q.body&&q.body.fullName),email=normalizeEmail(q.body&&q.body.email),password=q.body&&q.body.password,opt=Boolean(q.body&&q.body.marketingOptIn);if(name.length<2)return errorJson(r,400,"INVALID_NAME","Enter your name (at least 2 characters).");if(!isValidEmail(email))return errorJson(r,400,"INVALID_EMAIL","Enter a valid email address.");if(!validPassword(password))return errorJson(r,400,"INVALID_PASSWORD","Use a password between 12 and 128 characters.");try{if(await findUser(email))return errorJson(r,409,"ACCOUNT_EXISTS","This email already has a verified TeamPeach account. Sign in or reset your password.");const old=await db.from("tp_pending_registrations").select("expires_at,last_sent_at").eq("email",email).maybeSingle();if(old.error)throw old.error;const now=Date.now();if(old.data&&new Date(old.data.expires_at).getTime()>now&&now-new Date(old.data.last_sent_at).getTime()<60000)return r.json({ok:true,pending:true,message:"A code was already requested. Check your inbox or wait one minute before requesting another."});const code=generateOtp(),hashed=await hashPassword(password),saved=await db.from("tp_pending_registrations").upsert({email,full_name:name,password_hash:hashed,otp_hash:otpHash(email,code,process.env.OTP_PEPPER,"registration"),marketing_opt_in:opt,expires_at:new Date(now+OTP_MINS*60000).toISOString(),attempt_count:0,last_sent_at:new Date(now).toISOString()},{onConflict:"email"});if(saved.error)throw saved.error;try{await sendSmtp(email,name,otpEmail(code,"registration",OTP_MINS,baseUrl()),["teampeach","registration-otp"],null,"registration_otp");}catch(e){logFailure("register-email",e);if(e.code==="EMAIL_DELIVERY_UNCERTAIN"){return r.status(202).json({ok:true,pending:true,message:"We could not confirm delivery. Check your inbox; the current code remains valid if the email was accepted. If needed, request a fresh code after one minute."});}await db.from("tp_pending_registrations").delete().eq("email",email);if(e.code==="EMAIL_DAILY_LIMIT")return errorJson(r,429,"EMAIL_DAILY_LIMIT","The daily email allowance has been reached. Please try again later.");return errorJson(r,502,"EMAIL_SEND_FAILED","We could not send a verification code. Please try again shortly.");}r.json({ok:true,pending:true,message:"We sent a verification code. Enter it to finish creating your account."});}catch(e){logFailure("register-start",e);errorJson(r,503,"REGISTRATION_UNAVAILABLE","Registration is temporarily unavailable. Please try again.");}}));
 app.post("/api/auth/register/resend",authLimit,csrf,persistentAuthIpLimit,persistentRegistrationEmailLimit,asyncRoute(async(q,r)=>{if(!backendReady(r,true))return;const email=normalizeEmail(q.body&&q.body.email);if(!isValidEmail(email))return errorJson(r,400,"INVALID_EMAIL","Enter a valid email address.");try{const old=await db.from("tp_pending_registrations").select("full_name,expires_at,last_sent_at").eq("email",email).maybeSingle();if(old.error)throw old.error;if(!old.data||new Date(old.data.expires_at).getTime()<=Date.now())return r.json({ok:true,message:"If there is an active registration for this address, a fresh code may be sent. You can also return to registration and start again."});if(Date.now()-new Date(old.data.last_sent_at).getTime()<60000)return r.json({ok:true,message:"If you recently requested a code, check your inbox. Please wait a minute before requesting another."});const code=generateOtp(),u=await db.from("tp_pending_registrations").update({otp_hash:otpHash(email,code,process.env.OTP_PEPPER,"registration"),expires_at:new Date(Date.now()+OTP_MINS*60000).toISOString(),attempt_count:0,last_sent_at:new Date().toISOString()}).eq("email",email);if(u.error)throw u.error;try{await sendSmtp(email,old.data.full_name,otpEmail(code,"registration",OTP_MINS,baseUrl()),["teampeach","registration-otp"],null,"registration_otp");}catch(e){logFailure("register-resend-email",e);return r.status(202).json({ok:true,message:"If a registration is active, check your inbox; if delivery could not be confirmed, the current code may still work. You can request a fresh code shortly."});}r.json({ok:true,message:"A fresh code has been sent. Only the newest code will work."});}catch(e){logFailure("register-resend",e);r.json({ok:true,message:"If a registration is active, check your inbox or try again shortly."});}}));
@@ -316,6 +316,110 @@ app.patch("/api/account/preferences",csrf,authenticated,asyncRoute(async(q,r)=>{
  r.json({ok:true,marketingOptIn:d.data.marketing_opt_in,message:"Your email preference has been saved."});
 }));
 app.post("/api/projects",csrf,authLimit,persistentInquiryIpLimit,persistentInquiryEmailLimit,asyncRoute(async(q,r)=>{if(!backendReady(r,false))return;const name=normalizePersonName(q.body&&q.body.name),email=normalizeEmail(q.body&&q.body.email),type=cleanText(q.body&&q.body.type,100),details=cleanText(q.body&&q.body.details,5000);if(name.length<2||!isValidEmail(email)||type.length<3||details.length<10)return errorJson(r,400,"INVALID_INQUIRY","Enter your name, valid email, project type and at least 10 characters about the work.");try{const d=await db.from("tp_project_requests").insert({full_name:name,email,project_type:type,details,status:"new"}).select("id").single();if(d.error)throw d.error;const recipients=adminEmailsFromEnv(process.env.ADMIN_EMAILS).map(e=>({email:e,name:"TeamPeach administrator"}));if(recipients.length){try{await queueJob(null,"system","New TeamPeach project inquiry","Name: "+name+"\nEmail: "+email+"\nType: "+type+"\n\nDetails:\n"+details,recipients);runEmailQueue();}catch(e){logFailure("project-notice",e);}}r.status(201).json({ok:true,message:"Thank you. Your inquiry has been received. We’ll review it and follow up using the email address you provided."});}catch(e){logFailure("project-inquiry",e);errorJson(r,503,"INQUIRY_UNAVAILABLE","Your inquiry could not be submitted. Please try again later.");}}));
+
+
+const supportConversationFields="id,user_id,subject,status,last_message_at,last_user_read_at,last_staff_read_at,created_at,updated_at";
+const supportMessageFields="id,conversation_id,sender_user_id,sender_role,sender_name,body,created_at";
+async function supportListWithLatest(conversations,perspective){
+ if(!conversations.length)return [];
+ const ids=conversations.map(item=>item.id);
+ const query=await db.from("tp_support_messages").select(supportMessageFields).in("conversation_id",ids).order("created_at",{ascending:false}).limit(Math.min(1000,Math.max(100,ids.length*10)));
+ if(query.error)throw query.error;
+ const latest=new Map();
+ for(const message of query.data||[])if(!latest.has(message.conversation_id))latest.set(message.conversation_id,message);
+ return conversations.map(conversation=>{
+  const lastMessage=latest.get(conversation.id)||null;
+  const readAt=perspective==="staff"?conversation.last_staff_read_at:conversation.last_user_read_at;
+  const incomingRole=perspective==="staff"?"user":"staff";
+  const unread=Boolean(lastMessage&&lastMessage.sender_role===incomingRole&&new Date(lastMessage.created_at).getTime()>new Date(readAt||0).getTime());
+  return {...conversation,last_message:lastMessage?{body:lastMessage.body,sender_role:lastMessage.sender_role,sender_name:lastMessage.sender_name,created_at:lastMessage.created_at}:null,unread};
+ });
+}
+app.get("/api/support/conversations",authenticated,asyncRoute(async(q,r)=>{
+ try{
+  const result=await db.from("tp_support_conversations").select(supportConversationFields).eq("user_id",q.user.id).order("last_message_at",{ascending:false}).limit(50);
+  if(result.error)throw result.error;
+  const conversations=await supportListWithLatest(result.data||[],"user");
+  r.json({ok:true,conversations});
+ }catch(e){logFailure("support-user-list",e);errorJson(r,503,"SUPPORT_UNAVAILABLE","Support chat is unavailable. Confirm that supabase/migrations/003_support_chat.sql has been applied, then retry.");}
+}));
+app.post("/api/support/conversations",csrf,authenticated,asyncRoute(async(q,r)=>{
+ const body=q.body||{},subject=cleanText(body.subject,120),messageBody=cleanText(body.body,4000);
+ if(subject.length<3)return errorJson(r,400,"INVALID_SUPPORT_SUBJECT","Use a subject between 3 and 120 characters.");
+ if(messageBody.length<1)return errorJson(r,400,"INVALID_SUPPORT_MESSAGE","Write a message before sending.");
+ const now=new Date().toISOString();
+ try{
+  const created=await db.from("tp_support_conversations").insert({user_id:q.user.id,subject,status:"waiting_for_staff",last_message_at:now,last_user_read_at:now,created_at:now,updated_at:now}).select(supportConversationFields).single();
+  if(created.error)throw created.error;
+  const sent=await db.from("tp_support_messages").insert({conversation_id:created.data.id,sender_user_id:q.user.id,sender_role:"user",sender_name:q.user.full_name,body:messageBody,created_at:now}).select(supportMessageFields).single();
+  if(sent.error){
+   const rollback=await db.from("tp_support_conversations").delete().eq("id",created.data.id).eq("user_id",q.user.id);
+   if(rollback.error)logFailure("support-create-rollback",rollback.error);
+   throw sent.error;
+  }
+  r.status(201).json({ok:true,conversation:{...created.data,last_message:{body:sent.data.body,sender_role:"user",sender_name:sent.data.sender_name,created_at:sent.data.created_at},unread:false}});
+ }catch(e){logFailure("support-create",e);errorJson(r,503,"SUPPORT_CREATE_FAILED","We could not start your conversation. Confirm the support database migration has been applied, then retry.");}
+}));
+app.get("/api/support/conversations/:id/messages",authenticated,asyncRoute(async(q,r)=>{
+ if(!validWorkspaceId(q.params.id))return errorJson(r,400,"INVALID_SUPPORT_ID","This conversation link is invalid.");
+ try{
+  let conversationQuery=db.from("tp_support_conversations").select(supportConversationFields).eq("id",q.params.id);
+  if(!q.isAdmin)conversationQuery=conversationQuery.eq("user_id",q.user.id);
+  const conversation=await conversationQuery.maybeSingle();
+  if(conversation.error)throw conversation.error;
+  if(!conversation.data)return errorJson(r,404,"SUPPORT_CONVERSATION_NOT_FOUND","That support conversation could not be found.");
+  const result=await db.from("tp_support_messages").select(supportMessageFields).eq("conversation_id",q.params.id).order("created_at",{ascending:false}).limit(100);
+  if(result.error)throw result.error;
+  const now=new Date().toISOString(),readPatch=q.isAdmin?{last_staff_read_at:now}:{last_user_read_at:now};
+  const readUpdate=await db.from("tp_support_conversations").update(readPatch).eq("id",q.params.id);
+  if(readUpdate.error)logFailure("support-read-marker",readUpdate.error);
+  r.json({ok:true,conversation:conversation.data,messages:(result.data||[]).reverse()});
+ }catch(e){logFailure("support-messages",e);errorJson(r,503,"SUPPORT_MESSAGES_FAILED","We could not load these messages. Please refresh and try again.");}
+}));
+app.post("/api/support/conversations/:id/messages",csrf,authenticated,asyncRoute(async(q,r)=>{
+ if(!validWorkspaceId(q.params.id))return errorJson(r,400,"INVALID_SUPPORT_ID","This conversation link is invalid.");
+ const messageBody=cleanText(q.body&&q.body.body,4000);
+ if(messageBody.length<1)return errorJson(r,400,"INVALID_SUPPORT_MESSAGE","Write a message before sending.");
+ try{
+  let conversationQuery=db.from("tp_support_conversations").select(supportConversationFields).eq("id",q.params.id);
+  if(!q.isAdmin)conversationQuery=conversationQuery.eq("user_id",q.user.id);
+  const conversation=await conversationQuery.maybeSingle();
+  if(conversation.error)throw conversation.error;
+  if(!conversation.data)return errorJson(r,404,"SUPPORT_CONVERSATION_NOT_FOUND","That support conversation could not be found.");
+  const now=new Date().toISOString(),role=q.isAdmin?"staff":"user";
+  const saved=await db.from("tp_support_messages").insert({conversation_id:q.params.id,sender_user_id:q.user.id,sender_role:role,sender_name:q.isAdmin?(q.user.full_name||"TeamPeach Support"):q.user.full_name,body:messageBody,created_at:now}).select(supportMessageFields).single();
+  if(saved.error)throw saved.error;
+  const patch={status:q.isAdmin?"waiting_for_user":"waiting_for_staff",last_message_at:now,updated_at:now};
+  patch[q.isAdmin?"last_staff_read_at":"last_user_read_at"]=now;
+  const updated=await db.from("tp_support_conversations").update(patch).eq("id",q.params.id);
+  if(updated.error)logFailure("support-update-conversation",updated.error);
+  r.status(201).json({ok:true,message:saved.data});
+ }catch(e){logFailure("support-send-message",e);errorJson(r,503,"SUPPORT_SEND_FAILED","Your message could not be sent. Please refresh and retry.");}
+}));
+app.get("/api/admin/support/conversations",authenticated,isAdmin,asyncRoute(async(_q,r)=>{
+ try{
+  const result=await db.from("tp_support_conversations").select(supportConversationFields).order("last_message_at",{ascending:false}).limit(100);
+  if(result.error)throw result.error;
+  const conversations=result.data||[];
+  const enriched=await supportListWithLatest(conversations,"staff");
+  const ids=[...new Set(conversations.map(item=>item.user_id))];
+  const users=ids.length?await db.from("tp_users").select("id,email,full_name").in("id",ids):{data:[],error:null};
+  if(users.error)throw users.error;
+  const byId=new Map((users.data||[]).map(user=>[user.id,user]));
+  r.json({ok:true,conversations:enriched.map(item=>({...item,user_name:byId.get(item.user_id)?.full_name||"Customer",user_email:byId.get(item.user_id)?.email||""}))});
+ }catch(e){logFailure("support-admin-list",e);errorJson(r,503,"SUPPORT_ADMIN_UNAVAILABLE","The support inbox is unavailable. Confirm that supabase/migrations/003_support_chat.sql has been applied, then retry.");}
+}));
+app.patch("/api/admin/support/conversations/:id/status",csrf,authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ if(!validWorkspaceId(q.params.id))return errorJson(r,400,"INVALID_SUPPORT_ID","This conversation link is invalid.");
+ const status=String(q.body&&q.body.status||"");
+ if(!["open","waiting_for_staff","waiting_for_user","closed"].includes(status))return errorJson(r,400,"INVALID_SUPPORT_STATUS","Choose a valid conversation status.");
+ try{
+  const saved=await db.from("tp_support_conversations").update({status,updated_at:new Date().toISOString()}).eq("id",q.params.id).select(supportConversationFields).maybeSingle();
+  if(saved.error)throw saved.error;
+  if(!saved.data)return errorJson(r,404,"SUPPORT_CONVERSATION_NOT_FOUND","That conversation could not be found.");
+  r.json({ok:true,conversation:saved.data});
+ }catch(e){logFailure("support-status",e);errorJson(r,503,"SUPPORT_STATUS_FAILED","The conversation status could not be updated.");}
+}));
 
 app.get("/api/admin/email/stats",authenticated,isAdmin,asyncRoute(async(_q,r)=>{const a=await db.from("tp_users").select("id",{count:"exact",head:true}).eq("marketing_opt_in",true),b=await db.from("tp_email_usage").select("id",{count:"exact",head:true}).eq("status","sent").gte("sent_at",new Date(new Date().setUTCHours(0,0,0,0)).toISOString());if(a.error||b.error){logFailure("admin-stats",a.error||b.error);return errorJson(r,503,"STATS_FAILED","Email statistics are unavailable.");}r.json({ok:true,optedInRecipients:a.count||0,sentToday:b.count||0,dailySoftLimit:DAILY_LIMIT});}));
 app.get("/api/admin/email/jobs",authenticated,isAdmin,asyncRoute(async(_q,r)=>{const d=await db.from("tp_email_jobs").select("id,mode,subject,status,total_count,success_count,fail_count,created_at,completed_at").order("created_at",{ascending:false}).limit(20);if(d.error){logFailure("admin-jobs",d.error);return errorJson(r,503,"JOBS_FAILED","Email history unavailable.");}r.json({ok:true,jobs:d.data||[]});}));
