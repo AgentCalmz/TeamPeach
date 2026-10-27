@@ -863,7 +863,7 @@ app.post("/api/commerce/subscription/cancel",csrf,authLimit,authenticated,asyncR
     const match=entries.find(item=>{
      const email=normalizeEmail(item.customer&&item.customer.email||item.customer_email||"");
      const plan=String(item.plan&&item.plan.id||item.plan_id||item.payment_plan||"");
-     return (!email||email===q.user.email)&&(!plan||plan===String(sub.provider_plan_id))&&(!item.status||String(item.status).toLowerCase()==="active");
+     return email===q.user.email&&plan===String(sub.provider_plan_id)&&(!item.status||String(item.status).toLowerCase()==="active");
     });
     if(match&&/^\d{1,24}$/.test(String(match.id||"")))id=String(match.id);
    }
