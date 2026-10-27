@@ -796,6 +796,206 @@ app.post("/api/commerce/tool-runs",csrf,authLimit,authenticated,asyncRoute(async
  r.status(201).json({ok:true,runId:data.run_id,reference,creditsCharged:data.credits_charged,creditsRemaining:data.balance});
 }));
 
+
+app.get("/api/admin/commerce/catalog",authenticated,isAdmin,asyncRoute(async(_q,r)=>{
+ if(!db)return errorJson(r,503,"COMMERCE_NOT_CONFIGURED","Commerce storage is not configured.");
+ const [products,plans,packs]=await Promise.all([
+  db.from("tp_products").select("*").order("created_at",{ascending:false}).limit(200),
+  db.from("tp_subscription_plans").select("*").order("sort_order",{ascending:true}).limit(100),
+  db.from("tp_credit_packs").select("*").order("created_at",{ascending:false}).limit(100)
+ ]);
+ if(products.error||plans.error||packs.error){logFailure("admin-commerce-catalog",products.error||plans.error||packs.error);return errorJson(r,503,"ADMIN_CATALOG_UNAVAILABLE","The admin catalogue could not be loaded.");}
+ r.json({ok:true,products:products.data||[],plans:plans.data||[],creditPacks:packs.data||[],paymentMode:paymentMode(),gateways:{paystack:paymentReady("paystack"),flutterwave:paymentReady("flutterwave")}});
+}));
+app.get("/api/admin/commerce/summary",authenticated,isAdmin,asyncRoute(async(_q,r)=>{
+ if(!db)return errorJson(r,503,"COMMERCE_NOT_CONFIGURED","Commerce storage is not configured.");
+ const [users,products,plans,activeSubs,paidPayments,licenses,runs,recent]=await Promise.all([
+  db.from("tp_users").select("id",{head:true,count:"exact"}),
+  db.from("tp_products").select("id",{head:true,count:"exact"}),
+  db.from("tp_subscription_plans").select("id",{head:true,count:"exact"}),
+  db.from("tp_subscriptions").select("id",{head:true,count:"exact"}).eq("status","active").gt("current_period_end",new Date().toISOString()),
+  db.from("tp_payments").select("id",{head:true,count:"exact"}).eq("status","paid"),
+  db.from("tp_tool_licenses").select("id",{head:true,count:"exact"}).eq("status","active"),
+  db.from("tp_tool_runs").select("id",{head:true,count:"exact"}).gte("created_at",new Date(Date.now()-30*86400000).toISOString()),
+  db.from("tp_payments").select("id,user_id,gateway,reference,payment_type,amount_minor,currency,status,created_at,fulfilled_at,tp_users(email,full_name)").order("created_at",{ascending:false}).limit(20)
+ ]);
+ const fail=[users,products,plans,activeSubs,paidPayments,licenses,runs,recent].find(x=>x.error);
+ if(fail){logFailure("commerce-admin-summary",fail.error);return errorJson(r,503,"ADMIN_SUMMARY_UNAVAILABLE","The commerce summary could not be loaded.");}
+ r.json({ok:true,counts:{users:users.count||0,products:products.count||0,plans:plans.count||0,activeSubscriptions:activeSubs.count||0,paidPayments:paidPayments.count||0,activeLicenses:licenses.count||0,runsLast30Days:runs.count||0},
+  recentPayments:(recent.data||[]).map(p=>({...p,amount_minor:Number(p.amount_minor),customer:p.tp_users||null})),paymentMode:paymentMode(),gateways:{paystack:paymentReady("paystack"),flutterwave:paymentReady("flutterwave")}});
+}));
+app.post("/api/admin/commerce/products",csrf,authLimit,authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ const b=q.body||{},slug=String(b.slug||"").trim().toLowerCase(),name=cleanText(b.name,120),summary=cleanText(b.summary,300),description=cleanText(b.description,5000),category=String(b.category||"tool"),productType=String(b.productType||"hosted_tool");
+ const price=Number(b.priceNaira),cost=Number(b.creditCostPerRun),discount=Number(b.memberDiscountPercent||0),hours=Number(b.includedSetupHours||0);
+ if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)||name.length<2||!Number.isFinite(price)||price<0||price>1000000000||!Number.isSafeInteger(cost)||cost<0||cost>1000000||!Number.isInteger(discount)||discount<0||discount>90||!Number.isFinite(hours)||hours<0||hours>100)
+  return errorJson(r,400,"INVALID_PRODUCT","Check the product slug, name, price, credit cost, discount and setup hours.");
+ if(!["tool","agent","automation","service"].includes(category)||!["hosted_tool","self_hosted_tool","hosted_and_self_hosted","service"].includes(productType))
+  return errorJson(r,400,"INVALID_PRODUCT_TYPE","Choose a supported product category and type.");
+ const sourceUrl=String(b.sourceCodeUrl||"").trim();
+ if(sourceUrl&&(!/^https:\/\//i.test(sourceUrl)||sourceUrl.length>1000))return errorJson(r,400,"INVALID_SOURCE_URL","Source delivery URL must be an HTTPS link.");
+ const features=Array.isArray(b.features)?b.features.map(x=>cleanText(x,200)).filter(Boolean).slice(0,20):String(b.features||"").split(/\r?\n/).map(x=>cleanText(x,200)).filter(Boolean).slice(0,20);
+ const result=await db.from("tp_products").insert({slug,name,summary,description,category,product_type:productType,price_minor:Math.round(price*100),currency:"NGN",
+  hosted_enabled:Boolean(b.hostedEnabled),self_hosted_enabled:Boolean(b.selfHostedEnabled),visible_publicly:Boolean(b.visiblePublicly),active:Boolean(b.active),
+  credit_cost_per_run:cost,source_code_url:sourceUrl||null,source_delivery_notes:cleanText(b.sourceDeliveryNotes,3000),included_setup_hours:hours,member_discount_percent:discount,features,updated_at:new Date().toISOString()})
+  .select("*").single();
+ if(result.error){logFailure("admin-product-create",result.error);return errorJson(r,result.error.code==="23505"?409:503,result.error.code==="23505"?"PRODUCT_SLUG_EXISTS":"PRODUCT_CREATE_FAILED",result.error.code==="23505"?"That product slug is already in use.":"The product could not be saved.");}
+ r.status(201).json({ok:true,product:result.data});
+}));
+app.patch("/api/admin/commerce/products/:id",csrf,authLimit,authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ if(!validWorkspaceId(q.params.id))return errorJson(r,400,"INVALID_PRODUCT_ID","This product link is invalid.");
+ const b=q.body||{},patch={updated_at:new Date().toISOString()};
+ if(Object.hasOwn(b,"slug")){const slug=String(b.slug||"").trim().toLowerCase();if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))return errorJson(r,400,"INVALID_PRODUCT_SLUG","Use lowercase letters, numbers and hyphens for the product slug.");patch.slug=slug;}
+ if(Object.hasOwn(b,"name")){patch.name=cleanText(b.name,120);if(patch.name.length<2)return errorJson(r,400,"INVALID_PRODUCT_NAME","Product name is too short.");}
+ for(const [input,column,max] of [["summary","summary",300],["description","description",5000],["sourceDeliveryNotes","source_delivery_notes",3000]])if(Object.hasOwn(b,input))patch[column]=cleanText(b[input],max);
+ for(const [input,column,values] of [["category","category",["tool","agent","automation","service"]],["productType","product_type",["hosted_tool","self_hosted_tool","hosted_and_self_hosted","service"]]])if(Object.hasOwn(b,input)){if(!values.includes(b[input]))return errorJson(r,400,"INVALID_PRODUCT_FIELD","That product field is invalid.");patch[column]=b[input];}
+ for(const [input,column] of [["hostedEnabled","hosted_enabled"],["selfHostedEnabled","self_hosted_enabled"],["visiblePublicly","visible_publicly"],["active","active"]])if(Object.hasOwn(b,input)){if(typeof b[input]!=="boolean")return errorJson(r,400,"INVALID_PRODUCT_FIELD","That product field must be true or false.");patch[column]=b[input];}
+ if(Object.hasOwn(b,"priceNaira")){const price=Number(b.priceNaira);if(!Number.isFinite(price)||price<0||price>1000000000)return errorJson(r,400,"INVALID_PRODUCT_PRICE","Enter a valid product price.");patch.price_minor=Math.round(price*100);}
+ if(Object.hasOwn(b,"creditCostPerRun")){const cost=Number(b.creditCostPerRun);if(!Number.isSafeInteger(cost)||cost<0||cost>1000000)return errorJson(r,400,"INVALID_CREDIT_COST","Enter a non-negative whole-number credit cost.");patch.credit_cost_per_run=cost;}
+ if(Object.hasOwn(b,"memberDiscountPercent")){const discount=Number(b.memberDiscountPercent);if(!Number.isInteger(discount)||discount<0||discount>90)return errorJson(r,400,"INVALID_DISCOUNT","Discount must be between 0 and 90 percent.");patch.member_discount_percent=discount;}
+ if(Object.hasOwn(b,"includedSetupHours")){const hours=Number(b.includedSetupHours);if(!Number.isFinite(hours)||hours<0||hours>100)return errorJson(r,400,"INVALID_SETUP_HOURS","Setup hours must be between 0 and 100.");patch.included_setup_hours=hours;}
+ if(Object.hasOwn(b,"sourceCodeUrl")){const url=String(b.sourceCodeUrl||"").trim();if(url&&(!/^https:\/\//i.test(url)||url.length>1000))return errorJson(r,400,"INVALID_SOURCE_URL","Source code delivery URL must be an HTTPS link.");patch.source_code_url=url||null;}
+ if(Object.hasOwn(b,"features"))patch.features=(Array.isArray(b.features)?b.features:String(b.features||"").split(/\r?\n/)).map(x=>cleanText(x,200)).filter(Boolean).slice(0,20);
+ const result=await db.from("tp_products").update(patch).eq("id",q.params.id).select("*").maybeSingle();
+ if(result.error){logFailure("admin-product-update",result.error);return errorJson(r,503,"PRODUCT_UPDATE_FAILED","The product could not be updated.");}
+ if(!result.data)return errorJson(r,404,"PRODUCT_NOT_FOUND","That product was not found.");
+ r.json({ok:true,product:result.data});
+}));
+app.post("/api/admin/commerce/plans",csrf,authLimit,authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ const b=q.body||{},slug=String(b.slug||"").trim().toLowerCase(),name=cleanText(b.name,100),description=cleanText(b.description,1200),price=Number(b.priceNaira),credits=Number(b.monthlyCredits),discount=Number(b.memberDiscountPercent||0),sort=Number(b.sortOrder||100);
+ if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)||name.length<2||!Number.isFinite(price)||price<=0||price>1000000000||!Number.isSafeInteger(credits)||credits<1||credits>100000000||!Number.isInteger(discount)||discount<0||discount>90||!Number.isSafeInteger(sort))
+  return errorJson(r,400,"INVALID_PLAN","Check plan slug, name, monthly price, monthly credits, discount and sort order.");
+ const result=await db.from("tp_subscription_plans").insert({slug,name,description,price_minor:Math.round(price*100),currency:"NGN",monthly_credits:credits,member_discount_percent:discount,active:Boolean(b.active),sort_order:sort,updated_at:new Date().toISOString()}).select(publicPlanFields).single();
+ if(result.error){logFailure("admin-plan-create",result.error);return errorJson(r,result.error.code==="23505"?409:503,result.error.code==="23505"?"PLAN_SLUG_EXISTS":"PLAN_CREATE_FAILED",result.error.code==="23505"?"That plan slug already exists.":"The plan could not be saved.");}
+ r.status(201).json({ok:true,plan:result.data});
+}));
+app.patch("/api/admin/commerce/plans/:id",csrf,authLimit,authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ if(!validWorkspaceId(q.params.id))return errorJson(r,400,"INVALID_PLAN_ID","This plan link is invalid.");
+ const active=await db.from("tp_subscriptions").select("id",{head:true,count:"exact"}).eq("plan_id",q.params.id).in("status",["active","past_due"]).gt("current_period_end",new Date().toISOString());
+ if(active.error){logFailure("admin-plan-subscriber-check",active.error);return errorJson(r,503,"PLAN_CHECK_FAILED","Could not check plan subscribers.");}
+ if((active.count||0)>0)return errorJson(r,409,"PLAN_IN_USE","This plan has current subscribers. Create a new plan instead of changing its price or billing terms.");
+ const b=q.body||{},patch={updated_at:new Date().toISOString()};
+ if(Object.hasOwn(b,"slug")){const slug=String(b.slug||"").trim().toLowerCase();if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))return errorJson(r,400,"INVALID_PLAN_SLUG","Use lowercase letters, numbers and hyphens.");patch.slug=slug;}
+ if(Object.hasOwn(b,"name")){patch.name=cleanText(b.name,100);if(patch.name.length<2)return errorJson(r,400,"INVALID_PLAN_NAME","Plan name is too short.");}
+ if(Object.hasOwn(b,"description"))patch.description=cleanText(b.description,1200);
+ if(Object.hasOwn(b,"priceNaira")){const price=Number(b.priceNaira);if(!Number.isFinite(price)||price<=0||price>1000000000)return errorJson(r,400,"INVALID_PLAN_PRICE","Enter a valid monthly price.");patch.price_minor=Math.round(price*100);patch.paystack_plan_code=null;patch.flutterwave_payment_plan_id=null;}
+ if(Object.hasOwn(b,"monthlyCredits")){const credits=Number(b.monthlyCredits);if(!Number.isSafeInteger(credits)||credits<1||credits>100000000)return errorJson(r,400,"INVALID_MONTHLY_CREDITS","Monthly credits must be a positive whole number.");patch.monthly_credits=credits;}
+ if(Object.hasOwn(b,"memberDiscountPercent")){const d=Number(b.memberDiscountPercent);if(!Number.isInteger(d)||d<0||d>90)return errorJson(r,400,"INVALID_DISCOUNT","Discount must be from 0 to 90 percent.");patch.member_discount_percent=d;}
+ if(Object.hasOwn(b,"sortOrder")){const s=Number(b.sortOrder);if(!Number.isSafeInteger(s))return errorJson(r,400,"INVALID_SORT_ORDER","Sort order must be a whole number.");patch.sort_order=s;}
+ if(Object.hasOwn(b,"active")){if(typeof b.active!=="boolean")return errorJson(r,400,"INVALID_PLAN_STATUS","Plan active status must be true or false.");patch.active=b.active;}
+ const result=await db.from("tp_subscription_plans").update(patch).eq("id",q.params.id).select(publicPlanFields).maybeSingle();
+ if(result.error){logFailure("admin-plan-update",result.error);return errorJson(r,503,"PLAN_UPDATE_FAILED","The plan could not be updated.");}
+ if(!result.data)return errorJson(r,404,"PLAN_NOT_FOUND","The plan was not found.");
+ r.json({ok:true,plan:result.data});
+}));
+app.post("/api/admin/commerce/plans/:id/sync-gateway",csrf,authLimit,authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ if(!validWorkspaceId(q.params.id))return errorJson(r,400,"INVALID_PLAN_ID","This plan link is invalid.");
+ const gateway=String(q.body&&q.body.gateway||"");
+ if(!["paystack","flutterwave"].includes(gateway))return errorJson(r,400,"INVALID_PAYMENT_GATEWAY","Choose Paystack or Flutterwave.");
+ if(!paymentReady(gateway))return errorJson(r,503,"PAYMENT_GATEWAY_NOT_CONFIGURED","This gateway is not configured for the current payment mode.");
+ try{
+  const result=await db.from("tp_subscription_plans").select("id,slug,name,price_minor,currency,active").eq("id",q.params.id).maybeSingle();
+  if(result.error)throw result.error;
+  if(!result.data||!result.data.active)return errorJson(r,404,"ACTIVE_PLAN_NOT_FOUND","Activate the plan before syncing it with a gateway.");
+  const synced=await createGatewayPlan(result.data,gateway);
+  r.json({ok:true,gateway,plan:publicPlan(synced),message:"A monthly "+gateway+" billing plan was created for this membership."});
+ }catch(e){logFailure("admin-plan-sync",e);errorJson(r,502,"PLAN_SYNC_FAILED","The recurring plan could not be created in the payment provider. Check the gateway test key and try again.");}
+}));
+app.post("/api/admin/commerce/credit-packs",csrf,authLimit,authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ const b=q.body||{},slug=String(b.slug||"").trim().toLowerCase(),name=cleanText(b.name,100),description=cleanText(b.description,1000),credits=Number(b.credits),price=Number(b.priceNaira);
+ if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)||name.length<2||!Number.isSafeInteger(credits)||credits<1||credits>100000000||!Number.isFinite(price)||price<=0||price>1000000000)return errorJson(r,400,"INVALID_CREDIT_PACK","Check the pack slug, name, credit amount and price.");
+ const result=await db.from("tp_credit_packs").insert({slug,name,description,credits,price_minor:Math.round(price*100),currency:"NGN",active:Boolean(b.active),updated_at:new Date().toISOString()}).select("*").single();
+ if(result.error){logFailure("admin-credit-pack-create",result.error);return errorJson(r,result.error.code==="23505"?409:503,result.error.code==="23505"?"CREDIT_PACK_SLUG_EXISTS":"CREDIT_PACK_CREATE_FAILED",result.error.code==="23505"?"That credit-pack slug already exists.":"The credit pack could not be saved.");}
+ r.status(201).json({ok:true,creditPack:result.data});
+}));
+app.patch("/api/admin/commerce/credit-packs/:id",csrf,authLimit,authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ if(!validWorkspaceId(q.params.id))return errorJson(r,400,"INVALID_PACK_ID","This credit pack link is invalid.");
+ const b=q.body||{},patch={updated_at:new Date().toISOString()};
+ if(Object.hasOwn(b,"slug")){const slug=String(b.slug||"").trim().toLowerCase();if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))return errorJson(r,400,"INVALID_PACK_SLUG","Use lowercase letters, numbers and hyphens.");patch.slug=slug;}
+ if(Object.hasOwn(b,"name")){patch.name=cleanText(b.name,100);if(patch.name.length<2)return errorJson(r,400,"INVALID_PACK_NAME","Pack name is too short.");}
+ if(Object.hasOwn(b,"description"))patch.description=cleanText(b.description,1000);
+ if(Object.hasOwn(b,"credits")){const credits=Number(b.credits);if(!Number.isSafeInteger(credits)||credits<1||credits>100000000)return errorJson(r,400,"INVALID_PACK_CREDITS","Enter a positive whole number of credits.");patch.credits=credits;}
+ if(Object.hasOwn(b,"priceNaira")){const price=Number(b.priceNaira);if(!Number.isFinite(price)||price<=0||price>1000000000)return errorJson(r,400,"INVALID_PACK_PRICE","Enter a valid price.");patch.price_minor=Math.round(price*100);}
+ if(Object.hasOwn(b,"active")){if(typeof b.active!=="boolean")return errorJson(r,400,"INVALID_PACK_STATUS","Active status must be true or false.");patch.active=b.active;}
+ const result=await db.from("tp_credit_packs").update(patch).eq("id",q.params.id).select("*").maybeSingle();
+ if(result.error){logFailure("admin-credit-pack-update",result.error);return errorJson(r,503,"PACK_UPDATE_FAILED","The credit pack could not be updated.");}
+ if(!result.data)return errorJson(r,404,"PACK_NOT_FOUND","The credit pack was not found.");
+ r.json({ok:true,creditPack:result.data});
+}));
+app.get("/api/admin/commerce/users",authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ const term=cleanText(q.query.search,120).toLowerCase(),limit=Math.max(1,Math.min(100,Number(q.query.limit)||50));
+ let query=db.from("tp_users").select("id,email,full_name,created_at").order("created_at",{ascending:false}).limit(limit);
+ if(term)query=query.or("email.ilike.%"+term+"%,full_name.ilike.%"+term+"%");
+ const result=await query;
+ if(result.error){logFailure("admin-commerce-users",result.error);return errorJson(r,503,"USERS_UNAVAILABLE","Users could not be loaded.");}
+ const users=await Promise.all((result.data||[]).map(async u=>{
+  const [balance,sub]=await Promise.all([
+   db.rpc("tp_credit_balance",{p_user_id:u.id}),
+   currentSubscription(u.id).catch(e=>({error:e}))
+  ]);
+  const s=sub&&!sub.error?sub:null;
+  return {...u,credits:Number(balance.data||0),subscription:s?{id:s.id,status:s.status,gateway:s.gateway,current_period_end:s.current_period_end,cancel_at_period_end:s.cancel_at_period_end,plan:s.tp_subscription_plans||null}:null};
+ }));
+ r.json({ok:true,users});
+}));
+app.post("/api/admin/commerce/users/:id/credits",csrf,authLimit,authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ if(!validWorkspaceId(q.params.id))return errorJson(r,400,"INVALID_USER_ID","This user link is invalid.");
+ const amount=Number(q.body&&q.body.amount),description=cleanText(q.body&&q.body.description,500);
+ if(!Number.isSafeInteger(amount)||amount===0||Math.abs(amount)>1000000||description.length<3)return errorJson(r,400,"INVALID_CREDIT_ADJUSTMENT","Provide a non-zero whole-number credit adjustment (up to 1,000,000) and a reason.");
+ const key="admin-credit:"+q.params.id+":"+Date.now()+":"+crypto.randomBytes(6).toString("hex");
+ const result=await db.rpc("tp_credit_apply",{p_user_id:q.params.id,p_amount:amount,p_entry_type:"admin_adjustment",p_description:description,p_idempotency_key:key,p_payment_id:null,p_created_by:q.user.id});
+ if(result.error){logFailure("admin-credit-adjustment",result.error);return errorJson(r,503,"CREDIT_ADJUSTMENT_FAILED","The credit adjustment could not be saved.");}
+ const data=result.data||{};
+ if(data.status==="insufficient_credits")return r.status(409).json({error:"INSUFFICIENT_CREDITS",message:"This adjustment would take the user's balance below zero.",balance:Number(data.balance||0)});
+ if(data.status!=="applied")return errorJson(r,400,"CREDIT_ADJUSTMENT_REJECTED","This credit adjustment could not be applied.");
+ r.json({ok:true,balance:data.balance,entryId:data.entry_id,message:"Credit balance adjusted and recorded in the ledger."});
+}));
+app.get("/api/admin/commerce/licenses",authenticated,isAdmin,asyncRoute(async(_q,r)=>{
+ const result=await db.from("tp_tool_licenses").select("id,user_id,product_id,payment_id,license_key,status,deployment_mode,delivery_status,source_code_url,delivery_notes,included_setup_hours,purchased_at,updated_at,tp_products(name,slug),tp_users(email,full_name)").order("purchased_at",{ascending:false}).limit(100);
+ if(result.error){logFailure("admin-license-list",result.error);return errorJson(r,503,"LICENSES_UNAVAILABLE","Tool licences could not be loaded.");}
+ r.json({ok:true,licenses:(result.data||[]).map(l=>({...l,product:l.tp_products||null,user:l.tp_users||null}))});
+}));
+app.patch("/api/admin/commerce/licenses/:id",csrf,authLimit,authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ if(!validWorkspaceId(q.params.id))return errorJson(r,400,"INVALID_LICENSE_ID","This licence link is invalid.");
+ const b=q.body||{},patch={updated_at:new Date().toISOString()};
+ if(Object.hasOwn(b,"status")){if(!["active","revoked"].includes(b.status))return errorJson(r,400,"INVALID_LICENSE_STATUS","Choose active or revoked.");patch.status=b.status;}
+ if(Object.hasOwn(b,"deploymentMode")){if(!["customer_hosted","managed"].includes(b.deploymentMode))return errorJson(r,400,"INVALID_DEPLOYMENT_MODE","Choose customer-hosted or managed.");patch.deployment_mode=b.deploymentMode;}
+ if(Object.hasOwn(b,"deliveryStatus")){if(!["awaiting_setup","in_progress","ready","delivered"].includes(b.deliveryStatus))return errorJson(r,400,"INVALID_DELIVERY_STATUS","Choose a supported delivery status.");patch.delivery_status=b.deliveryStatus;}
+ if(Object.hasOwn(b,"sourceCodeUrl")){const url=String(b.sourceCodeUrl||"").trim();if(url&&(!/^https:\/\//i.test(url)||url.length>1000))return errorJson(r,400,"INVALID_SOURCE_URL","Source code must be an HTTPS link.");patch.source_code_url=url||null;}
+ if(Object.hasOwn(b,"deliveryNotes"))patch.delivery_notes=cleanText(b.deliveryNotes,3000);
+ const result=await db.from("tp_tool_licenses").update(patch).eq("id",q.params.id).select("id,user_id,product_id,license_key,status,deployment_mode,delivery_status,source_code_url,delivery_notes,updated_at").maybeSingle();
+ if(result.error){logFailure("admin-license-update",result.error);return errorJson(r,503,"LICENSE_UPDATE_FAILED","The licence could not be updated.");}
+ if(!result.data)return errorJson(r,404,"LICENSE_NOT_FOUND","The licence was not found.");
+ r.json({ok:true,license:result.data});
+}));
+app.post("/api/commerce/licenses/:id/deployments",csrf,authLimit,authenticated,asyncRoute(async(q,r)=>{
+ if(!validWorkspaceId(q.params.id))return errorJson(r,400,"INVALID_LICENSE_ID","This licence link is invalid.");
+ const license=await db.from("tp_tool_licenses").select("id,user_id,status").eq("id",q.params.id).eq("user_id",q.user.id).maybeSingle();
+ if(license.error){logFailure("user-deployment-license",license.error);return errorJson(r,503,"DEPLOYMENT_UNAVAILABLE","Deployment details could not be saved.");}
+ if(!license.data||license.data.status!=="active")return errorJson(r,404,"ACTIVE_LICENSE_NOT_FOUND","An active licence was not found for your account.");
+ const b=q.body||{},host=cleanText(b.hostingProvider,100),url=String(b.deploymentUrl||"").trim(),notes=cleanText(b.notes,3000);
+ if(url&&(!/^https:\/\//i.test(url)||url.length>1000))return errorJson(r,400,"INVALID_DEPLOYMENT_URL","Deployment URL must be an HTTPS link.");
+ const existing=await db.from("tp_deployments").select("id").eq("license_id",license.data.id).eq("user_id",q.user.id).limit(1).maybeSingle();
+ if(existing.error)throw existing.error;
+ const patch={hosting_provider:host,deployment_url:url,status:"not_started",notes,updated_at:new Date().toISOString()};
+ let saved;
+ if(existing.data)saved=await db.from("tp_deployments").update(patch).eq("id",existing.data.id).select("id,license_id,hosting_provider,deployment_url,status,notes,updated_at").single();
+ else saved=await db.from("tp_deployments").insert({...patch,license_id:license.data.id,user_id:q.user.id}).select("id,license_id,hosting_provider,deployment_url,status,notes,updated_at").single();
+ if(saved.error){logFailure("user-deployment-save",saved.error);return errorJson(r,503,"DEPLOYMENT_SAVE_FAILED","Deployment details could not be saved.");}
+ r.status(201).json({ok:true,deployment:saved.data});
+}));
+app.patch("/api/admin/commerce/deployments/:id",csrf,authLimit,authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ if(!validWorkspaceId(q.params.id))return errorJson(r,400,"INVALID_DEPLOYMENT_ID","This deployment link is invalid.");
+ const b=q.body||{},patch={updated_at:new Date().toISOString()};
+ if(Object.hasOwn(b,"status")){if(!["not_started","in_progress","live","paused","failed"].includes(b.status))return errorJson(r,400,"INVALID_DEPLOYMENT_STATUS","Choose a supported deployment status.");patch.status=b.status;}
+ if(Object.hasOwn(b,"deploymentUrl")){const url=String(b.deploymentUrl||"").trim();if(url&&(!/^https:\/\//i.test(url)||url.length>1000))return errorJson(r,400,"INVALID_DEPLOYMENT_URL","Deployment URL must be an HTTPS link.");patch.deployment_url=url;}
+ if(Object.hasOwn(b,"hostingProvider"))patch.hosting_provider=cleanText(b.hostingProvider,100);
+ if(Object.hasOwn(b,"notes"))patch.notes=cleanText(b.notes,3000);
+ const result=await db.from("tp_deployments").update(patch).eq("id",q.params.id).select("id,license_id,user_id,hosting_provider,deployment_url,status,notes,updated_at").maybeSingle();
+ if(result.error){logFailure("admin-deployment-update",result.error);return errorJson(r,503,"DEPLOYMENT_UPDATE_FAILED","The deployment could not be updated.");}
+ if(!result.data)return errorJson(r,404,"DEPLOYMENT_NOT_FOUND","The deployment was not found.");
+ r.json({ok:true,deployment:result.data});
+}));
+
 app.get("/api/admin/email/stats",authenticated,isAdmin,asyncRoute(async(_q,r)=>{const a=await db.from("tp_users").select("id",{count:"exact",head:true}).eq("marketing_opt_in",true),b=await db.from("tp_email_usage").select("id",{count:"exact",head:true}).eq("status","sent").gte("sent_at",new Date(new Date().setUTCHours(0,0,0,0)).toISOString());if(a.error||b.error){logFailure("admin-stats",a.error||b.error);return errorJson(r,503,"STATS_FAILED","Email statistics are unavailable.");}r.json({ok:true,optedInRecipients:a.count||0,sentToday:b.count||0,dailySoftLimit:DAILY_LIMIT});}));
 app.get("/api/admin/email/jobs",authenticated,isAdmin,asyncRoute(async(_q,r)=>{const d=await db.from("tp_email_jobs").select("id,mode,subject,status,total_count,success_count,fail_count,created_at,completed_at").order("created_at",{ascending:false}).limit(20);if(d.error){logFailure("admin-jobs",d.error);return errorJson(r,503,"JOBS_FAILED","Email history unavailable.");}r.json({ok:true,jobs:d.data||[]});}));
 app.get("/api/admin/projects",authenticated,isAdmin,asyncRoute(async(_q,r)=>{const d=await db.from("tp_project_requests").select("id,full_name,email,project_type,details,status,created_at").order("created_at",{ascending:false}).limit(50);if(d.error){logFailure("admin-projects",d.error);return errorJson(r,503,"PROJECTS_FAILED","Project inquiries unavailable.");}r.json({ok:true,projects:d.data||[]});}));
