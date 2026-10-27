@@ -12,7 +12,7 @@ TeamPeach is a peach/ivory/navy AI-tools and automation website served by one No
 - Sitemap/robots support including explicit OAI-SearchBot access.
 
 ## Setup
-1. Run `supabase/migrations/001_teampeach.sql` in Supabase SQL Editor before enabling account features. Then run `supabase/migrations/002_workspace_dashboard.sql` to create private workspace project/task storage. Visit `/api/health` after deployment: it reports database and email readiness without exposing secrets.
+1. Run `supabase/migrations/001_teampeach.sql` in Supabase SQL Editor before enabling account features. Then run `supabase/migrations/002_workspace_dashboard.sql` for workspace projects/tasks and `supabase/migrations/003_support_chat.sql` for the customer dashboard support chat and admin inbox. Apply each migration once, in order. Visit `/api/health` after deployment: it reports database and email readiness without exposing secrets.
 2. In Brevo, verify the sender email and copy the SMTP login and SMTP key from Settings → SMTP & API → SMTP (the SMTP login is not necessarily your account email, and the SMTP key is not your account password or API key). For a Render Free service, set `EMAIL_TRANSPORT=smtp`, `SMTP_HOST=smtp-relay.brevo.com`, and `SMTP_PORT=2525`; Render blocks outbound ports `25`, `465` and `587` on free web services, while Brevo supports `2525`. Fill `SMTP_USER`, `SMTP_PASS` and `BREVO_SENDER_EMAIL` from your new Brevo account. If you deliberately want HTTPS API sending instead, set `EMAIL_TRANSPORT=brevo-api` and supply a standard `BREVO_API_KEY`. `EMAIL_TRANSPORT=auto` chooses the API when a non-empty API key is present, otherwise SMTP. Explicit `smtp` mode ignores even an old or invalid `BREVO_API_KEY`.
 3. Generate three different secrets with `openssl rand -hex 32` for `OTP_PEPPER`, `SESSION_SECRET` and `RATE_LIMIT_SECRET`. Do not reuse a secret. Keep credentials only in Render Environment or an untracked local `.env`.
 4. Add the values from `.env.example` to Render Environment. Never expose `SUPABASE_SERVICE_ROLE_KEY`, `BREVO_API_KEY`, `SMTP_PASS`, `SMTP_USER` or application secrets to browser JavaScript or GitHub.
@@ -48,3 +48,10 @@ Run `npm ci`, copy `.env.example` to an untracked `.env`, then run `npm run buil
 - Email usage is reserved transactionally. Uncertain SMTP outcomes retain their reservation rather than risking duplicates or exceeding the daily limit. Campaign messages are sent individually via SMTP only to users who opted in, with a signed unsubscribe link.
 - Repository checks include dependency auditing, HTTP/security regression tests, CodeQL scanning and weekly Dependabot updates. A green CI run is not a live deployment test or a third-party security certification.
 - Before launch, run the SQL migration in the real Supabase project; configure SMTP credentials in Render; test registration/OTP/resend/login/logout/password-reset/preferences/inquiry/one-person-email/unsubscribe/broadcast with test accounts. Add real privacy, terms and operator-contact pages and review retention, deletion, backups and abuse monitoring.
+
+
+## In-dashboard support chat
+
+The customer dashboard includes private support conversations. Signed-in users can open a conversation and continue replying without leaving TeamPeach; an account listed in \`ADMIN_EMAILS\` can answer from \`/admin/\`. Messages are stored in Supabase, shown only through authenticated server routes, and refreshed periodically while the page is open. This is polling-based chat, not WebSocket/live push.
+
+Before enabling it in production, apply \`supabase/migrations/003_support_chat.sql\` in Supabase SQL Editor after migrations 001 and 002. The migration enables RLS and grants table access to the server-side service role only. The server health endpoint checks that both support tables exist. Use the customer dashboard and admin inbox to test a customer message, staff reply, status update, refresh, and a second account's access boundary.
