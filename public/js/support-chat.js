@@ -189,5 +189,5 @@
   state.poll=setInterval(async()=>{
     await loadList(true);
     if(state.activeId)await loadMessages(state.activeId,true);
-  },20000);
+  },30000);
 })();
