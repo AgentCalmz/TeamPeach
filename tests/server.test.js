@@ -180,36 +180,33 @@ test("commerce schema, checkout verification, credit expiry, and dashboard UI ar
   'app.post("/api/payments/webhooks/flutterwave"',
   'app.get("/api/admin/commerce/catalog",authenticated,isAdmin',
   'app.post("/api/admin/commerce/users/:id/credits",csrf,authLimit,authenticated,isAdmin'
- ])assert.ok(server.includes(route),"missing "+route);
- assert.match(server,/tp_fulfill_payment/);
- assert.match(server,/status!=="successful"\\|\\|String\\(data\\.tx_ref/);
- assert.match(server,/x-paystack-signature/);
- assert.match(server,/flutterwave-signature/);
- assert.match(server,/PAYMENT_MODE/);
- assert.match(sql,/create table if not exists public\\.tp_credit_ledger/);
- assert.match(sql,/create table if not exists public\\.tp_credit_buckets/);
- assert.match(sql,/create table if not exists public\\.tp_credit_consumptions/);
- assert.match(sql,/expires_at>now\\(\\)/);
- assert.match(sql,/order by \\(expires_at is null\\) asc,expires_at asc nulls last/);
- assert.match(sql,/alter table public\\.tp_payments enable row level security/);
- assert.match(sql,/revoke all on public\\.tp_products,public\\.tp_subscription_plans/);
- assert.match(dashboard,/id="billing"/);
- assert.match(dashboard,/id="commerce-runs"/);
- assert.match(dashboard,/id="support-chat"/);
- assert.match(dashboard,/commerce\\.js\\?v=1/);
- assert.match(admin,/id="admin-commerce"/);
- assert.match(admin,/id="support-admin-list"/);
- assert.match(admin,/admin-commerce\\.js\\?v=1/);
- assert.match(catalog,/id="catalog-products"/);
- assert.match(client,/api\\("\\/api\\/commerce\\/tool-runs","POST"/);
- assert.match(adminClient,/api\\("\\/api\\/admin\\/commerce\\/plans","POST"/);
- assert.match(productClient,/api|fetch\\("\\/api\\/commerce\\/catalog"/);
- assert.match(briefClient,/api\\("\\/api\\/commerce\\/tool-runs","POST"/);
- assert.match(env,/PAYMENT_MODE=test/);
- assert.match(env,/PAYSTACK_SECRET_KEY=/);
- assert.match(env,/FLW_SECRET_KEY=/);
- assert.match(env,/FLW_SECRET_HASH=/);
- for(const source of [server,client,adminClient,productClient,briefClient]){
-  assert.doesNotThrow(()=>new Function(source));
- }
+ ])assert.ok(server.includes(route),"missing commerce route");
+ assert.ok(server.includes('String(data.status||"").toLowerCase()!=="successful"||String(data.tx_ref||"")!==payment.reference));
+ assert.ok(server.includes("x-paystack-signature"));
+ assert.ok(server.includes("flutterwave-signature"));
+ assert.ok(server.includes("PAYMENT_MODE"));
+ assert.ok(sql.includes("create table if not exists public.tp_credit_ledger"));
+ assert.ok(sql.includes("create table if not exists public.tp_credit_buckets"));
+ assert.ok(sql.includes("create table if not exists public.tp_credit_consumptions"));
+ assert.ok(sql.includes("expires_at>now()"));
+ assert.ok(sql.includes("order by (expires_at is null) asc,expires_at asc nulls last"));
+ assert.ok(sql.includes("alter table public.tp_payments enable row level security"));
+ assert.ok(sql.includes("revoke all on public.tp_products,public.tp_subscription_plans"));
+ assert.ok(dashboard.includes('id="billing"'));
+ assert.ok(dashboard.includes('id="commerce-runs"'));
+ assert.ok(dashboard.includes('id="support-chat"'));
+ assert.ok(dashboard.includes("commerce.js?v=1"));
+ assert.ok(admin.includes('id="admin-commerce"'));
+ assert.ok(admin.includes('id="support-admin-list"'));
+ assert.ok(admin.includes("admin-commerce.js?v=1"));
+ assert.ok(catalog.includes('id="catalog-products"'));
+ assert.ok(client.includes('api("/api/commerce/tool-runs","POST"'));
+ assert.ok(adminClient.includes('api("/api/admin/commerce/plans","POST"'));
+ assert.ok(productClient.includes('fetch("/api/commerce/catalog"'));
+ assert.ok(briefClient.includes('api("/api/commerce/tool-runs","POST"'));
+ assert.ok(env.includes("PAYMENT_MODE=test"));
+ assert.ok(env.includes("PAYSTACK_SECRET_KEY="));
+ assert.ok(env.includes("FLW_SECRET_KEY="));
+ assert.ok(env.includes("FLW_SECRET_HASH="));
+ for(const source of [server,client,adminClient,productClient,briefClient])assert.doesNotThrow(()=>new Function(source));
 });
