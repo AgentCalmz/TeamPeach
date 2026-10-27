@@ -421,6 +421,219 @@ app.patch("/api/admin/support/conversations/:id/status",csrf,authenticated,isAdm
  }catch(e){logFailure("support-status",e);errorJson(r,503,"SUPPORT_STATUS_FAILED","The conversation status could not be updated.");}
 }));
 
+
+const publicProductFields="id,slug,name,summary,description,category,product_type,price_minor,currency,hosted_enabled,self_hosted_enabled,credit_cost_per_run,member_discount_percent,included_setup_hours,features";
+const publicPlanFields="id,slug,name,description,price_minor,currency,monthly_credits,member_discount_percent,sort_order,paystack_plan_code,flutterwave_payment_plan_id,active";
+const paymentTypeValues=["membership","credit_topup","tool_license"];
+function safeEqualText(left,right){
+ const a=Buffer.from(String(left||"")),b=Buffer.from(String(right||""));
+ return a.length>0&&a.length===b.length&&crypto.timingSafeEqual(a,b);
+}
+function paymentMode(){return String(process.env.PAYMENT_MODE||"test").trim().toLowerCase()==="live"?"live":"test";}
+function paymentSecret(gateway){
+ const secret=String((gateway==="paystack"?process.env.PAYSTACK_SECRET_KEY:process.env.FLW_SECRET_KEY)||"").trim();
+ if(!secret)return null;
+ if(paymentMode()==="test"){
+  if(gateway==="paystack"&&!secret.startsWith("sk_test_"))return null;
+  if(gateway==="flutterwave"&&!/^FLWSECK_TEST[-_]/i.test(secret))return null;
+ }else{
+  if(gateway==="paystack"&&secret.startsWith("sk_test_"))return null;
+  if(gateway==="flutterwave"&&/^FLWSECK_TEST/i.test(secret))return null;
+ }
+ return secret;
+}
+function paymentReady(gateway){return ["paystack","flutterwave"].includes(gateway)&&Boolean(paymentSecret(gateway));}
+function currencyMajor(minor){return Number((Number(minor||0)/100).toFixed(2));}
+function newPaymentReference(gateway){
+ const prefix=gateway==="paystack"?"TPPSK":"TPFLW";
+ return prefix+Date.now().toString(36).toUpperCase()+crypto.randomBytes(9).toString("hex").toUpperCase();
+}
+async function gatewayRequest(gateway,url,method,body){
+ const secret=paymentSecret(gateway);
+ if(!secret)throw new Error("PAYMENT_GATEWAY_NOT_CONFIGURED");
+ const response=await fetch(url,{method:method||"GET",headers:{
+  "Authorization":"Bearer "+secret,"Content-Type":"application/json","Accept":"application/json"
+ },...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(15000)});
+ const data=await response.json().catch(()=>({}));
+ if(!response.ok||(gateway==="paystack"&&data.status!==true)||(gateway==="flutterwave"&&data.status!=="success")){
+  const error=new Error("PAYMENT_PROVIDER_REQUEST_FAILED");
+  error.code="PAYMENT_PROVIDER_HTTP_"+response.status;
+  throw error;
+ }
+ return data;
+}
+function cleanProviderText(value,max){
+ return cleanText(typeof value==="string"?value:"",max||200);
+}
+function publicProduct(row){
+ return {id:row.id,slug:row.slug,name:row.name,summary:row.summary,description:row.description,category:row.category,productType:row.product_type,
+  priceMinor:Number(row.price_minor),currency:row.currency,hostedEnabled:row.hosted_enabled,selfHostedEnabled:row.self_hosted_enabled,
+  creditCostPerRun:row.credit_cost_per_run,memberDiscountPercent:row.member_discount_percent,includedSetupHours:Number(row.included_setup_hours||0),
+  features:Array.isArray(row.features)?row.features:[]};
+}
+function publicPlan(row){
+ return {id:row.id,slug:row.slug,name:row.name,description:row.description,priceMinor:Number(row.price_minor),currency:row.currency,
+  monthlyCredits:row.monthly_credits,memberDiscountPercent:row.member_discount_percent,sortOrder:row.sort_order,
+  availableGateways:{paystack:Boolean(row.paystack_plan_code),flutterwave:Boolean(row.flutterwave_payment_plan_id)}};
+}
+async function currentSubscription(userId){
+ const now=new Date().toISOString();
+ const result=await db.from("tp_subscriptions").select("id,user_id,plan_id,gateway,status,current_period_start,current_period_end,cancel_at_period_end,provider_subscription_id,provider_customer_code,provider_email_token,provider_plan_id,last_payment_reference,tp_subscription_plans(id,slug,name,description,price_minor,currency,monthly_credits,member_discount_percent)")
+  .eq("user_id",userId).in("status",["active","cancelled","past_due"]).gt("current_period_end",now)
+  .order("current_period_end",{ascending:false}).limit(1).maybeSingle();
+ if(result.error)throw result.error;
+ return result.data||null;
+}
+async function createGatewayPlan(plan,gateway){
+ if(!paymentReady(gateway))throw new Error("PAYMENT_GATEWAY_NOT_CONFIGURED");
+ if(gateway==="paystack"){
+  const data=await gatewayRequest(gateway,"https://api.paystack.co/plan","POST",{
+   name:plan.name,amount:Number(plan.price_minor),interval:"monthly",currency:plan.currency
+  });
+  const code=data.data&&data.data.plan_code;
+  if(typeof code!=="string"||!code)throw new Error("PAYSTACK_PLAN_ID_MISSING");
+  const updated=await db.from("tp_subscription_plans").update({paystack_plan_code:code,updated_at:new Date().toISOString()}).eq("id",plan.id).select(publicPlanFields).single();
+  if(updated.error)throw updated.error;
+  return updated.data;
+ }
+ const data=await gatewayRequest(gateway,"https://api.flutterwave.com/v3/payment-plans","POST",{
+  name:plan.name,amount:currencyMajor(plan.price_minor),interval:"monthly",currency:plan.currency
+ });
+ const id=Number(data.data&&data.data.id);
+ if(!Number.isSafeInteger(id)||id<1)throw new Error("FLUTTERWAVE_PLAN_ID_MISSING");
+ const updated=await db.from("tp_subscription_plans").update({flutterwave_payment_plan_id:id,updated_at:new Date().toISOString()}).eq("id",plan.id).select(publicPlanFields).single();
+ if(updated.error)throw updated.error;
+ return updated.data;
+}
+async function verifyGatewayPayment(payment,transactionId){
+ const gateway=payment.gateway;
+ if(!paymentReady(gateway))throw new Error("PAYMENT_GATEWAY_NOT_CONFIGURED");
+ let data;
+ if(gateway==="paystack"){
+  const response=await gatewayRequest(gateway,"https://api.paystack.co/transaction/verify/"+encodeURIComponent(payment.reference),"GET");
+  data=response.data;
+  if(!data||data.status!=="success"||String(data.reference||"")!==payment.reference)throw new Error("PAYMENT_NOT_SUCCESSFUL");
+  if(Number(data.amount)!==Number(payment.amount_minor)||String(data.currency||"").toUpperCase()!==payment.currency)throw new Error("PAYMENT_AMOUNT_MISMATCH");
+ }else{
+  const id=String(transactionId||payment.provider_transaction_id||"").trim();
+  if(!/^\d{1,24}$/.test(id))throw new Error("FLUTTERWAVE_TRANSACTION_ID_REQUIRED");
+  const response=await gatewayRequest(gateway,"https://api.flutterwave.com/v3/transactions/"+encodeURIComponent(id)+"/verify","GET");
+  data=response.data;
+  if(!data||String(data.status||"").toLowerCase()!=="successful"||String(data.tx_ref||"")!==payment.reference)throw new Error("PAYMENT_NOT_SUCCESSFUL");
+  if(currencyMajor(payment.amount_minor)>Number(data.amount||0)+0.01||String(data.currency||"").toUpperCase()!==payment.currency)throw new Error("PAYMENT_AMOUNT_MISMATCH");
+ }
+ const customerEmail=normalizeEmail(data.customer&&data.customer.email||data.customer_email||"");
+ const owner=await db.from("tp_users").select("email").eq("id",payment.user_id).maybeSingle();
+ if(owner.error)throw owner.error;
+ if(customerEmail&&owner.data&&customerEmail!==owner.data.email)throw new Error("PAYMENT_CUSTOMER_MISMATCH");
+ return {data,transactionId:String(data.id||transactionId||"")};
+}
+async function fulfillVerifiedPayment(payment,verified){
+ const result=await db.rpc("tp_fulfill_payment",{
+  p_payment_id:payment.id,
+  p_provider_transaction_id:cleanProviderText(verified&&verified.transactionId,120)||null,
+  p_metadata:{verifiedBy:"gateway-api",paymentMode:paymentMode()}
+ });
+ if(result.error)throw result.error;
+ const body=result.data||{};
+ if(!["fulfilled","already_fulfilled"].includes(body.status))throw new Error("PAYMENT_FULFILLMENT_FAILED");
+ return body;
+}
+async function recurringPaymentFromEvent(gateway,data,eventName){
+ const email=normalizeEmail(data&&data.customer&&data.customer.email||data&&data.customer_email||"");
+ const reference=String(gateway==="paystack"?(data&&data.reference||""):(data&&data.tx_ref||"")).trim();
+ if(!isValidEmail(email)||reference.length<8||reference.length>120)return null;
+ const already=await db.from("tp_payments").select("id,user_id,gateway,reference,payment_type,product_id,plan_id,credit_pack_id,amount_minor,currency,status,provider_transaction_id,provider_subscription_id,metadata,fulfilled_at")
+  .eq("reference",reference).maybeSingle();
+ if(already.error)throw already.error;
+ if(already.data)return already.data;
+ const user=await db.from("tp_users").select("id,email").eq("email",email).maybeSingle();
+ if(user.error)throw user.error;
+ if(!user.data)return null;
+ const active=await db.from("tp_subscriptions").select("id,user_id,plan_id,gateway,status,current_period_start,current_period_end,provider_plan_id")
+  .eq("user_id",user.data.id).eq("gateway",gateway).eq("status","active").gt("current_period_end",new Date().toISOString())
+  .order("current_period_end",{ascending:false}).limit(3);
+ if(active.error)throw active.error;
+ const incomingPlan=gateway==="paystack"
+  ?String(data&&data.plan&&(data.plan.plan_code||data.plan.code||data.plan)||data&&data.plan_code||"")
+  :String(data&&data.payment_plan||data&&data.plan_id||data&&data.plan&&data.plan.id||"");
+ for(const sub of active.data||[]){
+  if(incomingPlan&&String(sub.provider_plan_id||"")!==incomingPlan)continue;
+  const plan=await db.from("tp_subscription_plans").select("id,price_minor,currency,active").eq("id",sub.plan_id).maybeSingle();
+  if(plan.error)throw plan.error;
+  if(!plan.data)continue;
+  const amountMatches=gateway==="paystack"
+   ?Number(data.amount)===Number(plan.data.price_minor)&&String(data.currency||"").toUpperCase()===plan.data.currency
+   :Number(data.amount)+0.01>=currencyMajor(plan.data.price_minor)&&String(data.currency||"").toUpperCase()===plan.data.currency;
+  if(!amountMatches)continue;
+  const inserted=await db.from("tp_payments").insert({
+   user_id:user.data.id,gateway,reference,payment_type:"membership",plan_id:plan.data.id,
+   amount_minor:plan.data.price_minor,currency:plan.data.currency,status:"pending",
+   provider_transaction_id:String(data.id||""),provider_subscription_id:String(data.subscription_id||""),
+   metadata:{recurringRenewal:true,providerEvent:cleanProviderText(eventName,80)}
+  }).select("id,user_id,gateway,reference,payment_type,product_id,plan_id,credit_pack_id,amount_minor,currency,status,provider_transaction_id,provider_subscription_id,metadata,fulfilled_at").single();
+  if(inserted.error){
+   if(inserted.error.code==="23505"){
+    const duplicate=await db.from("tp_payments").select("id,user_id,gateway,reference,payment_type,product_id,plan_id,credit_pack_id,amount_minor,currency,status,provider_transaction_id,provider_subscription_id,metadata,fulfilled_at").eq("reference",reference).maybeSingle();
+    if(!duplicate.error&&duplicate.data)return duplicate.data;
+   }
+   throw inserted.error;
+  }
+  return inserted.data;
+ }
+ return null;
+}
+async function handlePaymentWebhook(gateway,event){
+ if(!db)throw new Error("DATABASE_NOT_CONFIGURED");
+ const eventName=String(event&&event.event||event&&event.type||"");
+ const data=event&&event.data||{};
+ if(gateway==="paystack"&&["subscription.create","subscription.not_renew","subscription.disable"].includes(eventName)){
+  const email=normalizeEmail(data.customer&&data.customer.email||data.customer_email||data.email||"");
+  const planCode=String(data.plan&&(data.plan.plan_code||data.plan.code||data.plan)||data.plan_code||"");
+  if(isValidEmail(email)&&planCode){
+   const u=await db.from("tp_users").select("id").eq("email",email).maybeSingle();
+   if(u.error)throw u.error;
+   if(u.data){
+    const patch={updated_at:new Date().toISOString()};
+    if(eventName==="subscription.create"){
+     patch.provider_subscription_id=String(data.subscription_code||data.subscription&&data.subscription.subscription_code||"");
+     patch.provider_email_token=String(data.email_token||data.subscription&&data.subscription.email_token||"");
+    }else patch.cancel_at_period_end=true;
+    const update=await db.from("tp_subscriptions").update(patch).eq("user_id",u.data.id).eq("gateway","paystack").eq("provider_plan_id",planCode).eq("status","active");
+    if(update.error)throw update.error;
+   }
+  }
+  return {status:"event_processed"};
+ }
+ if(gateway==="flutterwave"&&eventName==="subscription.cancelled"){
+  const email=normalizeEmail(data.customer&&data.customer.email||"");
+  const planId=String(data.plan&&data.plan.id||"");
+  if(isValidEmail(email)&&planId){
+   const u=await db.from("tp_users").select("id").eq("email",email).maybeSingle();
+   if(u.error)throw u.error;
+   if(u.data){
+    const update=await db.from("tp_subscriptions").update({cancel_at_period_end:true,updated_at:new Date().toISOString()})
+      .eq("user_id",u.data.id).eq("gateway","flutterwave").eq("provider_plan_id",planId).eq("status","active");
+    if(update.error)throw update.error;
+   }
+  }
+  return {status:"event_processed"};
+ }
+ if(gateway==="paystack"&&eventName!=="charge.success")return {status:"ignored"};
+ if(gateway==="flutterwave"&&eventName!=="charge.completed")return {status:"ignored"};
+ const reference=String(gateway==="paystack"?(data.reference||""):(data.tx_ref||"")).trim();
+ if(reference.length<8)return {status:"ignored"};
+ const found=await db.from("tp_payments").select("id,user_id,gateway,reference,payment_type,product_id,plan_id,credit_pack_id,amount_minor,currency,status,provider_transaction_id,provider_subscription_id,metadata,fulfilled_at")
+   .eq("reference",reference).maybeSingle();
+ if(found.error)throw found.error;
+ let payment=found.data;
+ if(!payment)payment=await recurringPaymentFromEvent(gateway,data,eventName);
+ if(!payment)return {status:"unmatched"};
+ if(payment.gateway!==gateway)return {status:"gateway_mismatch"};
+ const verified=await verifyGatewayPayment(payment,String(data.id||""));
+ return await fulfillVerifiedPayment(payment,verified);
+}
+
 app.get("/api/admin/email/stats",authenticated,isAdmin,asyncRoute(async(_q,r)=>{const a=await db.from("tp_users").select("id",{count:"exact",head:true}).eq("marketing_opt_in",true),b=await db.from("tp_email_usage").select("id",{count:"exact",head:true}).eq("status","sent").gte("sent_at",new Date(new Date().setUTCHours(0,0,0,0)).toISOString());if(a.error||b.error){logFailure("admin-stats",a.error||b.error);return errorJson(r,503,"STATS_FAILED","Email statistics are unavailable.");}r.json({ok:true,optedInRecipients:a.count||0,sentToday:b.count||0,dailySoftLimit:DAILY_LIMIT});}));
 app.get("/api/admin/email/jobs",authenticated,isAdmin,asyncRoute(async(_q,r)=>{const d=await db.from("tp_email_jobs").select("id,mode,subject,status,total_count,success_count,fail_count,created_at,completed_at").order("created_at",{ascending:false}).limit(20);if(d.error){logFailure("admin-jobs",d.error);return errorJson(r,503,"JOBS_FAILED","Email history unavailable.");}r.json({ok:true,jobs:d.data||[]});}));
 app.get("/api/admin/projects",authenticated,isAdmin,asyncRoute(async(_q,r)=>{const d=await db.from("tp_project_requests").select("id,full_name,email,project_type,details,status,created_at").order("created_at",{ascending:false}).limit(50);if(d.error){logFailure("admin-projects",d.error);return errorJson(r,503,"PROJECTS_FAILED","Project inquiries unavailable.");}r.json({ok:true,projects:d.data||[]});}));
