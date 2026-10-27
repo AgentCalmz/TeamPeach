@@ -604,6 +604,16 @@ async function handlePaymentWebhook(gateway,event){
     if(eventName==="subscription.create"){
      patch.provider_subscription_id=String(data.subscription_code||data.subscription&&data.subscription.subscription_code||"");
      patch.provider_email_token=String(data.email_token||data.subscription&&data.subscription.email_token||"");
+     const planRow=await db.from("tp_subscription_plans").select("id").eq("paystack_plan_code",planCode).maybeSingle();
+     if(planRow.error)throw planRow.error;
+     if(planRow.data){
+      const pending=await db.from("tp_payments").select("id,metadata").eq("user_id",u.data.id).eq("gateway","paystack").eq("payment_type","membership").eq("plan_id",planRow.data.id).eq("status","pending").order("created_at",{ascending:false}).limit(1).maybeSingle();
+      if(pending.error)throw pending.error;
+      if(pending.data){
+       const paymentUpdate=await db.from("tp_payments").update({provider_subscription_id:patch.provider_subscription_id,metadata:{...(pending.data.metadata||{}),providerSubscriptionEvent:"subscription.create"}}).eq("id",pending.data.id);
+       if(paymentUpdate.error)throw paymentUpdate.error;
+      }
+     }
     }else patch.cancel_at_period_end=true;
     const update=await db.from("tp_subscriptions").update(patch).eq("user_id",u.data.id).eq("gateway","paystack").eq("provider_plan_id",planCode).eq("status","active");
     if(update.error)throw update.error;
@@ -813,9 +823,20 @@ app.post("/api/commerce/subscription/cancel",csrf,authLimit,authenticated,asyncR
    if(!sub.provider_subscription_id||!sub.provider_email_token)return errorJson(r,409,"SUBSCRIPTION_CREDENTIALS_PENDING","The provider has not supplied the subscription cancellation reference yet. Refresh the dashboard after the first recurring webhook.");
    await gatewayRequest("paystack","https://api.paystack.co/subscription/disable","POST",{code:sub.provider_subscription_id,token:sub.provider_email_token});
   }else if(sub.gateway==="flutterwave"){
-   const id=String(sub.provider_subscription_id||"");
+   let id=String(sub.provider_subscription_id||"");
+   if(!/^\d{1,24}$/.test(id)&&sub.provider_plan_id){
+    const listing=await gatewayRequest("flutterwave","https://api.flutterwave.com/v3/subscriptions?email="+encodeURIComponent(q.user.email)+"&plan="+encodeURIComponent(sub.provider_plan_id),"GET");
+    const entries=Array.isArray(listing.data)?listing.data:[];
+    const match=entries.find(item=>{
+     const email=normalizeEmail(item.customer&&item.customer.email||item.customer_email||"");
+     const plan=String(item.plan&&item.plan.id||item.plan_id||item.payment_plan||"");
+     return (!email||email===q.user.email)&&(!plan||plan===String(sub.provider_plan_id))&&(!item.status||String(item.status).toLowerCase()==="active");
+    });
+    if(match&&/^\d{1,24}$/.test(String(match.id||"")))id=String(match.id);
+   }
    if(!/^\d{1,24}$/.test(id))return errorJson(r,409,"SUBSCRIPTION_ID_PENDING","Flutterwave has not supplied a subscription ID yet. Refresh after the provider webhook, or cancel using the subscription link in the provider's billing reminder.");
    await gatewayRequest("flutterwave","https://api.flutterwave.com/v3/subscriptions/"+encodeURIComponent(id)+"/cancel","PUT");
+   if(!sub.provider_subscription_id){const stored=await db.from("tp_subscriptions").update({provider_subscription_id:id,updated_at:new Date().toISOString()}).eq("id",sub.id);if(stored.error)logFailure("flutterwave-subscription-id",stored.error);}
   }else return errorJson(r,409,"SUBSCRIPTION_MANAGED_EXTERNALLY","This membership is managed manually. Contact support to change it.");
   const updated=await db.from("tp_subscriptions").update({status:"cancelled",cancel_at_period_end:true,updated_at:new Date().toISOString()}).eq("id",sub.id);
   if(updated.error)throw updated.error;
