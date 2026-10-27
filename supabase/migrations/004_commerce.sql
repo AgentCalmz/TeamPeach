@@ -176,6 +176,17 @@ alter table public.tp_tool_runs enable row level security;
 revoke all on public.tp_products,public.tp_subscription_plans,public.tp_credit_packs,public.tp_payments,public.tp_subscriptions,public.tp_credit_ledger,public.tp_tool_licenses,public.tp_deployments,public.tp_tool_runs from anon,authenticated;
 grant select,insert,update,delete on public.tp_products,public.tp_subscription_plans,public.tp_credit_packs,public.tp_payments,public.tp_subscriptions,public.tp_credit_ledger,public.tp_tool_licenses,public.tp_deployments,public.tp_tool_runs to service_role;
 
+insert into public.tp_products(
+ slug,name,summary,description,category,product_type,price_minor,currency,
+ hosted_enabled,self_hosted_enabled,visible_publicly,active,credit_cost_per_run,features
+) values(
+ 'seo-content-brief','SEO Content Brief Builder',
+ 'Turn a topic into a structured editorial plan and save it to your workspace.',
+ 'This version uses a structured template. It does not yet call an AI model or fetch live search results. Configure a price and hosted credit cost in the admin dashboard before enabling access.',
+ 'tool','hosted_tool',0,'NGN',false,false,true,false,1,
+ '["Structured content brief","Save a brief to your workspace","Template-based; not currently AI-powered"]'::jsonb
+) on conflict(slug) do nothing;
+
 create or replace function public.tp_credit_balance(p_user_id uuid)
 returns integer language sql security definer set search_path=public,pg_temp as $$
  select coalesce(sum(amount),0)::integer from public.tp_credit_ledger where user_id=p_user_id
