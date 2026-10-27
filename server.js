@@ -529,6 +529,12 @@ async function verifyGatewayPayment(payment,transactionId){
  return {data,transactionId:String(data.id||transactionId||"")};
 }
 async function fulfillVerifiedPayment(payment,verified){
+ const providerSubscriptionId=cleanProviderText(verified&&verified.data&&(verified.data.subscription_id||verified.data.subscription&&verified.data.subscription.id)||"",120);
+ if(payment.payment_type==="membership"&&providerSubscriptionId&&!payment.provider_subscription_id){
+  const update=await db.from("tp_payments").update({provider_subscription_id:providerSubscriptionId,updated_at:new Date().toISOString()}).eq("id",payment.id).eq("user_id",payment.user_id);
+  if(update.error)throw update.error;
+  payment.provider_subscription_id=providerSubscriptionId;
+ }
  const result=await db.rpc("tp_fulfill_payment",{
   p_payment_id:payment.id,
   p_provider_transaction_id:cleanProviderText(verified&&verified.transactionId,120)||null,
@@ -797,6 +803,25 @@ app.post("/api/commerce/tool-runs",csrf,authLimit,authenticated,asyncRoute(async
 }));
 
 
+app.post("/api/commerce/subscription/cancel",csrf,authLimit,authenticated,asyncRoute(async(q,r)=>{
+ if(!db)return errorJson(r,503,"COMMERCE_NOT_CONFIGURED","Subscription management is not configured.");
+ try{
+  const sub=await currentSubscription(q.user.id);
+  if(!sub)return errorJson(r,404,"ACTIVE_SUBSCRIPTION_NOT_FOUND","No current membership was found.");
+  if(sub.cancel_at_period_end)return r.json({ok:true,message:"Your subscription is already marked for cancellation."});
+  if(sub.gateway==="paystack"){
+   if(!sub.provider_subscription_id||!sub.provider_email_token)return errorJson(r,409,"SUBSCRIPTION_CREDENTIALS_PENDING","The provider has not supplied the subscription cancellation reference yet. Refresh the dashboard after the first recurring webhook.");
+   await gatewayRequest("paystack","https://api.paystack.co/subscription/disable","POST",{code:sub.provider_subscription_id,token:sub.provider_email_token});
+  }else if(sub.gateway==="flutterwave"){
+   const id=String(sub.provider_subscription_id||"");
+   if(!/^\d{1,24}$/.test(id))return errorJson(r,409,"SUBSCRIPTION_ID_PENDING","Flutterwave has not supplied a subscription ID yet. Refresh after the provider webhook, or cancel using the subscription link in the provider's billing reminder.");
+   await gatewayRequest("flutterwave","https://api.flutterwave.com/v3/subscriptions/"+encodeURIComponent(id)+"/cancel","PUT");
+  }else return errorJson(r,409,"SUBSCRIPTION_MANAGED_EXTERNALLY","This membership is managed manually. Contact support to change it.");
+  const updated=await db.from("tp_subscriptions").update({status:"cancelled",cancel_at_period_end:true,updated_at:new Date().toISOString()}).eq("id",sub.id);
+  if(updated.error)throw updated.error;
+  r.json({ok:true,message:"Renewal has been cancelled. Hosted access remains available until the current paid period ends."});
+ }catch(e){logFailure("subscription-cancel",e);errorJson(r,502,"SUBSCRIPTION_CANCEL_FAILED","The provider could not confirm cancellation. Refresh and try again or contact support.");}
+}));
 app.get("/api/admin/commerce/catalog",authenticated,isAdmin,asyncRoute(async(_q,r)=>{
  if(!db)return errorJson(r,503,"COMMERCE_NOT_CONFIGURED","Commerce storage is not configured.");
  const [products,plans,packs]=await Promise.all([
@@ -923,10 +948,15 @@ app.patch("/api/admin/commerce/credit-packs/:id",csrf,authLimit,authenticated,is
  if(!result.data)return errorJson(r,404,"PACK_NOT_FOUND","The credit pack was not found.");
  r.json({ok:true,creditPack:result.data});
 }));
+app.get("/api/admin/commerce/deployments",authenticated,isAdmin,asyncRoute(async(_q,r)=>{
+ const result=await db.from("tp_deployments").select("id,license_id,user_id,hosting_provider,deployment_url,status,notes,created_at,updated_at,tp_tool_licenses(license_key,delivery_status,product_id,tp_products(name,slug)),tp_users(email,full_name)").order("updated_at",{ascending:false}).limit(100);
+ if(result.error){logFailure("admin-deployment-list",result.error);return errorJson(r,503,"DEPLOYMENT_LIST_FAILED","Deployment records could not be loaded.");}
+ r.json({ok:true,deployments:(result.data||[]).map(d=>({...d,license:d.tp_tool_licenses||null,user:d.tp_users||null}))});
+}));
 app.get("/api/admin/commerce/users",authenticated,isAdmin,asyncRoute(async(q,r)=>{
  const term=cleanText(q.query.search,120).toLowerCase(),limit=Math.max(1,Math.min(100,Number(q.query.limit)||50));
  let query=db.from("tp_users").select("id,email,full_name,created_at").order("created_at",{ascending:false}).limit(limit);
- if(term)query=query.or("email.ilike.%"+term+"%,full_name.ilike.%"+term+"%");
+ if(term){const safeTerm=term.replace(/[%,().]/g," ").trim().slice(0,120);if(safeTerm)query=query.or("email.ilike.%"+safeTerm+"%,full_name.ilike.%"+safeTerm+"%");}
  const result=await query;
  if(result.error){logFailure("admin-commerce-users",result.error);return errorJson(r,503,"USERS_UNAVAILABLE","Users could not be loaded.");}
  const users=await Promise.all((result.data||[]).map(async u=>{
