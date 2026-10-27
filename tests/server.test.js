@@ -9,7 +9,7 @@ test("web service exposes clean public URLs and hides .html extensions",async t=
  await once(server,"listening");
  t.after(()=>new Promise(resolve=>server.close(resolve)));
  const base="http://127.0.0.1:"+server.address().port;
- for(const route of ["/","/journal/what-is-an-ai-agent/","/tools/seo-content-brief/","/register/","/verify-email/","/login/","/forgot-password/","/dashboard/","/account/","/admin/","/unsubscribe/"]){
+ for(const route of ["/","/journal/what-is-an-ai-agent/","/tools/seo-content-brief/","/register/","/verify-email/","/login/","/forgot-password/","/dashboard/","/account/","/admin/","/unsubscribe/","/products/"]){
   const response=await fetch(base+route);
   assert.equal(response.status,200,"expected 200 for "+route);
   assert.match(response.headers.get("content-type")||"",/text\/html/);
@@ -153,4 +153,63 @@ test("in-dashboard support chat connects private user conversations to the admin
  assert.match(admin,/id="support-admin-reply-form"/);
  assert.match(client,/bubble\.textContent=message\.body/);
  assert.match(client,/setInterval\(async\(\)=>/);
+});
+
+
+test("commerce schema, checkout verification, credit expiry, and dashboard UI are wired together",function(){
+ const fs=require("node:fs"),path=require("node:path");
+ const root=path.join(__dirname,"..");
+ const server=fs.readFileSync(path.join(root,"server.js"),"utf8");
+ const sql=fs.readFileSync(path.join(root,"supabase","migrations","004_commerce.sql"),"utf8");
+ const env=fs.readFileSync(path.join(root,".env.example"),"utf8");
+ const dashboard=fs.readFileSync(path.join(root,"public","dashboard","index.html"),"utf8");
+ const admin=fs.readFileSync(path.join(root,"public","admin","index.html"),"utf8");
+ const catalog=fs.readFileSync(path.join(root,"public","products","index.html"),"utf8");
+ const client=fs.readFileSync(path.join(root,"public","js","commerce.js"),"utf8");
+ const adminClient=fs.readFileSync(path.join(root,"public","js","admin-commerce.js"),"utf8");
+ const productClient=fs.readFileSync(path.join(root,"public","js","catalog.js"),"utf8");
+ const briefClient=fs.readFileSync(path.join(root,"public","js","brief-builder.js"),"utf8");
+ for(const route of [
+  'app.get("/api/commerce/catalog"',
+  'app.get("/api/commerce/overview"',
+  'app.post("/api/commerce/checkout"',
+  'app.post("/api/commerce/verify-payment"',
+  'app.post("/api/commerce/subscription/cancel"',
+  'app.post("/api/commerce/tool-runs"',
+  'app.post("/api/payments/webhooks/paystack"',
+  'app.post("/api/payments/webhooks/flutterwave"',
+  'app.get("/api/admin/commerce/catalog",authenticated,isAdmin',
+  'app.post("/api/admin/commerce/users/:id/credits",csrf,authLimit,authenticated,isAdmin'
+ ])assert.ok(server.includes(route),"missing "+route);
+ assert.match(server,/tp_fulfill_payment/);
+ assert.match(server,/status!=="successful"\\|\\|String\\(data\\.tx_ref/);
+ assert.match(server,/x-paystack-signature/);
+ assert.match(server,/flutterwave-signature/);
+ assert.match(server,/PAYMENT_MODE/);
+ assert.match(sql,/create table if not exists public\\.tp_credit_ledger/);
+ assert.match(sql,/create table if not exists public\\.tp_credit_buckets/);
+ assert.match(sql,/create table if not exists public\\.tp_credit_consumptions/);
+ assert.match(sql,/expires_at>now\\(\\)/);
+ assert.match(sql,/order by \\(expires_at is null\\) asc,expires_at asc nulls last/);
+ assert.match(sql,/alter table public\\.tp_payments enable row level security/);
+ assert.match(sql,/revoke all on public\\.tp_products,public\\.tp_subscription_plans/);
+ assert.match(dashboard,/id="billing"/);
+ assert.match(dashboard,/id="commerce-runs"/);
+ assert.match(dashboard,/id="support-chat"/);
+ assert.match(dashboard,/commerce\\.js\\?v=1/);
+ assert.match(admin,/id="admin-commerce"/);
+ assert.match(admin,/id="support-admin-list"/);
+ assert.match(admin,/admin-commerce\\.js\\?v=1/);
+ assert.match(catalog,/id="catalog-products"/);
+ assert.match(client,/api\\("\\/api\\/commerce\\/tool-runs","POST"/);
+ assert.match(adminClient,/api\\("\\/api\\/admin\\/commerce\\/plans","POST"/);
+ assert.match(productClient,/api|fetch\\("\\/api\\/commerce\\/catalog"/);
+ assert.match(briefClient,/api\\("\\/api\\/commerce\\/tool-runs","POST"/);
+ assert.match(env,/PAYMENT_MODE=test/);
+ assert.match(env,/PAYSTACK_SECRET_KEY=/);
+ assert.match(env,/FLW_SECRET_KEY=/);
+ assert.match(env,/FLW_SECRET_HASH=/);
+ for(const source of [server,client,adminClient,productClient,briefClient]){
+  assert.doesNotThrow(()=>new Function(source));
+ }
 });
