@@ -122,7 +122,7 @@
   }
   async function deleteProject(project){
     if(!window.confirm("Delete \""+project.title+"\"? Tasks linked to this project will remain in your workspace."))return;
-    try{await request("/api/workspace/projects/"+encodeURIComponent(project.id),"DELETE");workspace.projects=workspace.projects.filter(p=>p.id!==project.id);workspace.tasks=workspace.tasks.map(t=>t.project_id===project.id?{...t,project_id:null}:t);text($("#workspace-load-feedback"),"");renderProjects();renderTasks();renderTaskProjectOptions();toast("Project deleted.");}
+    try{await request("/api/workspace/projects/"+encodeURIComponent(project.id),"DELETE");workspace.projects=workspace.projects.filter(p=>p.id!==project.id);workspace.tasks=workspace.tasks.map(t=>t.project_id===project.id?{...t,project_id:null}:t);text($("#workspace-load-feedback"),"");text($("#workspace-load-feedback"),"");renderProjects();renderTasks();renderTaskProjectOptions();toast("Project deleted.");}
     catch(error){toast(error.message);}
   }
   async function updateTask(id,patch){
@@ -153,7 +153,7 @@
       renderProjects();renderTasks();renderTaskProjectOptions();
     }catch(error){
       const list=$("#projects-list");if(list){const box=element("div","project-card-empty");box.append(element("span","project-empty-icon","!"),element("h3","","We couldn't open your workspace."),element("p","",error.message+" If this is a new deployment, confirm supabase/migrations/002_workspace_dashboard.sql has been run in Supabase."));const retry=element("button","button button-dark","Try again");retry.type="button";retry.addEventListener("click",loadWorkspace);box.append(retry);list.replaceChildren(box);}
-      const tasks=$("#tasks-list");if(tasks)tasks.replaceChildren(element("div","tasks-empty","Your tasks could not be loaded."));if(!$("#projects-list")&&!$("#tasks-list"))text($("#workspace-load-feedback"),"Workspace details could not be loaded: "+error.message);
+      const tasks=$("#tasks-list");if(tasks)tasks.replaceChildren(element("div","tasks-empty","Your tasks could not be loaded."));if(!$("#projects-list")&&!$("#tasks-list"))text($("#workspace-load-feedback"),"Workspace details could not be loaded: "+error.message);if(!$("#projects-list")&&!$("#tasks-list"))text($("#workspace-load-feedback"),"Workspace details could not be loaded: "+error.message);
     }
   }
 
