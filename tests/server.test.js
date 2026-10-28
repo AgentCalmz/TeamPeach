@@ -9,12 +9,12 @@ test("web service exposes clean public URLs and hides .html extensions",async t=
  await once(server,"listening");
  t.after(()=>new Promise(resolve=>server.close(resolve)));
  const base="http://127.0.0.1:"+server.address().port;
- for(const route of ["/","/journal/what-is-an-ai-agent/","/tools/seo-content-brief/","/register/","/verify-email/","/login/","/forgot-password/","/dashboard/","/account/","/admin/","/unsubscribe/","/products/"]){
+ for(const route of ["/","/journal/what-is-an-ai-agent/","/tools/seo-content-brief/","/register/","/verify-email/","/login/","/forgot-password/","/dashboard/","/dashboard/projects/","/dashboard/tasks/","/dashboard/tools/","/dashboard/billing/","/dashboard/support/","/account/","/admin/","/admin/support/","/admin/products/","/admin/memberships/","/admin/credits/","/admin/customers/","/admin/fulfilment/","/admin/payments/","/admin/communications/","/unsubscribe/","/products/"]){
   const response=await fetch(base+route);
   assert.equal(response.status,200,"expected 200 for "+route);
   assert.match(response.headers.get("content-type")||"",/text\/html/);
   const html=await response.text();
-  if(route==="/account/"||route==="/admin/"||route==="/dashboard/")assert.match(html,/noindex,nofollow/);
+  if(route==="/account/"||route.startsWith("/admin/")||route.startsWith("/dashboard/"))assert.match(html,/noindex,nofollow/);
  }
  const old=await fetch(base+"/register/index.html",{redirect:"manual"});
  assert.equal(old.status,301);
@@ -84,6 +84,10 @@ test("workspace dashboard has scoped project/task APIs and a protected storage m
  const server=fs.readFileSync(path.join(__dirname,"..","server.js"),"utf8");
  const migration=fs.readFileSync(path.join(__dirname,"..","supabase","migrations","002_workspace_dashboard.sql"),"utf8");
  const dashboard=fs.readFileSync(path.join(__dirname,"..","public","dashboard","index.html"),"utf8");
+ const projectsPage=fs.readFileSync(path.join(__dirname,"..","public","dashboard","projects","index.html"),"utf8");
+ const tasksPage=fs.readFileSync(path.join(__dirname,"..","public","dashboard","tasks","index.html"),"utf8");
+ const dashboardClient=fs.readFileSync(path.join(__dirname,"..","public","js","dashboard.js"),"utf8");
+ const adminShell=fs.readFileSync(path.join(__dirname,"..","public","js","admin-shell.js"),"utf8");
  for(const route of [
   'app.get("/api/workspace"',
   'app.post("/api/workspace/projects"',
@@ -99,10 +103,16 @@ test("workspace dashboard has scoped project/task APIs and a protected storage m
  assert.match(migration,/alter table public\.tp_workspace_projects enable row level security/);
  assert.match(migration,/alter table public\.tp_workspace_tasks enable row level security/);
  assert.match(migration,/grant select, insert, update, delete on public\.tp_workspace_projects, public\.tp_workspace_tasks to service_role/);
- assert.match(dashboard,/id="projects-list"/);
- assert.match(dashboard,/id="tasks-list"/);
- assert.match(dashboard,/id="new-project-form"/);
- assert.match(dashboard,/id="new-task-form"/);
+ assert.match(dashboard,/href="\\/dashboard\\/projects\\/"/);
+ assert.match(dashboard,/href="\\/dashboard\\/tasks\\/"/);
+ assert.match(projectsPage,/id="projects-list"/);
+ assert.match(projectsPage,/id="new-project-form"/);
+ assert.match(tasksPage,/id="tasks-list"/);
+ assert.match(tasksPage,/id="new-task-form"/);
+ assert.match(dashboard,/id="workspace-admin-link"/);
+ assert.match(server,/isAdmin:q\\.isAdmin/);
+ assert.match(dashboardClient,/workspace\\.user&&workspace\\.user\\.isAdmin/);
+ assert.match(adminShell,/api\\/auth\\/me/);
 });
 
 test("SEO content brief builder is interactive and states its current data limitations",function(){
@@ -129,7 +139,11 @@ test("in-dashboard support chat connects private user conversations to the admin
  const server=fs.readFileSync(path.join(root,"server.js"),"utf8");
  const migration=fs.readFileSync(path.join(root,"supabase","migrations","003_support_chat.sql"),"utf8");
  const dashboard=fs.readFileSync(path.join(root,"public","dashboard","index.html"),"utf8");
+ const billingPage=fs.readFileSync(path.join(root,"public","dashboard","billing","index.html"),"utf8");
+ const supportPage=fs.readFileSync(path.join(root,"public","dashboard","support","index.html"),"utf8");
  const admin=fs.readFileSync(path.join(root,"public","admin","index.html"),"utf8");
+ const adminSupport=fs.readFileSync(path.join(root,"public","admin","support","index.html"),"utf8");
+ const adminProducts=fs.readFileSync(path.join(root,"public","admin","products","index.html"),"utf8");
  const client=fs.readFileSync(path.join(root,"public","js","support-chat.js"),"utf8");
  for(const route of [
   'app.get("/api/support/conversations"',
@@ -193,13 +207,16 @@ test("commerce schema, checkout verification, credit expiry, and dashboard UI ar
  assert.ok(sql.includes("order by (expires_at is null) asc,expires_at asc nulls last"));
  assert.ok(sql.includes("alter table public.tp_payments enable row level security"));
  assert.ok(sql.includes("revoke all on public.tp_products,public.tp_subscription_plans"));
- assert.ok(dashboard.includes('id="billing"'));
- assert.ok(dashboard.includes('id="commerce-runs"'));
- assert.ok(dashboard.includes('id="support-chat"'));
- assert.ok(dashboard.includes("commerce.js?v=1"));
- assert.ok(admin.includes('id="admin-commerce"'));
- assert.ok(admin.includes('id="support-admin-list"'));
- assert.ok(admin.includes("admin-commerce.js?v=1"));
+ assert.ok(dashboard.includes('href="/dashboard/billing/"'));
+ assert.ok(billingPage.includes('id="billing"'));
+ assert.ok(billingPage.includes('id="commerce-runs"'));
+ assert.ok(billingPage.includes("commerce.js?v=2"));
+ assert.ok(supportPage.includes('id="support-chat"'));
+ assert.ok(supportPage.includes("support-chat.js?v=2"));
+ assert.ok(admin.includes('href="/admin/support/"'));
+ assert.ok(admin.includes('href="/admin/products/"'));
+ assert.ok(adminSupport.includes('id="support-admin-list"'));
+ assert.ok(adminProducts.includes("admin-commerce.js?v=2"));
  assert.ok(catalog.includes('id="catalog-products"'));
  assert.ok(client.includes('api("/api/commerce/checkout","POST"'));
  assert.ok(adminClient.includes('api("/api/admin/commerce/plans","POST"'));
@@ -209,7 +226,10 @@ test("commerce schema, checkout verification, credit expiry, and dashboard UI ar
  assert.ok(env.includes("PAYSTACK_SECRET_KEY="));
  assert.ok(env.includes("FLW_SECRET_KEY="));
  assert.ok(env.includes("FLW_SECRET_HASH="));
- for(const source of [server,client,adminClient,productClient,briefClient])assert.doesNotThrow(()=>new Function(source));
+ const dashboardClient=fs.readFileSync(path.join(root,"public","js","dashboard.js"),"utf8");
+ const adminShell=fs.readFileSync(path.join(root,"public","js","admin-shell.js"),"utf8");
+ const supportClient=fs.readFileSync(path.join(root,"public","js","support-chat.js"),"utf8");
+ for(const source of [server,client,adminClient,productClient,briefClient,dashboardClient,adminShell,supportClient])assert.doesNotThrow(()=>new Function(source));
 });
 
 
