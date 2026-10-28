@@ -139,6 +139,18 @@
     select.replaceChildren();const noProject=element("option","","No project");noProject.value="";select.append(noProject);
     workspace.projects.filter(project=>project.status!=="completed").forEach(project=>{const option=element("option","",project.title);option.value=project.id;select.append(option);});
   }
+  async function loadSupportUnreadCount(){
+    const badge=$("#support-unread-count");
+    if(!badge||$("#support-conversations"))return;
+    try{
+      const response=await fetch("/api/support/conversations",{credentials:"same-origin",cache:"no-store"});
+      if(!response.ok)return;
+      const body=await response.json().catch(()=>({}));
+      const count=(Array.isArray(body.conversations)?body.conversations:[]).filter(item=>item.unread===true).length;
+      text(badge,count);badge.hidden=count===0;
+    }catch(_){badge.hidden=true;}
+  }
+
   async function loadWorkspace(){
     try{
       const result=await request("/api/workspace","GET");
@@ -186,4 +198,5 @@
     catch(error){toast(error.message);button.disabled=false;}
   });
   loadWorkspace();
+  loadSupportUnreadCount();
 })();
