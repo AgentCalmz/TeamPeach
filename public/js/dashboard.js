@@ -149,7 +149,7 @@
       text($("#welcome-subtitle"),"Your workspace is ready. Pick one useful next step and make it happen.");
       text($("#sidebar-name"),name);text($("#sidebar-email"),workspace.user&&workspace.user.email||"");
       text($("#sidebar-avatar"),first.charAt(0).toUpperCase());text($("#topbar-avatar"),first.charAt(0).toUpperCase());
-      const adminLink=$("#workspace-admin-link");if(adminLink)adminLink.hidden!==true?adminLink.hidden=!Boolean(workspace.user&&workspace.user.isAdmin):adminLink.hidden=!Boolean(workspace.user&&workspace.user.isAdmin);
+      const adminLink=$("#workspace-admin-link");if(adminLink)adminLink.hidden=!Boolean(workspace.user&&workspace.user.isAdmin);
       renderProjects();renderTasks();renderTaskProjectOptions();
     }catch(error){
       const list=$("#projects-list");if(list){const box=element("div","project-card-empty");box.append(element("span","project-empty-icon","!"),element("h3","","We couldn't open your workspace."),element("p","",error.message+" If this is a new deployment, confirm supabase/migrations/002_workspace_dashboard.sql has been run in Supabase."));const retry=element("button","button button-dark","Try again");retry.type="button";retry.addEventListener("click",loadWorkspace);box.append(retry);list.replaceChildren(box);}
