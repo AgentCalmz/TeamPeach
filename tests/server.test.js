@@ -259,6 +259,7 @@ test("commerce schema, checkout verification, credit expiry, and dashboard UI ar
  assert.ok(server.includes("priceUsd"));
  assert.ok(!server.includes("priceNaira"));
  assert.ok(server.includes("amountMinor<200"));
+ assert.ok(server.includes("LEGACY_PLAN_READ_ONLY"));
  assert.ok(adminClient.includes("priceUsd"));
  assert.ok(!adminClient.includes("priceNaira"));
  assert.ok(usdMigration.includes("v_ngn_per_usd numeric := 1341.62"));
