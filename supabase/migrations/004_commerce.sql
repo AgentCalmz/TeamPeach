@@ -263,7 +263,7 @@ begin
  elsif p.payment_type='tool_license' then
    select * into product_row from public.tp_products where id=p.product_id;
    if not found or not product_row.self_hosted_enabled then raise exception 'tool licence unavailable'; end if;
-   key_value:='TP-'||upper(encode(gen_random_bytes(16),'hex'));
+   key_value:='TP-'||upper(encode(extensions.gen_random_bytes(16),'hex'));
    insert into public.tp_tool_licenses(user_id,product_id,payment_id,license_key,status,deployment_mode,delivery_status,source_code_url,delivery_notes,included_setup_hours)
    values(p.user_id,p.product_id,p.id,key_value,'active','customer_hosted',
      case when coalesce(product_row.source_code_url,'')<>'' then 'ready' else 'awaiting_setup' end,
