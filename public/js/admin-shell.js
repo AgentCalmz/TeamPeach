@@ -20,9 +20,9 @@
   try{
    const response=await fetch("/api/auth/me",{credentials:"same-origin",cache:"no-store"});
    const body=await response.json().catch(()=>({}));
-   if(response.status===401){location.replace("/login/?next="+encodeURIComponent(path));return;}
+   if(response.status===401){location.replace("/admin/login/?next="+encodeURIComponent(path));return;}
    if(!response.ok)throw new Error(body.message||"Administrator access could not be verified.");
-   if(!body.isAdmin){location.replace("/dashboard/?admin=required");return;}
+   if(!body.isAdmin){location.replace("/admin/login/?denied=1&next="+encodeURIComponent(path));return;}
    const name=(body.user&&body.user.fullName||"Administrator").trim();
    const email=body.user&&body.user.email||"";
    if($("#admin-name"))$("#admin-name").textContent=name;

@@ -33,7 +33,7 @@
     if(["POST","PATCH","DELETE"].includes(verb)){options.headers["X-CSRF-Token"]=await ensureCsrf();}
     if(data!==undefined){options.headers["Content-Type"]="application/json";options.body=JSON.stringify(data);}
     const response=await fetch(url,options),body=await response.json().catch(()=>({}));
-    if(response.status===401||body.error==="NOT_AUTHENTICATED"){location.href="/login/?next=%2Fdashboard%2F";throw new Error("Your session has ended. Please sign in again.");}
+    if(response.status===401||body.error==="NOT_AUTHENTICATED"){const next=location.pathname+location.search;location.href="/login/?next="+encodeURIComponent(next);throw new Error("Your session has ended. Please sign in again.");}
     if(!response.ok){const error=new Error(body.message||"That request could not be completed.");error.code=body.error||"REQUEST_FAILED";throw error;}
     return body;
   }
@@ -151,21 +151,70 @@
     }catch(_){badge.hidden=true;}
   }
 
+  function updateAccountChrome(user){
+    workspace.user=user||null;
+    const name=String((workspace.user&&workspace.user.fullName)||"there").trim(),first=name.split(/\s+/)[0]||"there";
+    const hour=new Date().getHours(),greeting=hour<12?"Good morning":hour<18?"Good afternoon":"Good evening";
+    text($("#welcome-title"),greeting+", "+first+".");
+    text($("#welcome-subtitle"),"Your workspace is ready. Pick one useful next step and make it happen.");
+    text($("#sidebar-name"),name);
+    text($("#sidebar-email"),workspace.user&&workspace.user.email||"");
+    text($("#sidebar-avatar"),first.charAt(0).toUpperCase());
+    text($("#topbar-avatar"),first.charAt(0).toUpperCase());
+    const adminLink=$("#workspace-admin-link");
+    if(adminLink)adminLink.hidden=!Boolean(workspace.user&&workspace.user.isAdmin);
+  }
+
   async function loadWorkspace(){
+    const projectsList=$("#projects-list"),tasksList=$("#tasks-list");
+    let profileLoaded=false;
     try{
+      const profile=await request("/api/auth/me","GET");
+      profileLoaded=true;
+      const profileUser={...(profile.user||{}),isAdmin:Boolean(profile.isAdmin)};
+      workspace={user:profileUser,projects:[],tasks:[]};
+      updateAccountChrome(profileUser);
+      text($("#workspace-load-feedback"),"");
+      const needsWorkspaceData=Boolean(projectsList||tasksList||$("#stat-active-projects")||$("#stat-open-tasks")||$("#stat-completed-tasks")||$("#new-task-project"));
+      if(!needsWorkspaceData)return;
+
       const result=await request("/api/workspace","GET");
-      workspace={user:result.user||null,projects:Array.isArray(result.projects)?result.projects:[],tasks:Array.isArray(result.tasks)?result.tasks:[]};
-      const name=(workspace.user&&workspace.user.fullName||"there").trim(),first=name.split(/\s+/)[0]||"there";
-      const hour=new Date().getHours(),greeting=hour<12?"Good morning":hour<18?"Good afternoon":"Good evening";
-      text($("#welcome-title"),greeting+", "+first+".");
-      text($("#welcome-subtitle"),"Your workspace is ready. Pick one useful next step and make it happen.");
-      text($("#sidebar-name"),name);text($("#sidebar-email"),workspace.user&&workspace.user.email||"");
-      text($("#sidebar-avatar"),first.charAt(0).toUpperCase());text($("#topbar-avatar"),first.charAt(0).toUpperCase());
-      const adminLink=$("#workspace-admin-link");if(adminLink)adminLink.hidden=!Boolean(workspace.user&&workspace.user.isAdmin);
-      renderProjects();renderTasks();renderTaskProjectOptions();
+      const workspaceUser=result.user||profileUser;
+      workspace={user:workspaceUser,projects:Array.isArray(result.projects)?result.projects:[],tasks:Array.isArray(result.tasks)?result.tasks:[]};
+      updateAccountChrome(workspaceUser);
+      text($("#workspace-load-feedback"),"");
+      renderProjects();
+      renderTasks();
+      renderTaskProjectOptions();
     }catch(error){
-      const list=$("#projects-list");if(list){const box=element("div","project-card-empty");box.append(element("span","project-empty-icon","!"),element("h3","","We couldn't open your workspace."),element("p","",error.message+" If this is a new deployment, confirm supabase/migrations/002_workspace_dashboard.sql has been run in Supabase."));const retry=element("button","button button-dark","Try again");retry.type="button";retry.addEventListener("click",loadWorkspace);box.append(retry);list.replaceChildren(box);}
-      const tasks=$("#tasks-list");if(tasks)tasks.replaceChildren(element("div","tasks-empty","Your tasks could not be loaded."));if(!$("#projects-list")&&!$("#tasks-list"))text($("#workspace-load-feedback"),"Workspace details could not be loaded: "+error.message);if(!$("#projects-list")&&!$("#tasks-list"))text($("#workspace-load-feedback"),"Workspace details could not be loaded: "+error.message);
+      if(!profileLoaded){
+        const detail="We couldn't verify your account session. Please sign in again or refresh this page. "+error.message;
+        text($("#workspace-load-feedback"),detail);
+        if(projectsList){
+          const box=element("div","project-card-empty");box.append(element("h3","","Your account could not be verified."),element("p","",detail));
+          const retry=element("button","button button-dark","Try again");retry.type="button";retry.addEventListener("click",loadWorkspace);box.append(retry);projectsList.replaceChildren(box);
+        }
+        if(tasksList){
+          const box=element("div","tasks-empty");box.append(element("strong","","Your account could not be verified."),element("span","",detail));
+          const retry=element("button","button button-outline","Try again");retry.type="button";retry.addEventListener("click",loadWorkspace);box.append(retry);tasksList.replaceChildren(box);
+        }
+        return;
+      }
+      const detail="Your account is signed in, but project and task data could not be loaded. Confirm supabase/migrations/002_workspace_dashboard.sql has been applied in Supabase and that the database is reachable. "+error.message;
+      text($("#workspace-load-feedback"),detail);
+      if(projectsList){
+        const box=element("div","project-card-empty");
+        box.append(element("span","project-empty-icon","!"),element("h3","","Your projects are temporarily unavailable."),element("p","",detail));
+        const retry=element("button","button button-dark","Try again");retry.type="button";retry.addEventListener("click",loadWorkspace);
+        box.append(retry);projectsList.replaceChildren(box);
+      }
+      if(tasksList){
+        tasksList.replaceChildren();
+        const box=element("div","tasks-empty");
+        box.append(element("strong","","Your tasks are temporarily unavailable."),element("span","",detail));
+        const retry=element("button","button button-outline","Try again");retry.type="button";retry.addEventListener("click",loadWorkspace);
+        box.append(retry);tasksList.append(box);
+      }
     }
   }
 
