@@ -103,16 +103,16 @@ test("workspace dashboard has scoped project/task APIs and a protected storage m
  assert.match(migration,/alter table public\.tp_workspace_projects enable row level security/);
  assert.match(migration,/alter table public\.tp_workspace_tasks enable row level security/);
  assert.match(migration,/grant select, insert, update, delete on public\.tp_workspace_projects, public\.tp_workspace_tasks to service_role/);
- assert.match(dashboard,/href="\\/dashboard\\/projects\\/"/);
- assert.match(dashboard,/href="\\/dashboard\\/tasks\\/"/);
+ assert.ok(dashboard.includes('href="/dashboard/projects/"'));
+ assert.ok(dashboard.includes('href="/dashboard/tasks/"'));
  assert.match(projectsPage,/id="projects-list"/);
  assert.match(projectsPage,/id="new-project-form"/);
  assert.match(tasksPage,/id="tasks-list"/);
  assert.match(tasksPage,/id="new-task-form"/);
  assert.match(dashboard,/id="workspace-admin-link"/);
- assert.match(server,/isAdmin:q\\.isAdmin/);
- assert.match(dashboardClient,/workspace\\.user&&workspace\\.user\\.isAdmin/);
- assert.match(adminShell,/api\\/auth\\/me/);
+ assert.ok(server.includes("isAdmin:q.isAdmin"));
+ assert.ok(dashboardClient.includes("workspace.user&&workspace.user.isAdmin"));
+ assert.ok(adminShell.includes("/api/auth/me"));
 });
 
 test("SEO content brief builder is interactive and states its current data limitations",function(){
@@ -139,6 +139,10 @@ test("in-dashboard support chat connects private user conversations to the admin
  const server=fs.readFileSync(path.join(root,"server.js"),"utf8");
  const migration=fs.readFileSync(path.join(root,"supabase","migrations","003_support_chat.sql"),"utf8");
  const dashboard=fs.readFileSync(path.join(root,"public","dashboard","index.html"),"utf8");
+  const billingPage=fs.readFileSync(path.join(root,"public","dashboard","billing","index.html"),"utf8");
+  const supportPage=fs.readFileSync(path.join(root,"public","dashboard","support","index.html"),"utf8");
+  const adminSupport=fs.readFileSync(path.join(root,"public","admin","support","index.html"),"utf8");
+  const adminProducts=fs.readFileSync(path.join(root,"public","admin","products","index.html"),"utf8");
  const billingPage=fs.readFileSync(path.join(root,"public","dashboard","billing","index.html"),"utf8");
  const supportPage=fs.readFileSync(path.join(root,"public","dashboard","support","index.html"),"utf8");
  const admin=fs.readFileSync(path.join(root,"public","admin","index.html"),"utf8");
@@ -160,11 +164,11 @@ test("in-dashboard support chat connects private user conversations to the admin
  assert.match(migration,/alter table public\.tp_support_conversations enable row level security/);
  assert.match(migration,/alter table public\.tp_support_messages enable row level security/);
  assert.match(migration,/revoke all on public\.tp_support_conversations, public\.tp_support_messages from anon, authenticated/);
- assert.match(dashboard,/id="support-conversations"/);
- assert.match(dashboard,/id="support-reply-form"/);
- assert.match(dashboard,/id="support-unread-count"/);
- assert.match(admin,/id="support-admin-list"/);
- assert.match(admin,/id="support-admin-reply-form"/);
+ assert.match(supportPage,/id="support-conversations"/);
+ assert.match(supportPage,/id="support-reply-form"/);
+ assert.match(supportPage,/id="support-unread-count"/);
+ assert.match(adminSupport,/id="support-admin-list"/);
+ assert.match(adminSupport,/id="support-admin-reply-form"/);
  assert.match(client,/bubble\.textContent=message\.body/);
  assert.match(client,/setInterval\(async\(\)=>/);
 });
@@ -177,6 +181,10 @@ test("commerce schema, checkout verification, credit expiry, and dashboard UI ar
  const sql=fs.readFileSync(path.join(root,"supabase","migrations","004_commerce.sql"),"utf8");
  const env=fs.readFileSync(path.join(root,".env.example"),"utf8");
  const dashboard=fs.readFileSync(path.join(root,"public","dashboard","index.html"),"utf8");
+  const billingPage=fs.readFileSync(path.join(root,"public","dashboard","billing","index.html"),"utf8");
+  const supportPage=fs.readFileSync(path.join(root,"public","dashboard","support","index.html"),"utf8");
+  const adminSupport=fs.readFileSync(path.join(root,"public","admin","support","index.html"),"utf8");
+  const adminProducts=fs.readFileSync(path.join(root,"public","admin","products","index.html"),"utf8");
  const admin=fs.readFileSync(path.join(root,"public","admin","index.html"),"utf8");
  const catalog=fs.readFileSync(path.join(root,"public","products","index.html"),"utf8");
  const client=fs.readFileSync(path.join(root,"public","js","commerce.js"),"utf8");
@@ -253,3 +261,4 @@ test("robots and sitemap expose the product catalogue but not private routes",as
  assert.equal(sitemapResponse.status,200);assert.ok((sitemapResponse.headers.get("content-type")||"").includes("xml"));
  assert.ok((await sitemapResponse.text()).includes("<loc>https://teampeach.org/products/</loc>"));
 });
+
