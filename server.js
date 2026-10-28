@@ -725,7 +725,7 @@ app.post("/api/commerce/checkout",csrf,authLimit,authenticated,asyncRoute(async(
  if(!paymentReady(gateway))return errorJson(r,503,"PAYMENT_GATEWAY_NOT_CONFIGURED","This payment option is not configured for the current test/live mode. Add its secret key in Render Environment.");
  if(!paymentTypeValues.includes(type))return errorJson(r,400,"INVALID_PURCHASE_TYPE","Choose a membership, credit pack or tool licence.");
  try{
-  let amountMinor=0,currency="NGN",planId=null,productId=null,packId=null,planRow=null,productRow=null,packRow=null,discountPercent=0;
+  let amountMinor=0,currency="USD",planId=null,productId=null,packId=null,planRow=null,productRow=null,packRow=null,discountPercent=0;
   const subscription=await currentSubscription(q.user.id);
   if(type==="membership"){
    if(subscription)return errorJson(r,409,"ACTIVE_MEMBERSHIP","You already have a current membership. Your current provider subscription will renew automatically unless cancelled.");
@@ -754,7 +754,8 @@ app.post("/api/commerce/checkout",csrf,authLimit,authenticated,asyncRoute(async(
    if(subscription&&subscription.tp_subscription_plans)discountPercent=Math.max(Number(productRow.member_discount_percent||0),Number(subscription.tp_subscription_plans.member_discount_percent||0));
    amountMinor=Math.round(amountMinor*(100-discountPercent)/100);
   }
-  if(amountMinor<1||currency!=="NGN")return errorJson(r,409,"PRICE_NOT_CONFIGURED","This item needs a valid NGN price before checkout can start.");
+  if(amountMinor<1||currency!=="USD")return errorJson(r,409,"PRICE_NOT_CONFIGURED","This item needs a valid USD price before checkout can start.");
+  if(gateway==="paystack"&&amountMinor<200)return errorJson(r,409,"PAYSTACK_USD_MINIMUM","Paystack requires at least USD 2.00 per transaction. Increase this catalogue price or use Flutterwave.");
   const reference=newPaymentReference(gateway);
   const metadata={paymentMode:paymentMode(),discountPercent,regularAmountMinor:type==="tool_license"?Number(productRow.price_minor):amountMinor,
    ...(type==="membership"?{planSlug:planRow.slug,monthlyCredits:planRow.monthly_credits}:{})};
@@ -905,7 +906,7 @@ app.get("/api/admin/commerce/summary",authenticated,isAdmin,asyncRoute(async(_q,
 }));
 app.post("/api/admin/commerce/products",csrf,authLimit,authenticated,isAdmin,asyncRoute(async(q,r)=>{
  const b=q.body||{},slug=String(b.slug||"").trim().toLowerCase(),name=cleanText(b.name,120),summary=cleanText(b.summary,300),description=cleanText(b.description,5000),category=String(b.category||"tool"),productType=String(b.productType||"hosted_tool");
- const price=Number(b.priceNaira),cost=Number(b.creditCostPerRun),discount=Number(b.memberDiscountPercent||0),hours=Number(b.includedSetupHours||0);
+ const price=Number(b.priceUsd),cost=Number(b.creditCostPerRun),discount=Number(b.memberDiscountPercent||0),hours=Number(b.includedSetupHours||0);
  if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)||name.length<2||!Number.isFinite(price)||price<0||price>1000000000||!Number.isSafeInteger(cost)||cost<0||cost>1000000||!Number.isInteger(discount)||discount<0||discount>90||!Number.isFinite(hours)||hours<0||hours>100)
   return errorJson(r,400,"INVALID_PRODUCT","Check the product slug, name, price, credit cost, discount and setup hours.");
  if(!["tool","agent","automation","service"].includes(category)||!["hosted_tool","self_hosted_tool","hosted_and_self_hosted","service"].includes(productType))
@@ -918,7 +919,7 @@ app.post("/api/admin/commerce/products",csrf,authLimit,authenticated,isAdmin,asy
  if(hostedPath&&(hostedPath.length>300||!hostedPath.startsWith("/")||hostedPath.startsWith("//")))return errorJson(r,400,"INVALID_HOSTED_PATH","Hosted path must be a site-local path beginning with a single slash.");
  if(sourceUrl&&(!/^https:\/\//i.test(sourceUrl)||sourceUrl.length>1000))return errorJson(r,400,"INVALID_SOURCE_URL","Source delivery URL must be an HTTPS link.");
  const features=Array.isArray(b.features)?b.features.map(x=>cleanText(x,200)).filter(Boolean).slice(0,20):String(b.features||"").split(/\r?\n/).map(x=>cleanText(x,200)).filter(Boolean).slice(0,20);
- const result=await db.from("tp_products").insert({slug,name,summary,description,category,product_type:productType,hosted_path:String(b.hostedPath||"").trim(),price_minor:Math.round(price*100),currency:"NGN",
+ const result=await db.from("tp_products").insert({slug,name,summary,description,category,product_type:productType,hosted_path:String(b.hostedPath||"").trim(),price_minor:Math.round(price*100),currency:"USD",
   hosted_enabled:Boolean(b.hostedEnabled),self_hosted_enabled:Boolean(b.selfHostedEnabled),visible_publicly:Boolean(b.visiblePublicly),active:Boolean(b.active),
   credit_cost_per_run:cost,source_code_url:sourceUrl||null,source_delivery_notes:cleanText(b.sourceDeliveryNotes,3000),included_setup_hours:hours,member_discount_percent:discount,features,updated_at:new Date().toISOString()})
   .select("*").single();
@@ -936,7 +937,7 @@ app.patch("/api/admin/commerce/products/:id",csrf,authLimit,authenticated,isAdmi
  for(const [input,column,max] of [["summary","summary",300],["description","description",5000],["sourceDeliveryNotes","source_delivery_notes",3000]])if(Object.hasOwn(b,input))patch[column]=cleanText(b[input],max);
  for(const [input,column,values] of [["category","category",["tool","agent","automation","service"]],["productType","product_type",["hosted_tool","self_hosted_tool","hosted_and_self_hosted","service"]]])if(Object.hasOwn(b,input)){if(!values.includes(b[input]))return errorJson(r,400,"INVALID_PRODUCT_FIELD","That product field is invalid.");patch[column]=b[input];}
  for(const [input,column] of [["hostedEnabled","hosted_enabled"],["selfHostedEnabled","self_hosted_enabled"],["visiblePublicly","visible_publicly"],["active","active"]])if(Object.hasOwn(b,input)){if(typeof b[input]!=="boolean")return errorJson(r,400,"INVALID_PRODUCT_FIELD","That product field must be true or false.");patch[column]=b[input];}
- if(Object.hasOwn(b,"priceNaira")){const price=Number(b.priceNaira);if(!Number.isFinite(price)||price<0||price>1000000000)return errorJson(r,400,"INVALID_PRODUCT_PRICE","Enter a valid product price.");patch.price_minor=Math.round(price*100);}
+ if(Object.hasOwn(b,"priceUsd")){const price=Number(b.priceUsd);if(!Number.isFinite(price)||price<0||price>1000000000)return errorJson(r,400,"INVALID_PRODUCT_PRICE","Enter a valid product price.");patch.price_minor=Math.round(price*100);patch.currency="USD";}
  if(Object.hasOwn(b,"creditCostPerRun")){const cost=Number(b.creditCostPerRun);if(!Number.isSafeInteger(cost)||cost<0||cost>1000000)return errorJson(r,400,"INVALID_CREDIT_COST","Enter a non-negative whole-number credit cost.");patch.credit_cost_per_run=cost;}
  if(Object.hasOwn(b,"memberDiscountPercent")){const discount=Number(b.memberDiscountPercent);if(!Number.isInteger(discount)||discount<0||discount>90)return errorJson(r,400,"INVALID_DISCOUNT","Discount must be between 0 and 90 percent.");patch.member_discount_percent=discount;}
  if(Object.hasOwn(b,"includedSetupHours")){const hours=Number(b.includedSetupHours);if(!Number.isFinite(hours)||hours<0||hours>100)return errorJson(r,400,"INVALID_SETUP_HOURS","Setup hours must be between 0 and 100.");patch.included_setup_hours=hours;}
@@ -956,17 +957,17 @@ app.patch("/api/admin/commerce/products/:id",csrf,authLimit,authenticated,isAdmi
  r.json({ok:true,product:result.data});
 }));
 app.post("/api/admin/commerce/plans",csrf,authLimit,authenticated,isAdmin,asyncRoute(async(q,r)=>{
- const b=q.body||{},slug=String(b.slug||"").trim().toLowerCase(),name=cleanText(b.name,100),description=cleanText(b.description,1200),price=Number(b.priceNaira),credits=Number(b.monthlyCredits),discount=Number(b.memberDiscountPercent||0),sort=Number(b.sortOrder||100);
+ const b=q.body||{},slug=String(b.slug||"").trim().toLowerCase(),name=cleanText(b.name,100),description=cleanText(b.description,1200),price=Number(b.priceUsd),credits=Number(b.monthlyCredits),discount=Number(b.memberDiscountPercent||0),sort=Number(b.sortOrder||100);
  if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)||name.length<2||!Number.isFinite(price)||price<=0||price>1000000000||!Number.isSafeInteger(credits)||credits<1||credits>100000000||!Number.isInteger(discount)||discount<0||discount>90||!Number.isSafeInteger(sort))
   return errorJson(r,400,"INVALID_PLAN","Check plan slug, name, monthly price, monthly credits, discount and sort order.");
- const result=await db.from("tp_subscription_plans").insert({slug,name,description,price_minor:Math.round(price*100),currency:"NGN",monthly_credits:credits,member_discount_percent:discount,active:Boolean(b.active),sort_order:sort,updated_at:new Date().toISOString()}).select(publicPlanFields).single();
+ const result=await db.from("tp_subscription_plans").insert({slug,name,description,price_minor:Math.round(price*100),currency:"USD",monthly_credits:credits,member_discount_percent:discount,active:Boolean(b.active),sort_order:sort,updated_at:new Date().toISOString()}).select(publicPlanFields).single();
  if(result.error){logFailure("admin-plan-create",result.error);return errorJson(r,result.error.code==="23505"?409:503,result.error.code==="23505"?"PLAN_SLUG_EXISTS":"PLAN_CREATE_FAILED",result.error.code==="23505"?"That plan slug already exists.":"The plan could not be saved.");}
  r.status(201).json({ok:true,plan:result.data});
 }));
 app.patch("/api/admin/commerce/plans/:id",csrf,authLimit,authenticated,isAdmin,asyncRoute(async(q,r)=>{
  if(!validWorkspaceId(q.params.id))return errorJson(r,400,"INVALID_PLAN_ID","This plan link is invalid.");
  const b=q.body||{};
- const changesBillingTerms=Object.hasOwn(b,"priceNaira")||Object.hasOwn(b,"monthlyCredits")||Object.hasOwn(b,"slug");
+ const changesBillingTerms=Object.hasOwn(b,"priceUsd")||Object.hasOwn(b,"monthlyCredits")||Object.hasOwn(b,"slug");
  if(changesBillingTerms){
   const active=await db.from("tp_subscriptions").select("id",{head:true,count:"exact"}).eq("plan_id",q.params.id).in("status",["active","past_due","cancelled"]).gt("current_period_end",new Date().toISOString());
   if(active.error){logFailure("admin-plan-subscriber-check",active.error);return errorJson(r,503,"PLAN_CHECK_FAILED","Could not check plan subscribers.");}
@@ -976,7 +977,7 @@ app.patch("/api/admin/commerce/plans/:id",csrf,authLimit,authenticated,isAdmin,a
  if(Object.hasOwn(b,"slug")){const slug=String(b.slug||"").trim().toLowerCase();if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))return errorJson(r,400,"INVALID_PLAN_SLUG","Use lowercase letters, numbers and hyphens.");patch.slug=slug;}
  if(Object.hasOwn(b,"name")){patch.name=cleanText(b.name,100);if(patch.name.length<2)return errorJson(r,400,"INVALID_PLAN_NAME","Plan name is too short.");}
  if(Object.hasOwn(b,"description"))patch.description=cleanText(b.description,1200);
- if(Object.hasOwn(b,"priceNaira")){const price=Number(b.priceNaira);if(!Number.isFinite(price)||price<=0||price>1000000000)return errorJson(r,400,"INVALID_PLAN_PRICE","Enter a valid monthly price.");patch.price_minor=Math.round(price*100);patch.paystack_plan_code=null;patch.flutterwave_payment_plan_id=null;}
+ if(Object.hasOwn(b,"priceUsd")){const price=Number(b.priceUsd);if(!Number.isFinite(price)||price<=0||price>1000000000)return errorJson(r,400,"INVALID_PLAN_PRICE","Enter a valid monthly price.");patch.price_minor=Math.round(price*100);patch.currency="USD";patch.paystack_plan_code=null;patch.flutterwave_payment_plan_id=null;}
  if(Object.hasOwn(b,"monthlyCredits")){const credits=Number(b.monthlyCredits);if(!Number.isSafeInteger(credits)||credits<1||credits>100000000)return errorJson(r,400,"INVALID_MONTHLY_CREDITS","Monthly credits must be a positive whole number.");patch.monthly_credits=credits;}
  if(Object.hasOwn(b,"memberDiscountPercent")){const d=Number(b.memberDiscountPercent);if(!Number.isInteger(d)||d<0||d>90)return errorJson(r,400,"INVALID_DISCOUNT","Discount must be from 0 to 90 percent.");patch.member_discount_percent=d;}
  if(Object.hasOwn(b,"sortOrder")){const s=Number(b.sortOrder);if(!Number.isSafeInteger(s))return errorJson(r,400,"INVALID_SORT_ORDER","Sort order must be a whole number.");patch.sort_order=s;}
@@ -995,14 +996,16 @@ app.post("/api/admin/commerce/plans/:id/sync-gateway",csrf,authLimit,authenticat
   const result=await db.from("tp_subscription_plans").select("id,slug,name,price_minor,currency,active").eq("id",q.params.id).maybeSingle();
   if(result.error)throw result.error;
   if(!result.data||!result.data.active)return errorJson(r,404,"ACTIVE_PLAN_NOT_FOUND","Activate the plan before syncing it with a gateway.");
+  if(result.data.currency!=="USD")return errorJson(r,409,"PLAN_CURRENCY_NOT_USD","Legacy NGN plans are retained for existing subscribers and cannot be synced for new purchases. Use the USD plan instead.");
+  if(gateway==="paystack"&&Number(result.data.price_minor)<200)return errorJson(r,409,"PAYSTACK_USD_MINIMUM","Paystack USD recurring plans must be at least $2.00 per month.");
   const synced=await createGatewayPlan(result.data,gateway);
   r.json({ok:true,gateway,plan:publicPlan(synced),message:"A monthly "+gateway+" billing plan was created for this membership."});
  }catch(e){logFailure("admin-plan-sync",e);errorJson(r,502,"PLAN_SYNC_FAILED","The recurring plan could not be created in the payment provider. Check the gateway test key and try again.");}
 }));
 app.post("/api/admin/commerce/credit-packs",csrf,authLimit,authenticated,isAdmin,asyncRoute(async(q,r)=>{
- const b=q.body||{},slug=String(b.slug||"").trim().toLowerCase(),name=cleanText(b.name,100),description=cleanText(b.description,1000),credits=Number(b.credits),price=Number(b.priceNaira);
+ const b=q.body||{},slug=String(b.slug||"").trim().toLowerCase(),name=cleanText(b.name,100),description=cleanText(b.description,1000),credits=Number(b.credits),price=Number(b.priceUsd);
  if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)||name.length<2||!Number.isSafeInteger(credits)||credits<1||credits>100000000||!Number.isFinite(price)||price<=0||price>1000000000)return errorJson(r,400,"INVALID_CREDIT_PACK","Check the pack slug, name, credit amount and price.");
- const result=await db.from("tp_credit_packs").insert({slug,name,description,credits,price_minor:Math.round(price*100),currency:"NGN",active:Boolean(b.active),updated_at:new Date().toISOString()}).select("*").single();
+ const result=await db.from("tp_credit_packs").insert({slug,name,description,credits,price_minor:Math.round(price*100),currency:"USD",active:Boolean(b.active),updated_at:new Date().toISOString()}).select("*").single();
  if(result.error){logFailure("admin-credit-pack-create",result.error);return errorJson(r,result.error.code==="23505"?409:503,result.error.code==="23505"?"CREDIT_PACK_SLUG_EXISTS":"CREDIT_PACK_CREATE_FAILED",result.error.code==="23505"?"That credit-pack slug already exists.":"The credit pack could not be saved.");}
  r.status(201).json({ok:true,creditPack:result.data});
 }));
@@ -1013,7 +1016,7 @@ app.patch("/api/admin/commerce/credit-packs/:id",csrf,authLimit,authenticated,is
  if(Object.hasOwn(b,"name")){patch.name=cleanText(b.name,100);if(patch.name.length<2)return errorJson(r,400,"INVALID_PACK_NAME","Pack name is too short.");}
  if(Object.hasOwn(b,"description"))patch.description=cleanText(b.description,1000);
  if(Object.hasOwn(b,"credits")){const credits=Number(b.credits);if(!Number.isSafeInteger(credits)||credits<1||credits>100000000)return errorJson(r,400,"INVALID_PACK_CREDITS","Enter a positive whole number of credits.");patch.credits=credits;}
- if(Object.hasOwn(b,"priceNaira")){const price=Number(b.priceNaira);if(!Number.isFinite(price)||price<=0||price>1000000000)return errorJson(r,400,"INVALID_PACK_PRICE","Enter a valid price.");patch.price_minor=Math.round(price*100);}
+ if(Object.hasOwn(b,"priceUsd")){const price=Number(b.priceUsd);if(!Number.isFinite(price)||price<=0||price>1000000000)return errorJson(r,400,"INVALID_PACK_PRICE","Enter a valid price.");patch.price_minor=Math.round(price*100);patch.currency="USD";}
  if(Object.hasOwn(b,"active")){if(typeof b.active!=="boolean")return errorJson(r,400,"INVALID_PACK_STATUS","Active status must be true or false.");patch.active=b.active;}
  const result=await db.from("tp_credit_packs").update(patch).eq("id",q.params.id).select("*").maybeSingle();
  if(result.error){logFailure("admin-credit-pack-update",result.error);return errorJson(r,503,"PACK_UPDATE_FAILED","The credit pack could not be updated.");}
