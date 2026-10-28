@@ -2,5 +2,12 @@
 const fs=require("node:fs"),path=require("node:path"),root=path.join(__dirname,"..","public"),base=(process.env.SITE_URL||process.env.RENDER_EXTERNAL_URL||"https://teampeach.org").replace(/\/+$/,""),excluded=new Set(["login","register","verify-email","forgot-password","account","admin","unsubscribe","dashboard"]);
 function walk(d,out){for(const e of fs.readdirSync(d,{withFileTypes:true})){if(e.name.startsWith("."))continue;const f=path.join(d,e.name);if(e.isDirectory())walk(f,out);else if(e.isFile()&&e.name==="index.html")out.push(f);}}
 function route(f){const rel=path.relative(root,f).split(path.sep).join("/");return rel==="index.html"?"/":"/"+rel.slice(0,-"index.html".length);}
-const pages=[];walk(root,pages);const urls=pages.map(route).filter(r=>!excluded.has(r.split("/").filter(Boolean)[0])).filter(r=>{const f=path.join(root,r.replace(/^\//,""),"index.html");return fs.existsSync(f)&&!/<meta\s+name=["']robots["']\s+content=["'][^"']*noindex/i.test(fs.readFileSync(f,"utf8"));}).map(r=>"  <url><loc>"+base+(r==="/" ? "/" : r)+"</loc></url>");
-const sitemap="<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n"+urls.join("\n")+"\n</urlset>\n";\nfs.writeFileSync(path.join(root,"sitemap.xml"),sitemap,"utf8");\nfs.writeFileSync(path.join(__dirname,"..","sitemap.xml"),sitemap,"utf8");\nconsole.log("Generated public and root sitemap.xml with "+urls.length+" pages.");
+const pages=[];walk(root,pages);
+const urls=pages.map(route)
+ .filter(r=>!excluded.has(r.split("/").filter(Boolean)[0]))
+ .filter(r=>{const f=path.join(root,r.replace(/^\//,""),"index.html");return fs.existsSync(f)&&!/<meta\s+name=["']robots["']\s+content=["'][^"']*noindex/i.test(fs.readFileSync(f,"utf8"));})
+ .map(r=>"  <url><loc>"+base+(r==="/" ? "/" : r)+"</loc></url>");
+const sitemap=["<?xml version=\"1.0\" encoding=\"UTF-8\"?>","<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">",...urls,"</urlset>",""].join("\n");
+fs.writeFileSync(path.join(root,"sitemap.xml"),sitemap,"utf8");
+fs.writeFileSync(path.join(__dirname,"..","sitemap.xml"),sitemap,"utf8");
+console.log("Generated public and root sitemap.xml with "+urls.length+" pages.");
