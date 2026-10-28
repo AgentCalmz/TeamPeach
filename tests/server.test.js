@@ -9,7 +9,7 @@ test("web service exposes clean public URLs and hides .html extensions",async t=
  await once(server,"listening");
  t.after(()=>new Promise(resolve=>server.close(resolve)));
  const base="http://127.0.0.1:"+server.address().port;
- for(const route of ["/","/journal/what-is-an-ai-agent/","/tools/seo-content-brief/","/register/","/verify-email/","/login/","/forgot-password/","/dashboard/","/dashboard/projects/","/dashboard/tasks/","/dashboard/tools/","/dashboard/billing/","/dashboard/support/","/account/","/admin/","/admin/support/","/admin/products/","/admin/memberships/","/admin/credits/","/admin/customers/","/admin/fulfilment/","/admin/payments/","/admin/communications/","/unsubscribe/","/products/"]){
+ for(const route of ["/","/journal/what-is-an-ai-agent/","/tools/seo-content-brief/","/register/","/verify-email/","/login/","/forgot-password/","/dashboard/","/dashboard/projects/","/dashboard/tasks/","/dashboard/tools/","/dashboard/billing/","/dashboard/support/","/account/","/admin/","/admin/login/","/admin/support/","/admin/products/","/admin/memberships/","/admin/credits/","/admin/customers/","/admin/fulfilment/","/admin/payments/","/admin/communications/","/unsubscribe/","/products/"]){
   const response=await fetch(base+route);
   assert.equal(response.status,200,"expected 200 for "+route);
   assert.match(response.headers.get("content-type")||"",/text\/html/);
@@ -28,6 +28,24 @@ test("web service exposes clean public URLs and hides .html extensions",async t=
  assert.equal(Object.hasOwn(body,"emailTransport"),true);
  const missing=await fetch(base+"/does-not-exist/");
  assert.equal(missing.status,404);
+});
+
+test("administrator sign-in has a dedicated page and checks the allowlist",function(){
+ const fs=require("node:fs"),path=require("node:path"),root=path.join(__dirname,"..");
+ const html=fs.readFileSync(path.join(root,"public","admin","login","index.html"),"utf8");
+ const client=fs.readFileSync(path.join(root,"public","js","admin-login.js"),"utf8");
+ const shell=fs.readFileSync(path.join(root,"public","js","admin-shell.js"),"utf8");
+ const customerLogin=fs.readFileSync(path.join(root,"public","login","index.html"),"utf8");
+ assert.match(html,/name="robots" content="noindex,nofollow"/);
+ assert.match(html,/id="admin-login-form"/);
+ assert.ok(html.includes("/js/admin-login.js?v=1"));
+ assert.ok(customerLogin.includes('href="/admin/login/"'));
+ assert.ok(shell.includes("/admin/login/?next="));
+ assert.ok(shell.includes("/admin/login/?denied=1&next="));
+ assert.ok(client.includes('fetch("/api/auth/login"'));
+ assert.ok(client.includes("account.isAdmin"));
+ assert.ok(client.includes("ADMIN_EMAILS"));
+ assert.doesNotThrow(()=>new Function(client));
 });
 
 test("CSP blocks inline executable scripts",async t=>{
@@ -113,6 +131,10 @@ test("workspace dashboard has scoped project/task APIs and a protected storage m
  assert.ok(server.includes("isAdmin:q.isAdmin"));
  assert.ok(dashboardClient.includes("workspace.user&&workspace.user.isAdmin"));
  assert.ok(adminShell.includes("/api/auth/me"));
+ assert.ok(dashboardClient.includes('request("/api/auth/me","GET")'));
+ assert.ok(dashboardClient.indexOf('request("/api/auth/me","GET")')<dashboardClient.indexOf('request("/api/workspace","GET")'));
+ assert.ok(dashboardClient.includes("const needsWorkspaceData=Boolean("));
+ assert.ok(dashboardClient.includes("002_workspace_dashboard.sql"));
 });
 
 test("SEO content brief builder is interactive and states its current data limitations",function(){
