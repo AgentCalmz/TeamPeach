@@ -237,7 +237,7 @@ test("commerce schema, checkout verification, credit expiry, and dashboard UI ar
  assert.ok(dashboard.includes('href="/dashboard/billing/"'));
  assert.ok(billingPage.includes('id="billing"'));
  assert.ok(billingPage.includes('id="commerce-runs"'));
- assert.ok(billingPage.includes("commerce.js?v=2"));
+ assert.ok(billingPage.includes("commerce.js?v=3"));
  assert.ok(supportPage.includes('id="support-chat"'));
  assert.ok(supportPage.includes("support-chat.js?v=2"));
  assert.ok(admin.includes('href="/admin/support/"'));
