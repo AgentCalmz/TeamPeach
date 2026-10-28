@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- TEMPLATE ONLY: replace every https://YOUR-RENDER-URL.onrender.com value with the final live host before submitting this sitemap. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://YOUR-RENDER-URL.onrender.com/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
-  <url><loc>https://YOUR-RENDER-URL.onrender.com/tools/seo-content-brief/</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://YOUR-RENDER-URL.onrender.com/journal/what-is-an-ai-agent/</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+ <url><loc>https://teampeach.org/</loc></url>
+ <url><loc>https://teampeach.org/products/</loc></url>
+ <url><loc>https://teampeach.org/tools/seo-content-brief/</loc></url>
+ <url><loc>https://teampeach.org/journal/what-is-an-ai-agent/</loc></url>
 </urlset>
