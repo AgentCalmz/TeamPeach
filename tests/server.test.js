@@ -139,10 +139,6 @@ test("in-dashboard support chat connects private user conversations to the admin
  const server=fs.readFileSync(path.join(root,"server.js"),"utf8");
  const migration=fs.readFileSync(path.join(root,"supabase","migrations","003_support_chat.sql"),"utf8");
  const dashboard=fs.readFileSync(path.join(root,"public","dashboard","index.html"),"utf8");
-  const billingPage=fs.readFileSync(path.join(root,"public","dashboard","billing","index.html"),"utf8");
-  const supportPage=fs.readFileSync(path.join(root,"public","dashboard","support","index.html"),"utf8");
-  const adminSupport=fs.readFileSync(path.join(root,"public","admin","support","index.html"),"utf8");
-  const adminProducts=fs.readFileSync(path.join(root,"public","admin","products","index.html"),"utf8");
  const billingPage=fs.readFileSync(path.join(root,"public","dashboard","billing","index.html"),"utf8");
  const supportPage=fs.readFileSync(path.join(root,"public","dashboard","support","index.html"),"utf8");
  const admin=fs.readFileSync(path.join(root,"public","admin","index.html"),"utf8");
