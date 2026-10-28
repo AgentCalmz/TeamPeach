@@ -153,7 +153,7 @@
 
   function updateAccountChrome(user){
     workspace.user=user||null;
-    const name=String((workspace.user&&workspace.user.fullName)||"there").trim(),first=name.split(/\\s+/)[0]||"there";
+    const name=String((workspace.user&&workspace.user.fullName)||"there").trim(),first=name.split(/\s+/)[0]||"there";
     const hour=new Date().getHours(),greeting=hour<12?"Good morning":hour<18?"Good afternoon":"Good evening";
     text($("#welcome-title"),greeting+", "+first+".");
     text($("#welcome-subtitle"),"Your workspace is ready. Pick one useful next step and make it happen.");
@@ -188,7 +188,16 @@
       renderTaskProjectOptions();
     }catch(error){
       if(!profileLoaded){
-        text($("#workspace-load-feedback"),"We couldn't verify your account session. Please sign in again or refresh this page. "+error.message);
+        const detail="We couldn't verify your account session. Please sign in again or refresh this page. "+error.message;
+        text($("#workspace-load-feedback"),detail);
+        if(projectsList){
+          const box=element("div","project-card-empty");box.append(element("h3","","Your account could not be verified."),element("p","",detail));
+          const retry=element("button","button button-dark","Try again");retry.type="button";retry.addEventListener("click",loadWorkspace);box.append(retry);projectsList.replaceChildren(box);
+        }
+        if(tasksList){
+          const box=element("div","tasks-empty");box.append(element("strong","","Your account could not be verified."),element("span","",detail));
+          const retry=element("button","button button-outline","Try again");retry.type="button";retry.addEventListener("click",loadWorkspace);box.append(retry);tasksList.replaceChildren(box);
+        }
         return;
       }
       const detail="Your account is signed in, but project and task data could not be loaded. Confirm supabase/migrations/002_workspace_dashboard.sql has been applied in Supabase and that the database is reachable. "+error.message;
