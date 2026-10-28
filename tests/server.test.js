@@ -219,6 +219,8 @@ test("robots and sitemap expose the product catalogue but not private routes",as
  const base="http://127.0.0.1:"+server.address().port;
  const robots=fs.readFileSync(path.join(root,"public","robots.txt"),"utf8");
  const sitemap=fs.readFileSync(path.join(root,"public","sitemap.xml"),"utf8");
+ const rootSitemap=fs.readFileSync(path.join(root,"sitemap.xml"),"utf8");
+ assert.equal(rootSitemap,sitemap);
  assert.ok(robots.includes("Disallow: /api/"));
  assert.ok(robots.includes("Disallow: /admin/"));
  assert.ok(robots.includes("Disallow: /dashboard/"));
