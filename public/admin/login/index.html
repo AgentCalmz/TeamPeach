@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f8f4ee">
+<meta name="description" content="Administrator sign in for the restricted TeamPeach operations console.">
+<meta name="robots" content="noindex,nofollow">
+<link rel="canonical" href="https://teampeach.org/admin/login/">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/styles.css?v=4">
+<link rel="stylesheet" href="/css/auth.css?v=1">
+<title>Administrator sign in | TeamPeach</title>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="auth-topbar page-wrap">
+  <a class="brand" href="/" aria-label="TeamPeach home"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M7 11h20c6 0 9 4 9 9s-3 9-9 9h-8v9M21 38V17h10c7 0 11 4 11 10s-4 10-11 10H21" fill="none" stroke="currentColor" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="31" cy="8" r="4" fill="#ff936f"/></svg></span><span class="brand-name">Team<span>Peach</span></span></a>
+  <a class="back-link" href="/login/">← Customer sign in</a>
+</header>
+<main class="auth-page page-wrap" id="main">
+  <div class="auth-layout">
+    <section class="auth-intro">
+      <p class="eyebrow"><span></span> RESTRICTED TEAMPEACH ACCESS</p>
+      <h1>Administrator <em>sign in.</em></h1>
+      <p>This page is for authorised administrators managing TeamPeach customers, products, memberships, support and payments.</p>
+      <div class="auth-points">
+        <span><i>✓</i> Uses your existing verified TeamPeach account</span>
+        <span><i>✓</i> Access is checked against the server's administrator allowlist</span>
+        <span><i>✓</i> Customer accounts cannot open the admin console</span>
+      </div>
+    </section>
+    <section class="auth-card">
+      <h2>Open the operations console</h2>
+      <p class="auth-subtitle">Sign in with the verified email address listed in the Render environment variable <code>ADMIN_EMAILS</code>.</p>
+      <form id="admin-login-form" class="auth-form">
+        <label for="admin-login-email">Administrator email</label>
+        <input id="admin-login-email" name="email" type="email" autocomplete="username" maxlength="254" placeholder="admin@example.com" required>
+        <label for="admin-login-password">Password</label>
+        <input id="admin-login-password" name="password" type="password" autocomplete="current-password" maxlength="128" required>
+        <button class="button button-dark" type="submit">Sign in to administration <span>↗</span></button>
+        <p class="auth-feedback" id="admin-login-feedback" role="status" aria-live="polite"></p>
+      </form>
+      <div class="account-notice" style="margin-top:18px">A successful password check is not enough by itself: the server must also recognise your email as an administrator. If access is denied, ask the site owner to check <code>ADMIN_EMAILS</code> in Render.</div>
+      <div class="auth-aux"><a href="/forgot-password/">Forgot password?</a><a href="/login/">Customer sign in</a></div>
+    </section>
+  </div>
+</main>
+<footer class="site-footer"><div class="page-wrap footer-bottom"><span>© TeamPeach. Restricted administrator access.</span><a href="/">Website home ↑</a></div></footer>
+<script src="/js/admin-login.js?v=1" defer></script>
+</body>
+</html>
