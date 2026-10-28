@@ -1,7 +1,7 @@
 "use strict";
 (function(){
  const $=s=>document.querySelector(s);
- const money=(minor,currency="NGN")=>new Intl.NumberFormat(undefined,{style:"currency",currency,maximumFractionDigits:2}).format(Number(minor||0)/100);
+ const money=(minor,currency="USD")=>new Intl.NumberFormat(undefined,{style:"currency",currency,maximumFractionDigits:2}).format(Number(minor||0)/100);
  const node=(tag,cls,value)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(value!==undefined)n.textContent=String(value);return n;};
  const empty=(message)=>{const n=node("div","commerce-empty",message);return n;};
  function loginLink(){const a=node("a","commerce-btn primary","Sign in to purchase ↗");a.href="/login/?next=%2Fdashboard%2F%23billing";return a;}
