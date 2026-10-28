@@ -969,6 +969,12 @@ app.patch("/api/admin/commerce/plans/:id",csrf,authLimit,authenticated,isAdmin,a
  const b=q.body||{};
  const changesBillingTerms=Object.hasOwn(b,"priceUsd")||Object.hasOwn(b,"monthlyCredits")||Object.hasOwn(b,"slug");
  if(changesBillingTerms){
+  const existing=await db.from("tp_subscription_plans").select("currency").eq("id",q.params.id).maybeSingle();
+  if(existing.error){logFailure("admin-plan-currency-check",existing.error);return errorJson(r,503,"PLAN_CHECK_FAILED","The plan currency could not be checked.");}
+  if(!existing.data)return errorJson(r,404,"PLAN_NOT_FOUND","The plan was not found.");
+  if(existing.data.currency!=="USD")return errorJson(r,409,"LEGACY_PLAN_READ_ONLY","This legacy NGN plan is read-only to protect historic billing. Use the USD plan for new sales.");
+ }
+ if(changesBillingTerms){
   const active=await db.from("tp_subscriptions").select("id",{head:true,count:"exact"}).eq("plan_id",q.params.id).in("status",["active","past_due","cancelled"]).gt("current_period_end",new Date().toISOString());
   if(active.error){logFailure("admin-plan-subscriber-check",active.error);return errorJson(r,503,"PLAN_CHECK_FAILED","Could not check plan subscribers.");}
   if((active.count||0)>0)return errorJson(r,409,"PLAN_IN_USE","This plan has current subscribers. Create a new plan instead of changing its price or monthly credit allowance.");
