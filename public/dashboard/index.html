@@ -7,7 +7,7 @@
 <link rel="canonical" href="https://teampeach.org/dashboard/"><link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/styles.css?v=4"><link rel="stylesheet" href="/css/dashboard.css?v=1"><link rel="stylesheet" href="/css/support-chat.css?v=1">
+<link rel="stylesheet" href="/css/styles.css?v=4"><link rel="stylesheet" href="/css/dashboard.css?v=1"><link rel="stylesheet" href="/css/support-chat.css?v=1"><link rel="stylesheet" href="/css/commerce.css?v=1">
 <title>Your workspace | TeamPeach</title>
 </head>
 <body class="workspace-body">
@@ -20,6 +20,7 @@
     <a class="workspace-nav-link active" href="/dashboard/" aria-current="page"><span class="nav-glyph">⌂</span> Overview</a>
     <a class="workspace-nav-link" href="#projects"><span class="nav-glyph">▦</span> Projects <span class="nav-count" id="nav-project-count">0</span></a>
     <a class="workspace-nav-link" href="#tasks"><span class="nav-glyph">✓</span> Tasks <span class="nav-count" id="nav-task-count">0</span></a>
+    <a class="workspace-nav-link" href="#billing"><span class="nav-glyph">＄</span> Billing & tools</a>
     <a class="workspace-nav-link" href="#support-chat"><span class="nav-glyph">✉</span> Support chat <span class="nav-count" id="support-unread-count" hidden>0</span></a>
   </nav>
   <div class="workspace-label workspace-label-tools">TOOLS & IDEAS</div>
@@ -72,6 +73,42 @@
       <div class="workspace-note"><span>✧</span><p><strong>Thoughtfully built, honestly described.</strong> The brief builder uses a structured template; live search data and an AI model are not connected yet.</p></div>
     </aside>
   </div>
+  <section class="workspace-section commerce-section" id="billing">
+    <div class="workspace-section-heading">
+      <div><p class="eyebrow"><span></span> MEMBERSHIP & PURCHASES</p><h2>Billing and your tools</h2><p>Your membership unlocks hosted tools. Credits measure usage; tool licences are one-time purchases for independent deployment.</p></div>
+      <button class="commerce-btn" id="commerce-refresh" type="button">↻ Refresh</button>
+    </div>
+    <div class="commerce-shell">
+      <div class="commerce-hero">
+        <div id="commerce-membership"><div class="commerce-empty">Loading membership…</div></div>
+        <div id="commerce-credits"><div class="commerce-empty">Loading credits…</div></div>
+      </div>
+      <p class="commerce-muted" id="commerce-run-access-note">Loading hosted access status…</p>
+      <div class="commerce-card">
+        <div class="commerce-section-head"><div><h3>Membership plans</h3><p class="commerce-muted">Monthly payments grant a defined credit allowance. No unlimited usage.</p></div></div>
+        <div class="commerce-product-grid" id="commerce-plans"><div class="commerce-empty">Loading plans…</div></div>
+      </div>
+      <div class="commerce-card" id="commerce-topups">
+        <div class="commerce-section-head"><div><h3>Buy usage credits</h3><p class="commerce-muted">Top-ups are separate from the membership payment.</p></div></div>
+        <div class="commerce-product-grid" id="commerce-packs"><div class="commerce-empty">Loading credit packs…</div></div>
+      </div>
+      <div class="commerce-card">
+        <div class="commerce-section-head"><div><h3>Tool catalogue</h3><p class="commerce-muted">Open hosted tools with credits or purchase an independent tool licence.</p></div><a class="commerce-btn" href="/products/">View public catalogue ↗</a></div>
+        <div class="commerce-product-grid" id="commerce-products"><div class="commerce-empty">Loading tools…</div></div>
+      </div>
+      <div class="commerce-card">
+        <div class="commerce-section-head"><div><h3>My purchased tools</h3><p class="commerce-muted">Source delivery, licence details and deployment progress.</p></div></div>
+        <div class="commerce-product-grid" id="commerce-licenses"><div class="commerce-empty">Loading licences…</div></div>
+      </div>
+      <div class="commerce-hero">
+        <div class="commerce-card"><div class="commerce-section-head"><div><h3>Credit activity</h3><p class="commerce-muted">Every grant, top-up, run or adjustment.</p></div></div><div id="commerce-usage"><div class="commerce-empty">Loading usage…</div></div></div>
+        <div class="commerce-card"><div class="commerce-section-head"><div><h3>Payment history</h3><p class="commerce-muted">Payment verification and fulfilment status.</p></div></div><div id="commerce-payments"><div class="commerce-empty">Loading payments…</div></div></div>
+      </div>
+      <div class="commerce-card"><div class="commerce-section-head"><div><h3>Recent hosted runs</h3><p class="commerce-muted">Each run is checked against your membership and charged credits on the server.</p></div></div><div id="commerce-runs"><div class="commerce-empty">Loading run history…</div></div></div>
+      <p class="commerce-feedback" id="commerce-feedback" role="status" aria-live="polite"></p>
+      <p class="commerce-small">Payment status is verified by TeamPeach’s server. A checkout redirect alone does not add credits or activate a licence. Payment methods shown as unavailable need provider test keys and a matching recurring plan configured by an administrator.</p>
+    </div>
+  </section>
   <section class="workspace-section support-chat-section" id="support-chat">
     <div class="workspace-section-heading">
       <div><p class="eyebrow"><span></span> HERE WHEN YOU NEED US</p><h2>Chat with support</h2><p>Ask a question and keep the whole conversation in your TeamPeach dashboard.</p></div>
@@ -125,5 +162,6 @@
 <div class="workspace-toast" id="workspace-toast" role="status" aria-live="polite"></div>
 <script src="/js/dashboard.js?v=1" defer></script>
 <script src="/js/support-chat.js?v=1" defer></script>
+<script src="/js/commerce.js?v=1" defer></script>
 </body>
 </html>

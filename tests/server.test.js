@@ -9,7 +9,7 @@ test("web service exposes clean public URLs and hides .html extensions",async t=
  await once(server,"listening");
  t.after(()=>new Promise(resolve=>server.close(resolve)));
  const base="http://127.0.0.1:"+server.address().port;
- for(const route of ["/","/journal/what-is-an-ai-agent/","/tools/seo-content-brief/","/register/","/verify-email/","/login/","/forgot-password/","/dashboard/","/account/","/admin/","/unsubscribe/"]){
+ for(const route of ["/","/journal/what-is-an-ai-agent/","/tools/seo-content-brief/","/register/","/verify-email/","/login/","/forgot-password/","/dashboard/","/account/","/admin/","/unsubscribe/","/products/"]){
   const response=await fetch(base+route);
   assert.equal(response.status,200,"expected 200 for "+route);
   assert.match(response.headers.get("content-type")||"",/text\/html/);
@@ -153,4 +153,83 @@ test("in-dashboard support chat connects private user conversations to the admin
  assert.match(admin,/id="support-admin-reply-form"/);
  assert.match(client,/bubble\.textContent=message\.body/);
  assert.match(client,/setInterval\(async\(\)=>/);
+});
+
+
+test("commerce schema, checkout verification, credit expiry, and dashboard UI are wired together",function(){
+ const fs=require("node:fs"),path=require("node:path");
+ const root=path.join(__dirname,"..");
+ const server=fs.readFileSync(path.join(root,"server.js"),"utf8");
+ const sql=fs.readFileSync(path.join(root,"supabase","migrations","004_commerce.sql"),"utf8");
+ const env=fs.readFileSync(path.join(root,".env.example"),"utf8");
+ const dashboard=fs.readFileSync(path.join(root,"public","dashboard","index.html"),"utf8");
+ const admin=fs.readFileSync(path.join(root,"public","admin","index.html"),"utf8");
+ const catalog=fs.readFileSync(path.join(root,"public","products","index.html"),"utf8");
+ const client=fs.readFileSync(path.join(root,"public","js","commerce.js"),"utf8");
+ const adminClient=fs.readFileSync(path.join(root,"public","js","admin-commerce.js"),"utf8");
+ const productClient=fs.readFileSync(path.join(root,"public","js","catalog.js"),"utf8");
+ const briefClient=fs.readFileSync(path.join(root,"public","js","brief-builder.js"),"utf8");
+ for(const route of [
+  'app.get("/api/commerce/catalog"',
+  'app.get("/api/commerce/overview"',
+  'app.post("/api/commerce/checkout"',
+  'app.post("/api/commerce/verify-payment"',
+  'app.post("/api/commerce/subscription/cancel"',
+  'app.post("/api/commerce/tool-runs"',
+  'app.post("/api/payments/webhooks/paystack"',
+  'app.post("/api/payments/webhooks/flutterwave"',
+  'app.get("/api/admin/commerce/catalog",authenticated,isAdmin',
+  'app.post("/api/admin/commerce/users/:id/credits",csrf,authLimit,authenticated,isAdmin'
+ ])assert.ok(server.includes(route),"missing commerce route");
+ assert.ok(server.includes('String(data.status||"").toLowerCase()'));
+ assert.ok(server.includes('String(data.tx_ref||"")'));
+ assert.ok(server.includes("x-paystack-signature"));
+ assert.ok(server.includes("flutterwave-signature"));
+ assert.ok(server.includes("PAYMENT_MODE"));
+ assert.ok(sql.includes("create table if not exists public.tp_credit_ledger"));
+ assert.ok(sql.includes("create table if not exists public.tp_credit_buckets"));
+ assert.ok(sql.includes("create table if not exists public.tp_credit_consumptions"));
+ assert.ok(sql.includes("expires_at>now()"));
+ assert.ok(sql.includes("order by (expires_at is null) asc,expires_at asc nulls last"));
+ assert.ok(sql.includes("alter table public.tp_payments enable row level security"));
+ assert.ok(sql.includes("revoke all on public.tp_products,public.tp_subscription_plans"));
+ assert.ok(dashboard.includes('id="billing"'));
+ assert.ok(dashboard.includes('id="commerce-runs"'));
+ assert.ok(dashboard.includes('id="support-chat"'));
+ assert.ok(dashboard.includes("commerce.js?v=1"));
+ assert.ok(admin.includes('id="admin-commerce"'));
+ assert.ok(admin.includes('id="support-admin-list"'));
+ assert.ok(admin.includes("admin-commerce.js?v=1"));
+ assert.ok(catalog.includes('id="catalog-products"'));
+ assert.ok(client.includes('api("/api/commerce/checkout","POST"'));
+ assert.ok(adminClient.includes('api("/api/admin/commerce/plans","POST"'));
+ assert.ok(productClient.includes('fetch("/api/commerce/catalog"'));
+ assert.ok(briefClient.includes('api("/api/commerce/tool-runs","POST"'));
+ assert.ok(env.includes("PAYMENT_MODE=test"));
+ assert.ok(env.includes("PAYSTACK_SECRET_KEY="));
+ assert.ok(env.includes("FLW_SECRET_KEY="));
+ assert.ok(env.includes("FLW_SECRET_HASH="));
+ for(const source of [server,client,adminClient,productClient,briefClient])assert.doesNotThrow(()=>new Function(source));
+});
+
+
+test("robots and sitemap expose the product catalogue but not private routes",async function(t){
+ const fs=require("node:fs"),path=require("node:path"),root=path.join(__dirname,"..");
+ const server=app.listen(0,"127.0.0.1");await once(server,"listening");t.after(()=>new Promise(resolve=>server.close(resolve)));
+ const base="http://127.0.0.1:"+server.address().port;
+ const robots=fs.readFileSync(path.join(root,"public","robots.txt"),"utf8");
+ const sitemap=fs.readFileSync(path.join(root,"public","sitemap.xml"),"utf8");
+ const rootSitemap=fs.readFileSync(path.join(root,"sitemap.xml"),"utf8");
+ assert.equal(rootSitemap,sitemap);
+ assert.ok(robots.includes("Disallow: /api/"));
+ assert.ok(robots.includes("Disallow: /admin/"));
+ assert.ok(robots.includes("Disallow: /dashboard/"));
+ assert.ok(robots.includes("Sitemap: https://teampeach.org/sitemap.xml"));
+ assert.ok(sitemap.includes("<loc>https://teampeach.org/products/</loc>"));
+ assert.ok(!sitemap.includes("https://teampeach.org/admin/"));
+ assert.ok(!sitemap.includes("https://teampeach.org/dashboard/"));
+ const [robotsResponse,sitemapResponse]=await Promise.all([fetch(base+"/robots.txt"),fetch(base+"/sitemap.xml")]);
+ assert.equal(robotsResponse.status,200);assert.ok((robotsResponse.headers.get("content-type")||"").includes("text/plain"));
+ assert.equal(sitemapResponse.status,200);assert.ok((sitemapResponse.headers.get("content-type")||"").includes("xml"));
+ assert.ok((await sitemapResponse.text()).includes("<loc>https://teampeach.org/products/</loc>"));
 });

@@ -3,7 +3,7 @@ TeamPeach is a peach/ivory/navy AI-tools and automation website served by one No
 
 ## Included
 - Responsive public website plus a signed-in workspace dashboard, saved projects, task tracking, an interactive SEO content brief builder and an AI-agent explainer article. The brief builder currently uses a structured local template; it does not call an LLM or pull live SERP data.
-- Clean URLs, redirects away from .html URLs, canonical URLs and a generated sitemap.
+- Clean URLs, redirects away from .html URLs, canonical URLs, a generated sitemap (including the public product catalogue), and a robots.txt that blocks crawling of API and private workspace routes.
 - Custom six-digit email OTP registration and password-reset codes. A user record is created only after the OTP is verified.
 - Interruption-friendly registration: only name/email are kept as browser draft; neither password nor OTP is persisted in browser storage.
 - Server-side scrypt password hashes, HMAC-hashed opaque session cookies, logout/session revocation, CSRF checks, rate limits, CSP/security headers and validation.
@@ -12,7 +12,7 @@ TeamPeach is a peach/ivory/navy AI-tools and automation website served by one No
 - Sitemap/robots support including explicit OAI-SearchBot access.
 
 ## Setup
-1. Run `supabase/migrations/001_teampeach.sql` in Supabase SQL Editor before enabling account features. Then run `supabase/migrations/002_workspace_dashboard.sql` for workspace projects/tasks and `supabase/migrations/003_support_chat.sql` for the customer dashboard support chat and admin inbox. Apply each migration once, in order. Visit `/api/health` after deployment: it reports database and email readiness without exposing secrets.
+1. Run `supabase/migrations/001_teampeach.sql` in Supabase SQL Editor before enabling account features. Then run `supabase/migrations/002_workspace_dashboard.sql` for workspace projects/tasks and `supabase/migrations/003_support_chat.sql` for the customer dashboard support chat and admin inbox, followed by `supabase/migrations/004_commerce.sql` for memberships, credits, products, payments, tool licences and deployment tracking. Apply each migration once, in order. Visit `/api/health` after deployment: it reports database, email and workspace readiness without exposing secrets.
 2. In Brevo, verify the sender email and copy the SMTP login and SMTP key from Settings → SMTP & API → SMTP (the SMTP login is not necessarily your account email, and the SMTP key is not your account password or API key). For a Render Free service, set `EMAIL_TRANSPORT=smtp`, `SMTP_HOST=smtp-relay.brevo.com`, and `SMTP_PORT=2525`; Render blocks outbound ports `25`, `465` and `587` on free web services, while Brevo supports `2525`. Fill `SMTP_USER`, `SMTP_PASS` and `BREVO_SENDER_EMAIL` from your new Brevo account. If you deliberately want HTTPS API sending instead, set `EMAIL_TRANSPORT=brevo-api` and supply a standard `BREVO_API_KEY`. `EMAIL_TRANSPORT=auto` chooses the API when a non-empty API key is present, otherwise SMTP. Explicit `smtp` mode ignores even an old or invalid `BREVO_API_KEY`.
 3. Generate three different secrets with `openssl rand -hex 32` for `OTP_PEPPER`, `SESSION_SECRET` and `RATE_LIMIT_SECRET`. Do not reuse a secret. Keep credentials only in Render Environment or an untracked local `.env`.
 4. Add the values from `.env.example` to Render Environment. Never expose `SUPABASE_SERVICE_ROLE_KEY`, `BREVO_API_KEY`, `SMTP_PASS`, `SMTP_USER` or application secrets to browser JavaScript or GitHub.
@@ -55,3 +55,33 @@ Run `npm ci`, copy `.env.example` to an untracked `.env`, then run `npm run buil
 The customer dashboard includes private support conversations. Signed-in users can open a conversation and continue replying without leaving TeamPeach; an account listed in `ADMIN_EMAILS` can answer from `/admin/`. Messages are stored in Supabase, shown only through authenticated server routes, and refreshed periodically while the page is open. This is polling-based chat, not WebSocket/live push.
 
 Before enabling it in production, apply `supabase/migrations/003_support_chat.sql` in Supabase SQL Editor after migrations 001 and 002. The migration enables RLS and grants table access to the server-side service role only. The server health endpoint checks that both support tables exist. Use the customer dashboard and admin inbox to test a customer message, staff reply, status update, refresh, and a second account's access boundary.
+
+
+## Memberships, usage credits, products and payments
+
+The commerce feature provides the data model and server APIs for monthly memberships with credit allowances, separate one-time credit top-ups, product catalogue pricing, one-time self-hosted software licences, hosted tool charging, a credit ledger, user billing history, purchased licences and admin delivery controls.
+
+Apply \`supabase/migrations/004_commerce.sql\` after migrations 001–003 before enabling commerce. The initial SEO brief product is seeded as inactive and unpriced. Configure and review its price, hosted path, run cost, and delivery scope in \`/admin/\` before publishing it. The current brief builder uses a structured template and does not call an AI model or live search yet.
+
+### Payment test configuration
+
+Set these variables in **Render → your TeamPeach service → Environment**. Never commit real keys to this repository or paste secret keys into chat:
+
+- \`PAYMENT_MODE=test\`
+- \`PAYSTACK_SECRET_KEY\`: your Paystack **test secret key** (starts with \`sk_test_\`)
+- \`FLW_SECRET_KEY\`: your Flutterwave **test secret key** (starts with \`FLWSECK_TEST-\`)
+- \`FLW_SECRET_HASH\`: the webhook secret hash configured in the Flutterwave test dashboard
+
+Save and redeploy after setting them. The server refuses to use keys whose test/live prefix conflicts with \`PAYMENT_MODE\`. The browser never receives a provider secret key.
+
+Configure these webhook URLs in the payment providers' test environments:
+- Paystack: \`https://teampeach.org/api/payments/webhooks/paystack\`
+- Flutterwave: \`https://teampeach.org/api/payments/webhooks/flutterwave\`
+
+Before a monthly plan can be purchased through a gateway, create the plan in TeamPeach admin, publish it, and use the matching **Sync Paystack** or **Sync Flutterwave** action. If you change the price, sync the plan again. Payments and webhook notifications are verified server-side; a browser redirect alone does not grant credits or deliver a licence.
+
+The web service starts in test mode. Do not set \`PAYMENT_MODE=live\` until both test gateways have been exercised end-to-end, duplicate webhook events have been tested, and the live keys and webhook hashes are configured only in Render.
+
+### Self-hosted software purchases
+
+A one-time licence record confirms the purchase and the agreed delivery status; it does not automatically deploy a separate Render service. The admin should set the source-code delivery link, included modification/setup scope and progress in the licence section. Customer deployment URLs and details are recorded in the dashboard. True automated customer-owned deployments can be added later; managed hosting needs a separately priced recurring hosting agreement.

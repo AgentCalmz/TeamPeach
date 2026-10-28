@@ -26,3 +26,7 @@ jobs:
       - run: node --check public/js/main.js
       - run: node --check public/js/dashboard.js
       - run: node --check public/js/brief-builder.js
+      - run: node --check public/js/commerce.js
+      - run: node --check public/js/admin-commerce.js
+      - run: node --check public/js/catalog.js
+      - run: node --check scripts/generate-sitemap.js

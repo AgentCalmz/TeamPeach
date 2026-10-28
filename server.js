@@ -12,7 +12,7 @@ if(!isProd){origins.add("http://localhost:3000");origins.add("http://127.0.0.1:3
 const db=process.env.SUPABASE_URL&&process.env.SUPABASE_SERVICE_ROLE_KEY?createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}}):null;
 app.disable("x-powered-by");app.set("trust proxy",1);
 app.use(helmet({contentSecurityPolicy:{directives:{defaultSrc:["'self'"],baseUri:["'self'"],formAction:["'self'"],frameAncestors:["'none'"],objectSrc:["'none'"],scriptSrc:["'self'"],styleSrc:["'self'","'unsafe-inline'","https://fonts.googleapis.com"],fontSrc:["'self'","https://fonts.gstatic.com","data:"],imgSrc:["'self'","data:","https://images.unsplash.com"],connectSrc:["'self'"]}},crossOriginEmbedderPolicy:false}));
-app.use(express.json({limit:"32kb",strict:true}));app.use(cookieParser());
+app.use(express.json({limit:"64kb",strict:true,verify(req,res,buf){if(String(req.originalUrl||"").includes("/api/payments/webhooks/"))req.rawBody=Buffer.from(buf);}}));app.use(cookieParser());
 app.use("/api",(req,res,next)=>{res.setHeader("Cache-Control","no-store");res.setHeader("Pragma","no-cache");next();});
 app.use("/api",rateLimit({windowMs:15*60*1000,limit:150,standardHeaders:true,legacyHeaders:false,message:{error:"RATE_LIMITED",message:"Too many requests. Please wait a little and try again."}}));
 const authLimit=rateLimit({windowMs:60*60*1000,limit:30,standardHeaders:true,legacyHeaders:false,message:{error:"AUTH_RATE_LIMITED",message:"Too many account attempts. Wait before trying again."}});
@@ -206,7 +206,39 @@ async function runTransactionalQueue(){
 async function runEmailQueue(){if(emailCoordinatorBusy)return;emailCoordinatorBusy=true;try{await runTransactionalQueue();}finally{emailCoordinatorBusy=false;}}
 async function cleanup(){if(!db)return;try{await db.from("tp_pending_registrations").delete().lt("expires_at",new Date(Date.now()-86400000).toISOString());await db.from("tp_password_resets").delete().lt("expires_at",new Date(Date.now()-86400000).toISOString());await db.from("tp_sessions").delete().lt("expires_at",new Date().toISOString());await db.from("tp_sessions").delete().lt("revoked_at",new Date(Date.now()-30*86400000).toISOString());}catch(e){logFailure("cleanup",e);}}
 
-app.get("/api/health",asyncRoute(async(_q,r)=>{let schemaReady=false;if(db){const [check,rateCheck,usageCheck,workspaceProjects,workspaceTasks,supportConversations,supportMessages]=await Promise.all([db.from("tp_users").select("id",{head:true,count:"exact"}),db.from("tp_rate_limits").select("bucket_hash",{head:true,count:"exact"}),db.from("tp_email_usage").select("id",{head:true,count:"exact"}),db.from("tp_workspace_projects").select("id",{head:true,count:"exact"}),db.from("tp_workspace_tasks").select("id",{head:true,count:"exact"}),db.from("tp_support_conversations").select("id",{head:true,count:"exact"}),db.from("tp_support_messages").select("id",{head:true,count:"exact"})]);schemaReady=!check.error&&!rateCheck.error&&!usageCheck.error&&!workspaceProjects.error&&!workspaceTasks.error&&!supportConversations.error&&!supportMessages.error;const schemaError=check.error||rateCheck.error||usageCheck.error||workspaceProjects.error||workspaceTasks.error||supportConversations.error||supportMessages.error;if(schemaError)logFailure("health-schema",schemaError);}const ready=authReady()&&schemaReady&&emailReady();r.status(ready?200:503).json({status:ready?"ready":"degraded",service:"teampeach",accountServicesConfigured:authReady(),databaseSchemaReady:schemaReady,emailDeliveryConfigured:emailReady(),emailTransport:emailReady()?emailTransportMode():"unconfigured"});}));
+app.get("/api/health",asyncRoute(async(_q,r)=>{
+ let schemaReady=false,commerceSchemaReady=false;
+ if(db){
+  const checks=await Promise.all([
+   db.from("tp_users").select("id",{head:true,count:"exact"}),
+   db.from("tp_rate_limits").select("bucket_hash",{head:true,count:"exact"}),
+   db.from("tp_email_usage").select("id",{head:true,count:"exact"}),
+   db.from("tp_workspace_projects").select("id",{head:true,count:"exact"}),
+   db.from("tp_workspace_tasks").select("id",{head:true,count:"exact"}),
+   db.from("tp_support_conversations").select("id",{head:true,count:"exact"}),
+   db.from("tp_support_messages").select("id",{head:true,count:"exact"}),
+   db.from("tp_products").select("id",{head:true,count:"exact"}),
+   db.from("tp_subscription_plans").select("id",{head:true,count:"exact"}),
+   db.from("tp_credit_packs").select("id",{head:true,count:"exact"}),
+   db.from("tp_payments").select("id",{head:true,count:"exact"}),
+   db.from("tp_subscriptions").select("id",{head:true,count:"exact"}),
+   db.from("tp_credit_ledger").select("id",{head:true,count:"exact"}),
+   db.from("tp_credit_buckets").select("id",{head:true,count:"exact"}),
+   db.from("tp_credit_consumptions").select("id",{head:true,count:"exact"}),
+   db.from("tp_tool_licenses").select("id",{head:true,count:"exact"}),
+   db.from("tp_deployments").select("id",{head:true,count:"exact"}),
+   db.from("tp_tool_runs").select("id",{head:true,count:"exact"})
+  ]);
+  schemaReady=checks.slice(0,7).every(x=>!x.error);
+  commerceSchemaReady=checks.slice(7).every(x=>!x.error);
+  const failure=checks.find(x=>x.error);
+  if(failure)logFailure("health-schema",failure.error);
+ }
+ const ready=authReady()&&schemaReady&&emailReady();
+ r.status(ready?200:503).json({status:ready?"ready":"degraded",service:"teampeach",accountServicesConfigured:authReady(),
+  databaseSchemaReady:schemaReady,commerceSchemaReady,emailDeliveryConfigured:emailReady(),emailTransport:emailReady()?emailTransportMode():"unconfigured",
+  paymentMode:paymentMode(),paystackConfigured:paymentReady("paystack"),flutterwaveConfigured:paymentReady("flutterwave")});
+}));
 app.get("/api/csrf",(_q,r)=>{const token=crypto.randomBytes(32).toString("base64url");r.cookie("tp_csrf",token,{httpOnly:false,secure:isProd,sameSite:"lax",path:"/",maxAge:7200000});r.json({token});});
 app.post("/api/auth/register/start",authLimit,csrf,persistentAuthIpLimit,persistentRegistrationEmailLimit,asyncRoute(async(q,r)=>{if(!backendReady(r,true))return;const name=normalizePersonName(q.body&&q.body.fullName),email=normalizeEmail(q.body&&q.body.email),password=q.body&&q.body.password,opt=Boolean(q.body&&q.body.marketingOptIn);if(name.length<2)return errorJson(r,400,"INVALID_NAME","Enter your name (at least 2 characters).");if(!isValidEmail(email))return errorJson(r,400,"INVALID_EMAIL","Enter a valid email address.");if(!validPassword(password))return errorJson(r,400,"INVALID_PASSWORD","Use a password between 12 and 128 characters.");try{if(await findUser(email))return errorJson(r,409,"ACCOUNT_EXISTS","This email already has a verified TeamPeach account. Sign in or reset your password.");const old=await db.from("tp_pending_registrations").select("expires_at,last_sent_at").eq("email",email).maybeSingle();if(old.error)throw old.error;const now=Date.now();if(old.data&&new Date(old.data.expires_at).getTime()>now&&now-new Date(old.data.last_sent_at).getTime()<60000)return r.json({ok:true,pending:true,message:"A code was already requested. Check your inbox or wait one minute before requesting another."});const code=generateOtp(),hashed=await hashPassword(password),saved=await db.from("tp_pending_registrations").upsert({email,full_name:name,password_hash:hashed,otp_hash:otpHash(email,code,process.env.OTP_PEPPER,"registration"),marketing_opt_in:opt,expires_at:new Date(now+OTP_MINS*60000).toISOString(),attempt_count:0,last_sent_at:new Date(now).toISOString()},{onConflict:"email"});if(saved.error)throw saved.error;try{await sendSmtp(email,name,otpEmail(code,"registration",OTP_MINS,baseUrl()),["teampeach","registration-otp"],null,"registration_otp");}catch(e){logFailure("register-email",e);if(e.code==="EMAIL_DELIVERY_UNCERTAIN"){return r.status(202).json({ok:true,pending:true,message:"We could not confirm delivery. Check your inbox; the current code remains valid if the email was accepted. If needed, request a fresh code after one minute."});}await db.from("tp_pending_registrations").delete().eq("email",email);if(e.code==="EMAIL_DAILY_LIMIT")return errorJson(r,429,"EMAIL_DAILY_LIMIT","The daily email allowance has been reached. Please try again later.");return errorJson(r,502,"EMAIL_SEND_FAILED","We could not send a verification code. Please try again shortly.");}r.json({ok:true,pending:true,message:"We sent a verification code. Enter it to finish creating your account."});}catch(e){logFailure("register-start",e);errorJson(r,503,"REGISTRATION_UNAVAILABLE","Registration is temporarily unavailable. Please try again.");}}));
 app.post("/api/auth/register/resend",authLimit,csrf,persistentAuthIpLimit,persistentRegistrationEmailLimit,asyncRoute(async(q,r)=>{if(!backendReady(r,true))return;const email=normalizeEmail(q.body&&q.body.email);if(!isValidEmail(email))return errorJson(r,400,"INVALID_EMAIL","Enter a valid email address.");try{const old=await db.from("tp_pending_registrations").select("full_name,expires_at,last_sent_at").eq("email",email).maybeSingle();if(old.error)throw old.error;if(!old.data||new Date(old.data.expires_at).getTime()<=Date.now())return r.json({ok:true,message:"If there is an active registration for this address, a fresh code may be sent. You can also return to registration and start again."});if(Date.now()-new Date(old.data.last_sent_at).getTime()<60000)return r.json({ok:true,message:"If you recently requested a code, check your inbox. Please wait a minute before requesting another."});const code=generateOtp(),u=await db.from("tp_pending_registrations").update({otp_hash:otpHash(email,code,process.env.OTP_PEPPER,"registration"),expires_at:new Date(Date.now()+OTP_MINS*60000).toISOString(),attempt_count:0,last_sent_at:new Date().toISOString()}).eq("email",email);if(u.error)throw u.error;try{await sendSmtp(email,old.data.full_name,otpEmail(code,"registration",OTP_MINS,baseUrl()),["teampeach","registration-otp"],null,"registration_otp");}catch(e){logFailure("register-resend-email",e);return r.status(202).json({ok:true,message:"If a registration is active, check your inbox; if delivery could not be confirmed, the current code may still work. You can request a fresh code shortly."});}r.json({ok:true,message:"A fresh code has been sent. Only the newest code will work."});}catch(e){logFailure("register-resend",e);r.json({ok:true,message:"If a registration is active, check your inbox or try again shortly."});}}));
@@ -419,6 +451,653 @@ app.patch("/api/admin/support/conversations/:id/status",csrf,authenticated,isAdm
   if(!saved.data)return errorJson(r,404,"SUPPORT_CONVERSATION_NOT_FOUND","That conversation could not be found.");
   r.json({ok:true,conversation:saved.data});
  }catch(e){logFailure("support-status",e);errorJson(r,503,"SUPPORT_STATUS_FAILED","The conversation status could not be updated.");}
+}));
+
+
+const publicProductFields="id,slug,name,summary,description,category,product_type,hosted_path,price_minor,currency,hosted_enabled,self_hosted_enabled,credit_cost_per_run,member_discount_percent,included_setup_hours,features";
+const publicPlanFields="id,slug,name,description,price_minor,currency,monthly_credits,member_discount_percent,sort_order,paystack_plan_code,flutterwave_payment_plan_id,active";
+const paymentTypeValues=["membership","credit_topup","tool_license"];
+function safeEqualText(left,right){
+ const a=Buffer.from(String(left||"")),b=Buffer.from(String(right||""));
+ return a.length>0&&a.length===b.length&&crypto.timingSafeEqual(a,b);
+}
+function paymentMode(){return String(process.env.PAYMENT_MODE||"test").trim().toLowerCase()==="live"?"live":"test";}
+function paymentSecret(gateway){
+ const secret=String((gateway==="paystack"?process.env.PAYSTACK_SECRET_KEY:process.env.FLW_SECRET_KEY)||"").trim();
+ if(!secret)return null;
+ if(paymentMode()==="test"){
+  if(gateway==="paystack"&&!secret.startsWith("sk_test_"))return null;
+  if(gateway==="flutterwave"&&!/^FLWSECK_TEST[-_]/i.test(secret))return null;
+ }else{
+  if(gateway==="paystack"&&secret.startsWith("sk_test_"))return null;
+  if(gateway==="flutterwave"&&/^FLWSECK_TEST/i.test(secret))return null;
+ }
+ return secret;
+}
+function paymentReady(gateway){return ["paystack","flutterwave"].includes(gateway)&&Boolean(paymentSecret(gateway));}
+function currencyMajor(minor){return Number((Number(minor||0)/100).toFixed(2));}
+function newPaymentReference(gateway){
+ const prefix=gateway==="paystack"?"TPPSK":"TPFLW";
+ return prefix+Date.now().toString(36).toUpperCase()+crypto.randomBytes(9).toString("hex").toUpperCase();
+}
+async function gatewayRequest(gateway,url,method,body){
+ const secret=paymentSecret(gateway);
+ if(!secret)throw new Error("PAYMENT_GATEWAY_NOT_CONFIGURED");
+ const response=await fetch(url,{method:method||"GET",headers:{
+  "Authorization":"Bearer "+secret,"Content-Type":"application/json","Accept":"application/json"
+ },...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(15000)});
+ const data=await response.json().catch(()=>({}));
+ if(!response.ok||(gateway==="paystack"&&data.status!==true)||(gateway==="flutterwave"&&data.status!=="success")){
+  const error=new Error("PAYMENT_PROVIDER_REQUEST_FAILED");
+  error.code="PAYMENT_PROVIDER_HTTP_"+response.status;
+  throw error;
+ }
+ return data;
+}
+function cleanProviderText(value,max){
+ return cleanText(typeof value==="string"?value:"",max||200);
+}
+function publicProduct(row){
+ return {id:row.id,slug:row.slug,name:row.name,summary:row.summary,description:row.description,category:row.category,productType:row.product_type,hostedPath:row.hosted_path||"",
+  priceMinor:Number(row.price_minor),currency:row.currency,hostedEnabled:row.hosted_enabled,selfHostedEnabled:row.self_hosted_enabled,
+  creditCostPerRun:row.credit_cost_per_run,memberDiscountPercent:row.member_discount_percent,includedSetupHours:Number(row.included_setup_hours||0),
+  features:Array.isArray(row.features)?row.features:[]};
+}
+function publicPlan(row){
+ return {id:row.id,slug:row.slug,name:row.name,description:row.description,priceMinor:Number(row.price_minor),currency:row.currency,
+  monthlyCredits:row.monthly_credits,memberDiscountPercent:row.member_discount_percent,sortOrder:row.sort_order,
+  availableGateways:{paystack:Boolean(row.paystack_plan_code),flutterwave:Boolean(row.flutterwave_payment_plan_id)}};
+}
+async function currentSubscription(userId){
+ const now=new Date().toISOString();
+ const result=await db.from("tp_subscriptions").select("id,user_id,plan_id,gateway,status,current_period_start,current_period_end,cancel_at_period_end,provider_subscription_id,provider_customer_code,provider_email_token,provider_plan_id,last_payment_reference,tp_subscription_plans(id,slug,name,description,price_minor,currency,monthly_credits,member_discount_percent)")
+  .eq("user_id",userId).in("status",["active","cancelled","past_due"]).gt("current_period_end",now)
+  .order("current_period_end",{ascending:false}).limit(1).maybeSingle();
+ if(result.error)throw result.error;
+ return result.data||null;
+}
+async function createGatewayPlan(plan,gateway){
+ if(!paymentReady(gateway))throw new Error("PAYMENT_GATEWAY_NOT_CONFIGURED");
+ if(gateway==="paystack"){
+  const data=await gatewayRequest(gateway,"https://api.paystack.co/plan","POST",{
+   name:plan.name,amount:Number(plan.price_minor),interval:"monthly",currency:plan.currency
+  });
+  const code=data.data&&data.data.plan_code;
+  if(typeof code!=="string"||!code)throw new Error("PAYSTACK_PLAN_ID_MISSING");
+  const updated=await db.from("tp_subscription_plans").update({paystack_plan_code:code,updated_at:new Date().toISOString()}).eq("id",plan.id).select(publicPlanFields).single();
+  if(updated.error)throw updated.error;
+  return updated.data;
+ }
+ const data=await gatewayRequest(gateway,"https://api.flutterwave.com/v3/payment-plans","POST",{
+  name:plan.name,amount:currencyMajor(plan.price_minor),interval:"monthly",currency:plan.currency
+ });
+ const id=Number(data.data&&data.data.id);
+ if(!Number.isSafeInteger(id)||id<1)throw new Error("FLUTTERWAVE_PLAN_ID_MISSING");
+ const updated=await db.from("tp_subscription_plans").update({flutterwave_payment_plan_id:id,updated_at:new Date().toISOString()}).eq("id",plan.id).select(publicPlanFields).single();
+ if(updated.error)throw updated.error;
+ return updated.data;
+}
+async function verifyGatewayPayment(payment,transactionId){
+ const gateway=payment.gateway;
+ if(!paymentReady(gateway))throw new Error("PAYMENT_GATEWAY_NOT_CONFIGURED");
+ let data;
+ if(gateway==="paystack"){
+  const response=await gatewayRequest(gateway,"https://api.paystack.co/transaction/verify/"+encodeURIComponent(payment.reference),"GET");
+  data=response.data;
+  if(!data||data.status!=="success"||String(data.reference||"")!==payment.reference)throw new Error("PAYMENT_NOT_SUCCESSFUL");
+  if(Number(data.amount)!==Number(payment.amount_minor)||String(data.currency||"").toUpperCase()!==payment.currency)throw new Error("PAYMENT_AMOUNT_MISMATCH");
+ }else{
+  const id=String(transactionId||payment.provider_transaction_id||"").trim();
+  if(!/^\d{1,24}$/.test(id))throw new Error("FLUTTERWAVE_TRANSACTION_ID_REQUIRED");
+  const response=await gatewayRequest(gateway,"https://api.flutterwave.com/v3/transactions/"+encodeURIComponent(id)+"/verify","GET");
+  data=response.data;
+  if(!data||String(data.status||"").toLowerCase()!=="successful"||String(data.tx_ref||"")!==payment.reference)throw new Error("PAYMENT_NOT_SUCCESSFUL");
+  if(currencyMajor(payment.amount_minor)>Number(data.amount||0)+0.01||String(data.currency||"").toUpperCase()!==payment.currency)throw new Error("PAYMENT_AMOUNT_MISMATCH");
+ }
+ const customerEmail=normalizeEmail(data.customer&&data.customer.email||data.customer_email||"");
+ const owner=await db.from("tp_users").select("email").eq("id",payment.user_id).maybeSingle();
+ if(owner.error)throw owner.error;
+ if(customerEmail&&owner.data&&customerEmail!==owner.data.email)throw new Error("PAYMENT_CUSTOMER_MISMATCH");
+ return {data,transactionId:String(data.id||transactionId||"")};
+}
+async function fulfillVerifiedPayment(payment,verified){
+ const providerSubscriptionId=cleanProviderText(verified&&verified.data&&(verified.data.subscription_id||verified.data.subscription&&verified.data.subscription.id)||"",120);
+ if(payment.payment_type==="membership"&&providerSubscriptionId&&!payment.provider_subscription_id){
+  const update=await db.from("tp_payments").update({provider_subscription_id:providerSubscriptionId,updated_at:new Date().toISOString()}).eq("id",payment.id).eq("user_id",payment.user_id);
+  if(update.error)throw update.error;
+  payment.provider_subscription_id=providerSubscriptionId;
+ }
+ const result=await db.rpc("tp_fulfill_payment",{
+  p_payment_id:payment.id,
+  p_provider_transaction_id:cleanProviderText(verified&&verified.transactionId,120)||null,
+  p_metadata:{verifiedBy:"gateway-api",paymentMode:paymentMode()}
+ });
+ if(result.error)throw result.error;
+ const body=result.data||{};
+ if(!["fulfilled","already_fulfilled"].includes(body.status))throw new Error("PAYMENT_FULFILLMENT_FAILED");
+ return body;
+}
+async function recurringPaymentFromEvent(gateway,data,eventName){
+ const email=normalizeEmail(data&&data.customer&&data.customer.email||data&&data.customer_email||"");
+ const reference=String(gateway==="paystack"?(data&&data.reference||""):(data&&data.tx_ref||"")).trim();
+ if(!isValidEmail(email)||reference.length<8||reference.length>120)return null;
+ const already=await db.from("tp_payments").select("id,user_id,gateway,reference,payment_type,product_id,plan_id,credit_pack_id,amount_minor,currency,status,provider_transaction_id,provider_subscription_id,metadata,fulfilled_at")
+  .eq("reference",reference).maybeSingle();
+ if(already.error)throw already.error;
+ if(already.data)return already.data;
+ const user=await db.from("tp_users").select("id,email").eq("email",email).maybeSingle();
+ if(user.error)throw user.error;
+ if(!user.data)return null;
+ const active=await db.from("tp_subscriptions").select("id,user_id,plan_id,gateway,status,current_period_start,current_period_end,provider_plan_id")
+  .eq("user_id",user.data.id).eq("gateway",gateway).eq("status","active").gt("current_period_end",new Date().toISOString())
+  .order("current_period_end",{ascending:false}).limit(3);
+ if(active.error)throw active.error;
+ const incomingPlan=gateway==="paystack"
+  ?String(data&&data.plan&&(data.plan.plan_code||data.plan.code||data.plan)||data&&data.plan_code||"")
+  :String(data&&data.payment_plan||data&&data.plan_id||data&&data.plan&&data.plan.id||"");
+ for(const sub of active.data||[]){
+  if(incomingPlan&&String(sub.provider_plan_id||"")!==incomingPlan)continue;
+  const plan=await db.from("tp_subscription_plans").select("id,price_minor,currency,active").eq("id",sub.plan_id).maybeSingle();
+  if(plan.error)throw plan.error;
+  if(!plan.data)continue;
+  const amountMatches=gateway==="paystack"
+   ?Number(data.amount)===Number(plan.data.price_minor)&&String(data.currency||"").toUpperCase()===plan.data.currency
+   :Number(data.amount)+0.01>=currencyMajor(plan.data.price_minor)&&String(data.currency||"").toUpperCase()===plan.data.currency;
+  if(!amountMatches)continue;
+  const inserted=await db.from("tp_payments").insert({
+   user_id:user.data.id,gateway,reference,payment_type:"membership",plan_id:plan.data.id,
+   amount_minor:plan.data.price_minor,currency:plan.data.currency,status:"pending",
+   provider_transaction_id:String(data.id||""),provider_subscription_id:String(data.subscription_id||""),
+   metadata:{recurringRenewal:true,providerEvent:cleanProviderText(eventName,80)}
+  }).select("id,user_id,gateway,reference,payment_type,product_id,plan_id,credit_pack_id,amount_minor,currency,status,provider_transaction_id,provider_subscription_id,metadata,fulfilled_at").single();
+  if(inserted.error){
+   if(inserted.error.code==="23505"){
+    const duplicate=await db.from("tp_payments").select("id,user_id,gateway,reference,payment_type,product_id,plan_id,credit_pack_id,amount_minor,currency,status,provider_transaction_id,provider_subscription_id,metadata,fulfilled_at").eq("reference",reference).maybeSingle();
+    if(!duplicate.error&&duplicate.data)return duplicate.data;
+   }
+   throw inserted.error;
+  }
+  return inserted.data;
+ }
+ return null;
+}
+async function handlePaymentWebhook(gateway,event){
+ if(!db)throw new Error("DATABASE_NOT_CONFIGURED");
+ const eventName=String(event&&event.event||event&&event.type||"");
+ const data=event&&event.data||{};
+ if(gateway==="paystack"&&["subscription.create","subscription.not_renew","subscription.disable"].includes(eventName)){
+  const email=normalizeEmail(data.customer&&data.customer.email||data.customer_email||data.email||"");
+  const planCode=String(data.plan&&(data.plan.plan_code||data.plan.code||data.plan)||data.plan_code||"");
+  if(isValidEmail(email)&&planCode){
+   const u=await db.from("tp_users").select("id").eq("email",email).maybeSingle();
+   if(u.error)throw u.error;
+   if(u.data){
+    const patch={updated_at:new Date().toISOString()};
+    if(eventName==="subscription.create"){
+     patch.provider_subscription_id=String(data.subscription_code||data.subscription&&data.subscription.subscription_code||"");
+     patch.provider_email_token=String(data.email_token||data.subscription&&data.subscription.email_token||"");
+     const planRow=await db.from("tp_subscription_plans").select("id").eq("paystack_plan_code",planCode).maybeSingle();
+     if(planRow.error)throw planRow.error;
+     if(planRow.data){
+      const pending=await db.from("tp_payments").select("id,metadata").eq("user_id",u.data.id).eq("gateway","paystack").eq("payment_type","membership").eq("plan_id",planRow.data.id).eq("status","pending").order("created_at",{ascending:false}).limit(1).maybeSingle();
+      if(pending.error)throw pending.error;
+      if(pending.data){
+       const paymentUpdate=await db.from("tp_payments").update({provider_subscription_id:patch.provider_subscription_id,metadata:{...(pending.data.metadata||{}),providerSubscriptionEvent:"subscription.create"}}).eq("id",pending.data.id);
+       if(paymentUpdate.error)throw paymentUpdate.error;
+      }
+     }
+    }else patch.cancel_at_period_end=true;
+    const update=await db.from("tp_subscriptions").update(patch).eq("user_id",u.data.id).eq("gateway","paystack").eq("provider_plan_id",planCode).eq("status","active");
+    if(update.error)throw update.error;
+   }
+  }
+  return {status:"event_processed"};
+ }
+ if(gateway==="flutterwave"&&eventName==="subscription.cancelled"){
+  const email=normalizeEmail(data.customer&&data.customer.email||"");
+  const planId=String(data.plan&&data.plan.id||"");
+  if(isValidEmail(email)&&planId){
+   const u=await db.from("tp_users").select("id").eq("email",email).maybeSingle();
+   if(u.error)throw u.error;
+   if(u.data){
+    const update=await db.from("tp_subscriptions").update({cancel_at_period_end:true,updated_at:new Date().toISOString()})
+      .eq("user_id",u.data.id).eq("gateway","flutterwave").eq("provider_plan_id",planId).eq("status","active");
+    if(update.error)throw update.error;
+   }
+  }
+  return {status:"event_processed"};
+ }
+ if(gateway==="paystack"&&eventName!=="charge.success")return {status:"ignored"};
+ if(gateway==="flutterwave"&&eventName!=="charge.completed")return {status:"ignored"};
+ const reference=String(gateway==="paystack"?(data.reference||""):(data.tx_ref||"")).trim();
+ if(reference.length<8)return {status:"ignored"};
+ const found=await db.from("tp_payments").select("id,user_id,gateway,reference,payment_type,product_id,plan_id,credit_pack_id,amount_minor,currency,status,provider_transaction_id,provider_subscription_id,metadata,fulfilled_at")
+   .eq("reference",reference).maybeSingle();
+ if(found.error)throw found.error;
+ let payment=found.data;
+ if(!payment)payment=await recurringPaymentFromEvent(gateway,data,eventName);
+ if(!payment)return {status:"unmatched"};
+ if(payment.gateway!==gateway)return {status:"gateway_mismatch"};
+ const verified=await verifyGatewayPayment(payment,String(data.id||""));
+ return await fulfillVerifiedPayment(payment,verified);
+}
+
+
+app.get("/api/commerce/catalog",asyncRoute(async(_q,r)=>{
+ if(!db)return errorJson(r,503,"COMMERCE_NOT_CONFIGURED","The product catalogue is not configured yet.");
+ const [products,plans,packs]=await Promise.all([
+  db.from("tp_products").select(publicProductFields).eq("active",true).eq("visible_publicly",true).order("created_at",{ascending:false}).limit(100),
+  db.from("tp_subscription_plans").select(publicPlanFields).eq("active",true).order("sort_order",{ascending:true}).limit(50),
+  db.from("tp_credit_packs").select("id,slug,name,description,credits,price_minor,currency").eq("active",true).order("price_minor",{ascending:true}).limit(50)
+ ]);
+ if(products.error||plans.error||packs.error){logFailure("commerce-catalog",products.error||plans.error||packs.error);return errorJson(r,503,"CATALOG_UNAVAILABLE","The product catalogue could not be loaded.");}
+ r.json({ok:true,paymentMode:paymentMode(),products:(products.data||[]).map(publicProduct),plans:(plans.data||[]).map(publicPlan),
+  creditPacks:(packs.data||[]).map(p=>({id:p.id,slug:p.slug,name:p.name,description:p.description,credits:p.credits,priceMinor:Number(p.price_minor),currency:p.currency})),
+  gateways:{paystack:paymentReady("paystack"),flutterwave:paymentReady("flutterwave")}});
+}));
+app.get("/api/commerce/overview",authenticated,asyncRoute(async(q,r)=>{
+ if(!db)return errorJson(r,503,"COMMERCE_NOT_CONFIGURED","Billing and usage records are not configured yet.");
+ try{
+  const [sub,balance,ledger,payments,licenses,deployments,catalog,runs]=await Promise.all([
+   currentSubscription(q.user.id),
+   db.rpc("tp_credit_balance",{p_user_id:q.user.id}),
+   db.from("tp_credit_ledger").select("id,amount,entry_type,description,idempotency_key,payment_id,created_at").eq("user_id",q.user.id).order("created_at",{ascending:false}).limit(50),
+   db.from("tp_payments").select("id,gateway,reference,payment_type,amount_minor,currency,status,created_at,fulfilled_at,product_id,plan_id,credit_pack_id").eq("user_id",q.user.id).order("created_at",{ascending:false}).limit(30),
+   db.from("tp_tool_licenses").select("id,license_key,status,deployment_mode,delivery_status,source_code_url,delivery_notes,included_setup_hours,purchased_at,updated_at,product_id,tp_products(name,slug,description)").eq("user_id",q.user.id).order("purchased_at",{ascending:false}).limit(50),
+   db.from("tp_deployments").select("id,license_id,hosting_provider,deployment_url,status,notes,created_at,updated_at").eq("user_id",q.user.id).order("updated_at",{ascending:false}).limit(50),
+   db.from("tp_products").select(publicProductFields).eq("active",true).eq("visible_publicly",true).order("created_at",{ascending:false}).limit(100),
+   db.from("tp_tool_runs").select("id,reference,credits_charged,status,metadata,created_at,tp_products(name,slug)").eq("user_id",q.user.id).order("created_at",{ascending:false}).limit(50)
+  ]);
+  const failure=[ledger,payments,licenses,deployments,catalog,runs].find(x=>x.error);
+  if(failure||balance.error){logFailure("commerce-overview",failure&&failure.error||balance.error);return errorJson(r,503,"COMMERCE_OVERVIEW_UNAVAILABLE","Your billing dashboard could not be loaded.");}
+  const subEnd=sub&&sub.current_period_end;
+  const memberActive=Boolean(subEnd&&new Date(subEnd).getTime()>Date.now()&&["active","past_due","cancelled"].includes(sub.status));
+  r.json({ok:true,user:{id:q.user.id,email:q.user.email,fullName:q.user.full_name},subscription:sub?{id:sub.id,status:sub.status,gateway:sub.gateway,currentPeriodStart:sub.current_period_start,currentPeriodEnd:sub.current_period_end,cancelAtPeriodEnd:sub.cancel_at_period_end,plan:sub.tp_subscription_plans||null}:null,
+   membershipActive:memberActive,credits:Number(balance.data||0),ledger:ledger.data||[],payments:(payments.data||[]).map(p=>({...p,amount_minor:Number(p.amount_minor)})),
+   licenses:(licenses.data||[]).map(l=>({...l,product:l.tp_products||null})),deployments:deployments.data||[],runs:(runs.data||[]).map(run=>({...run,credits_charged:Number(run.credits_charged),product:run.tp_products||null})),
+   products:(catalog.data||[]).map(publicProduct),gateways:{paystack:paymentReady("paystack"),flutterwave:paymentReady("flutterwave"),mode:paymentMode()}});
+ }catch(e){logFailure("commerce-overview",e);errorJson(r,503,"COMMERCE_OVERVIEW_UNAVAILABLE","Your billing dashboard could not be loaded.");}
+}));
+app.post("/api/commerce/checkout",csrf,authLimit,authenticated,asyncRoute(async(q,r)=>{
+ if(!db)return errorJson(r,503,"COMMERCE_NOT_CONFIGURED","Checkout is not configured yet.");
+ const body=q.body||{},gateway=String(body.gateway||""),type=String(body.type||"");
+ if(!["paystack","flutterwave"].includes(gateway))return errorJson(r,400,"INVALID_PAYMENT_GATEWAY","Choose Paystack or Flutterwave.");
+ if(!paymentReady(gateway))return errorJson(r,503,"PAYMENT_GATEWAY_NOT_CONFIGURED","This payment option is not configured for the current test/live mode. Add its secret key in Render Environment.");
+ if(!paymentTypeValues.includes(type))return errorJson(r,400,"INVALID_PURCHASE_TYPE","Choose a membership, credit pack or tool licence.");
+ try{
+  let amountMinor=0,currency="NGN",planId=null,productId=null,packId=null,planRow=null,productRow=null,packRow=null,discountPercent=0;
+  const subscription=await currentSubscription(q.user.id);
+  if(type==="membership"){
+   if(subscription)return errorJson(r,409,"ACTIVE_MEMBERSHIP","You already have a current membership. Your current provider subscription will renew automatically unless cancelled.");
+   const slug=cleanText(body.planSlug,80);
+   const result=await db.from("tp_subscription_plans").select("id,slug,name,description,price_minor,currency,monthly_credits,member_discount_percent,paystack_plan_code,flutterwave_payment_plan_id,active").eq("slug",slug).eq("active",true).maybeSingle();
+   if(result.error)throw result.error;
+   planRow=result.data;
+   if(!planRow)return errorJson(r,404,"PLAN_NOT_FOUND","That membership plan is not currently available.");
+   if(gateway==="paystack"&&!planRow.paystack_plan_code)return errorJson(r,409,"SUBSCRIPTION_GATEWAY_PLAN_MISSING","The administrator must sync this monthly plan with Paystack before it can be purchased.");
+   if(gateway==="flutterwave"&&!planRow.flutterwave_payment_plan_id)return errorJson(r,409,"SUBSCRIPTION_GATEWAY_PLAN_MISSING","The administrator must sync this monthly plan with Flutterwave before it can be purchased.");
+   planId=planRow.id;amountMinor=Number(planRow.price_minor);currency=planRow.currency;
+  }else if(type==="credit_topup"){
+   const slug=cleanText(body.packSlug,80);
+   const result=await db.from("tp_credit_packs").select("id,slug,name,credits,price_minor,currency,active").eq("slug",slug).eq("active",true).maybeSingle();
+   if(result.error)throw result.error;
+   packRow=result.data;
+   if(!packRow)return errorJson(r,404,"CREDIT_PACK_NOT_FOUND","That credit pack is not currently available.");
+   packId=packRow.id;amountMinor=Number(packRow.price_minor);currency=packRow.currency;
+  }else{
+   const slug=cleanText(body.productSlug,80);
+   const result=await db.from("tp_products").select("id,slug,name,price_minor,currency,active,visible_publicly,self_hosted_enabled,member_discount_percent").eq("slug",slug).eq("active",true).eq("visible_publicly",true).maybeSingle();
+   if(result.error)throw result.error;
+   productRow=result.data;
+   if(!productRow||!productRow.self_hosted_enabled)return errorJson(r,404,"LICENSE_NOT_AVAILABLE","That product is not currently offered as a self-hosted licence.");
+   productId=productRow.id;amountMinor=Number(productRow.price_minor);currency=productRow.currency;
+   if(subscription&&subscription.tp_subscription_plans)discountPercent=Math.max(Number(productRow.member_discount_percent||0),Number(subscription.tp_subscription_plans.member_discount_percent||0));
+   amountMinor=Math.round(amountMinor*(100-discountPercent)/100);
+  }
+  if(amountMinor<1||currency!=="NGN")return errorJson(r,409,"PRICE_NOT_CONFIGURED","This item needs a valid NGN price before checkout can start.");
+  const reference=newPaymentReference(gateway);
+  const metadata={paymentMode:paymentMode(),discountPercent,regularAmountMinor:type==="tool_license"?Number(productRow.price_minor):amountMinor,
+   ...(type==="membership"?{planSlug:planRow.slug,monthlyCredits:planRow.monthly_credits}:{})};
+  const inserted=await db.from("tp_payments").insert({user_id:q.user.id,gateway,reference,payment_type:type,product_id:productId,plan_id:planId,credit_pack_id:packId,amount_minor:amountMinor,currency,status:"pending",metadata}).select("id,user_id,gateway,reference,payment_type,product_id,plan_id,credit_pack_id,amount_minor,currency,status,metadata").single();
+  if(inserted.error)throw inserted.error;
+  let checkoutUrl="";
+  try{
+   const base=baseUrl().replace(/\/+$/,"");
+   if(gateway==="paystack"){
+    const payload={email:q.user.email,amount:amountMinor,currency,reference,callback_url:base+"/dashboard/?gateway=paystack",metadata:{
+     payment_id:inserted.data.id,payment_type:type,teampeach_reference:reference
+    }};
+    if(type==="membership")payload.plan=planRow.paystack_plan_code;
+    const response=await gatewayRequest(gateway,"https://api.paystack.co/transaction/initialize","POST",payload);
+    checkoutUrl=String(response.data&&response.data.authorization_url||"");
+   }else{
+    const payload={tx_ref:reference,amount:currencyMajor(amountMinor),currency,redirect_url:base+"/dashboard/?gateway=flutterwave",
+     customer:{email:q.user.email,name:q.user.full_name},
+     customizations:{title:"TeamPeach",description:type==="membership"?"Monthly membership":type==="credit_topup"?"Usage credits":"Tool licence"},
+     meta:{payment_id:inserted.data.id,payment_type:type,teampeach_reference:reference}};
+    if(type==="membership")payload.payment_plan=Number(planRow.flutterwave_payment_plan_id);
+    const response=await gatewayRequest(gateway,"https://api.flutterwave.com/v3/payments","POST",payload);
+    checkoutUrl=String(response.data&&response.data.link||"");
+   }
+   if(!/^https:\/\//i.test(checkoutUrl))throw new Error("CHECKOUT_URL_MISSING");
+  }catch(e){
+   logFailure("payment-checkout-provider",e);
+   await db.from("tp_payments").update({status:"failed",updated_at:new Date().toISOString()}).eq("id",inserted.data.id).eq("status","pending");
+   return errorJson(r,502,"CHECKOUT_INITIALIZATION_FAILED","The payment provider could not start checkout. Try the other gateway or contact support.");
+  }
+  r.status(201).json({ok:true,reference,checkoutUrl,gateway,type,amountMinor,currency,discountPercent,
+   message:"Checkout is ready. Your account will be updated only after the payment is verified."});
+ }catch(e){logFailure("payment-checkout",e);errorJson(r,503,"CHECKOUT_UNAVAILABLE","Checkout could not be prepared. Please try again.");}
+}));
+app.post("/api/commerce/verify-payment",csrf,authLimit,authenticated,asyncRoute(async(q,r)=>{
+ if(!db)return errorJson(r,503,"COMMERCE_NOT_CONFIGURED","Payment verification is unavailable.");
+ const reference=String(q.body&&q.body.reference||"").trim(),transactionId=String(q.body&&q.body.transactionId||"").trim();
+ if(reference.length<8||reference.length>120)return errorJson(r,400,"INVALID_PAYMENT_REFERENCE","This payment reference is invalid.");
+ try{
+  const result=await db.from("tp_payments").select("id,user_id,gateway,reference,payment_type,product_id,plan_id,credit_pack_id,amount_minor,currency,status,provider_transaction_id,provider_subscription_id,metadata,fulfilled_at")
+    .eq("reference",reference).eq("user_id",q.user.id).maybeSingle();
+  if(result.error)throw result.error;
+  const payment=result.data;
+  if(!payment)return errorJson(r,404,"PAYMENT_NOT_FOUND","We could not find this payment for your account.");
+  if(payment.status==="paid"&&payment.fulfilled_at)return r.json({ok:true,alreadyFulfilled:true,reference,message:"Payment already verified; your account is up to date."});
+  const verified=await verifyGatewayPayment(payment,transactionId);
+  const completed=await fulfillVerifiedPayment(payment,verified);
+  r.json({ok:true,reference,fulfilled:true,paymentType:payment.payment_type,result:completed,message:"Payment verified. Your account has been updated."});
+ }catch(e){
+  logFailure("payment-verify",e);
+  if(["PAYMENT_NOT_SUCCESSFUL","PAYMENT_AMOUNT_MISMATCH","PAYMENT_CUSTOMER_MISMATCH","FLUTTERWAVE_TRANSACTION_ID_REQUIRED"].includes(e.message))
+   return errorJson(r,400,e.message,"The provider has not confirmed a matching successful payment yet. Refresh after a successful checkout.");
+  if(e.message==="PAYMENT_GATEWAY_NOT_CONFIGURED")return errorJson(r,503,e.message,"Payment verification is not configured in the server environment.");
+  errorJson(r,503,"PAYMENT_VERIFICATION_UNAVAILABLE","We could not verify this payment right now. Refresh and try again; no credits or licence will be granted until verification succeeds.");
+ }
+}));
+app.post("/api/payments/webhooks/paystack",asyncRoute(async(q,r)=>{
+ const secret=paymentSecret("paystack");
+ if(!db||!secret)return r.status(503).json({error:"WEBHOOK_NOT_CONFIGURED"});
+ const signature=String(q.get("x-paystack-signature")||"");
+ const expected=crypto.createHmac("sha512",secret).update(q.rawBody||Buffer.from(JSON.stringify(q.body||{}))).digest("hex");
+ if(!safeEqualText(signature,expected))return r.status(401).end();
+ try{await handlePaymentWebhook("paystack",q.body||{});r.status(200).send("ok");}
+ catch(e){logFailure("paystack-webhook",e);r.status(500).send("retry");}
+}));
+app.post("/api/payments/webhooks/flutterwave",asyncRoute(async(q,r)=>{
+ const secret=paymentSecret("flutterwave"),secretHash=String(process.env.FLW_SECRET_HASH||process.env.FLW_WEBHOOK_SECRET_HASH||"").trim();
+ if(!db||!secret||!secretHash)return r.status(503).json({error:"WEBHOOK_NOT_CONFIGURED"});
+ const oldSignature=String(q.get("verif-hash")||"");
+ const newSignature=String(q.get("flutterwave-signature")||"");
+ const expectedV4=crypto.createHmac("sha256",secretHash).update(q.rawBody||Buffer.from(JSON.stringify(q.body||{}))).digest("base64");
+ if(!(safeEqualText(oldSignature,secretHash)||safeEqualText(newSignature,expectedV4)))return r.status(401).end();
+ try{await handlePaymentWebhook("flutterwave",q.body||{});r.status(200).send("ok");}
+ catch(e){logFailure("flutterwave-webhook",e);r.status(500).send("retry");}
+}));
+app.post("/api/commerce/tool-runs",csrf,authLimit,authenticated,asyncRoute(async(q,r)=>{
+ if(!db)return errorJson(r,503,"COMMERCE_NOT_CONFIGURED","Tool usage is not configured yet.");
+ const productSlug=cleanText(q.body&&q.body.productSlug,80);
+ if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(productSlug))return errorJson(r,400,"INVALID_PRODUCT","Choose a valid tool.");
+ const reference="RUN"+Date.now().toString(36).toUpperCase()+crypto.randomBytes(10).toString("hex").toUpperCase();
+ const saved=await db.rpc("tp_start_tool_run",{p_user_id:q.user.id,p_product_slug:productSlug,p_run_reference:reference,p_metadata:{requestedAt:new Date().toISOString()}});
+ if(saved.error){logFailure("tool-run-start",saved.error);return errorJson(r,503,"TOOL_RUN_UNAVAILABLE","This tool could not start. Please retry.");}
+ const data=saved.data||{};
+ if(data.status==="membership_required")return errorJson(r,402,"MEMBERSHIP_REQUIRED","A current membership is required to run hosted tools. Choose a plan from your dashboard.");
+ if(data.status==="insufficient_credits")return r.status(402).json({error:"INSUFFICIENT_CREDITS",message:"You do not have enough credits for this run. Add credits or choose a plan with a larger allowance.",balance:Number(data.balance||0)});
+ if(data.status==="tool_unavailable")return errorJson(r,404,"TOOL_NOT_AVAILABLE","This hosted tool is not enabled yet. Check the product catalogue or contact support.");
+ if(data.status!=="ok")return errorJson(r,400,"TOOL_RUN_REJECTED","This tool run could not be authorised.");
+ r.status(201).json({ok:true,runId:data.run_id,reference,creditsCharged:data.credits_charged,creditsRemaining:data.balance});
+}));
+
+
+app.post("/api/commerce/subscription/cancel",csrf,authLimit,authenticated,asyncRoute(async(q,r)=>{
+ if(!db)return errorJson(r,503,"COMMERCE_NOT_CONFIGURED","Subscription management is not configured.");
+ try{
+  const sub=await currentSubscription(q.user.id);
+  if(!sub)return errorJson(r,404,"ACTIVE_SUBSCRIPTION_NOT_FOUND","No current membership was found.");
+  if(sub.cancel_at_period_end)return r.json({ok:true,message:"Your subscription is already marked for cancellation."});
+  if(sub.gateway==="paystack"){
+   if(!sub.provider_subscription_id||!sub.provider_email_token)return errorJson(r,409,"SUBSCRIPTION_CREDENTIALS_PENDING","The provider has not supplied the subscription cancellation reference yet. Refresh the dashboard after the first recurring webhook.");
+   await gatewayRequest("paystack","https://api.paystack.co/subscription/disable","POST",{code:sub.provider_subscription_id,token:sub.provider_email_token});
+  }else if(sub.gateway==="flutterwave"){
+   let id=String(sub.provider_subscription_id||"");
+   if(!/^\d{1,24}$/.test(id)&&sub.provider_plan_id){
+    const listing=await gatewayRequest("flutterwave","https://api.flutterwave.com/v3/subscriptions?email="+encodeURIComponent(q.user.email)+"&plan="+encodeURIComponent(sub.provider_plan_id),"GET");
+    const entries=Array.isArray(listing.data)?listing.data:[];
+    const match=entries.find(item=>{
+     const email=normalizeEmail(item.customer&&item.customer.email||item.customer_email||"");
+     const plan=String(item.plan&&item.plan.id||item.plan_id||item.payment_plan||"");
+     return email===q.user.email&&plan===String(sub.provider_plan_id)&&(!item.status||String(item.status).toLowerCase()==="active");
+    });
+    if(match&&/^\d{1,24}$/.test(String(match.id||"")))id=String(match.id);
+   }
+   if(!/^\d{1,24}$/.test(id))return errorJson(r,409,"SUBSCRIPTION_ID_PENDING","Flutterwave has not supplied a subscription ID yet. Refresh after the provider webhook, or cancel using the subscription link in the provider's billing reminder.");
+   await gatewayRequest("flutterwave","https://api.flutterwave.com/v3/subscriptions/"+encodeURIComponent(id)+"/cancel","PUT");
+   if(!sub.provider_subscription_id){const stored=await db.from("tp_subscriptions").update({provider_subscription_id:id,updated_at:new Date().toISOString()}).eq("id",sub.id);if(stored.error)logFailure("flutterwave-subscription-id",stored.error);}
+  }else return errorJson(r,409,"SUBSCRIPTION_MANAGED_EXTERNALLY","This membership is managed manually. Contact support to change it.");
+  const updated=await db.from("tp_subscriptions").update({status:"cancelled",cancel_at_period_end:true,updated_at:new Date().toISOString()}).eq("id",sub.id);
+  if(updated.error)throw updated.error;
+  r.json({ok:true,message:"Renewal has been cancelled. Hosted access remains available until the current paid period ends."});
+ }catch(e){logFailure("subscription-cancel",e);errorJson(r,502,"SUBSCRIPTION_CANCEL_FAILED","The provider could not confirm cancellation. Refresh and try again or contact support.");}
+}));
+app.get("/api/admin/commerce/catalog",authenticated,isAdmin,asyncRoute(async(_q,r)=>{
+ if(!db)return errorJson(r,503,"COMMERCE_NOT_CONFIGURED","Commerce storage is not configured.");
+ const [products,plans,packs]=await Promise.all([
+  db.from("tp_products").select("*").order("created_at",{ascending:false}).limit(200),
+  db.from("tp_subscription_plans").select("*").order("sort_order",{ascending:true}).limit(100),
+  db.from("tp_credit_packs").select("*").order("created_at",{ascending:false}).limit(100)
+ ]);
+ if(products.error||plans.error||packs.error){logFailure("admin-commerce-catalog",products.error||plans.error||packs.error);return errorJson(r,503,"ADMIN_CATALOG_UNAVAILABLE","The admin catalogue could not be loaded.");}
+ r.json({ok:true,products:products.data||[],plans:plans.data||[],creditPacks:packs.data||[],paymentMode:paymentMode(),gateways:{paystack:paymentReady("paystack"),flutterwave:paymentReady("flutterwave")}});
+}));
+app.get("/api/admin/commerce/summary",authenticated,isAdmin,asyncRoute(async(_q,r)=>{
+ if(!db)return errorJson(r,503,"COMMERCE_NOT_CONFIGURED","Commerce storage is not configured.");
+ const [users,products,plans,activeSubs,paidPayments,licenses,runs,recent]=await Promise.all([
+  db.from("tp_users").select("id",{head:true,count:"exact"}),
+  db.from("tp_products").select("id",{head:true,count:"exact"}),
+  db.from("tp_subscription_plans").select("id",{head:true,count:"exact"}),
+  db.from("tp_subscriptions").select("id",{head:true,count:"exact"}).eq("status","active").gt("current_period_end",new Date().toISOString()),
+  db.from("tp_payments").select("id",{head:true,count:"exact"}).eq("status","paid"),
+  db.from("tp_tool_licenses").select("id",{head:true,count:"exact"}).eq("status","active"),
+  db.from("tp_tool_runs").select("id",{head:true,count:"exact"}).gte("created_at",new Date(Date.now()-30*86400000).toISOString()),
+  db.from("tp_payments").select("id,user_id,gateway,reference,payment_type,amount_minor,currency,status,created_at,fulfilled_at,tp_users(email,full_name)").order("created_at",{ascending:false}).limit(20)
+ ]);
+ const fail=[users,products,plans,activeSubs,paidPayments,licenses,runs,recent].find(x=>x.error);
+ if(fail){logFailure("commerce-admin-summary",fail.error);return errorJson(r,503,"ADMIN_SUMMARY_UNAVAILABLE","The commerce summary could not be loaded.");}
+ r.json({ok:true,counts:{users:users.count||0,products:products.count||0,plans:plans.count||0,activeSubscriptions:activeSubs.count||0,paidPayments:paidPayments.count||0,activeLicenses:licenses.count||0,runsLast30Days:runs.count||0},
+  recentPayments:(recent.data||[]).map(p=>({...p,amount_minor:Number(p.amount_minor),customer:p.tp_users||null})),paymentMode:paymentMode(),gateways:{paystack:paymentReady("paystack"),flutterwave:paymentReady("flutterwave")}});
+}));
+app.post("/api/admin/commerce/products",csrf,authLimit,authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ const b=q.body||{},slug=String(b.slug||"").trim().toLowerCase(),name=cleanText(b.name,120),summary=cleanText(b.summary,300),description=cleanText(b.description,5000),category=String(b.category||"tool"),productType=String(b.productType||"hosted_tool");
+ const price=Number(b.priceNaira),cost=Number(b.creditCostPerRun),discount=Number(b.memberDiscountPercent||0),hours=Number(b.includedSetupHours||0);
+ if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)||name.length<2||!Number.isFinite(price)||price<0||price>1000000000||!Number.isSafeInteger(cost)||cost<0||cost>1000000||!Number.isInteger(discount)||discount<0||discount>90||!Number.isFinite(hours)||hours<0||hours>100)
+  return errorJson(r,400,"INVALID_PRODUCT","Check the product slug, name, price, credit cost, discount and setup hours.");
+ if(!["tool","agent","automation","service"].includes(category)||!["hosted_tool","self_hosted_tool","hosted_and_self_hosted","service"].includes(productType))
+  return errorJson(r,400,"INVALID_PRODUCT_TYPE","Choose a supported product category and type.");
+ if(Boolean(b.active)&&Boolean(b.selfHostedEnabled)&&price<1)
+  return errorJson(r,400,"LICENSE_PRICE_REQUIRED","Set a positive one-time licence price before publishing a self-hosted product.");
+ if(Boolean(b.active)&&Boolean(b.hostedEnabled)&&cost<1)
+  return errorJson(r,400,"HOSTED_RUN_COST_REQUIRED","Set a positive credit cost before publishing a hosted tool.");
+ const sourceUrl=String(b.sourceCodeUrl||"").trim(),hostedPath=String(b.hostedPath||"").trim();
+ if(hostedPath&&(hostedPath.length>300||!hostedPath.startsWith("/")||hostedPath.startsWith("//")))return errorJson(r,400,"INVALID_HOSTED_PATH","Hosted path must be a site-local path beginning with a single slash.");
+ if(sourceUrl&&(!/^https:\/\//i.test(sourceUrl)||sourceUrl.length>1000))return errorJson(r,400,"INVALID_SOURCE_URL","Source delivery URL must be an HTTPS link.");
+ const features=Array.isArray(b.features)?b.features.map(x=>cleanText(x,200)).filter(Boolean).slice(0,20):String(b.features||"").split(/\r?\n/).map(x=>cleanText(x,200)).filter(Boolean).slice(0,20);
+ const result=await db.from("tp_products").insert({slug,name,summary,description,category,product_type:productType,hosted_path:String(b.hostedPath||"").trim(),price_minor:Math.round(price*100),currency:"NGN",
+  hosted_enabled:Boolean(b.hostedEnabled),self_hosted_enabled:Boolean(b.selfHostedEnabled),visible_publicly:Boolean(b.visiblePublicly),active:Boolean(b.active),
+  credit_cost_per_run:cost,source_code_url:sourceUrl||null,source_delivery_notes:cleanText(b.sourceDeliveryNotes,3000),included_setup_hours:hours,member_discount_percent:discount,features,updated_at:new Date().toISOString()})
+  .select("*").single();
+ if(result.error){logFailure("admin-product-create",result.error);return errorJson(r,result.error.code==="23505"?409:503,result.error.code==="23505"?"PRODUCT_SLUG_EXISTS":"PRODUCT_CREATE_FAILED",result.error.code==="23505"?"That product slug is already in use.":"The product could not be saved.");}
+ r.status(201).json({ok:true,product:result.data});
+}));
+app.patch("/api/admin/commerce/products/:id",csrf,authLimit,authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ if(!validWorkspaceId(q.params.id))return errorJson(r,400,"INVALID_PRODUCT_ID","This product link is invalid.");
+ const current=await db.from("tp_products").select("active,self_hosted_enabled,hosted_enabled,price_minor,credit_cost_per_run").eq("id",q.params.id).maybeSingle();
+ if(current.error){logFailure("admin-product-current",current.error);return errorJson(r,503,"PRODUCT_UPDATE_FAILED","The current product could not be checked.");}
+ if(!current.data)return errorJson(r,404,"PRODUCT_NOT_FOUND","That product was not found.");
+ const b=q.body||{},patch={updated_at:new Date().toISOString()};
+ if(Object.hasOwn(b,"slug")){const slug=String(b.slug||"").trim().toLowerCase();if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))return errorJson(r,400,"INVALID_PRODUCT_SLUG","Use lowercase letters, numbers and hyphens for the product slug.");patch.slug=slug;}
+ if(Object.hasOwn(b,"name")){patch.name=cleanText(b.name,120);if(patch.name.length<2)return errorJson(r,400,"INVALID_PRODUCT_NAME","Product name is too short.");}
+ for(const [input,column,max] of [["summary","summary",300],["description","description",5000],["sourceDeliveryNotes","source_delivery_notes",3000]])if(Object.hasOwn(b,input))patch[column]=cleanText(b[input],max);
+ for(const [input,column,values] of [["category","category",["tool","agent","automation","service"]],["productType","product_type",["hosted_tool","self_hosted_tool","hosted_and_self_hosted","service"]]])if(Object.hasOwn(b,input)){if(!values.includes(b[input]))return errorJson(r,400,"INVALID_PRODUCT_FIELD","That product field is invalid.");patch[column]=b[input];}
+ for(const [input,column] of [["hostedEnabled","hosted_enabled"],["selfHostedEnabled","self_hosted_enabled"],["visiblePublicly","visible_publicly"],["active","active"]])if(Object.hasOwn(b,input)){if(typeof b[input]!=="boolean")return errorJson(r,400,"INVALID_PRODUCT_FIELD","That product field must be true or false.");patch[column]=b[input];}
+ if(Object.hasOwn(b,"priceNaira")){const price=Number(b.priceNaira);if(!Number.isFinite(price)||price<0||price>1000000000)return errorJson(r,400,"INVALID_PRODUCT_PRICE","Enter a valid product price.");patch.price_minor=Math.round(price*100);}
+ if(Object.hasOwn(b,"creditCostPerRun")){const cost=Number(b.creditCostPerRun);if(!Number.isSafeInteger(cost)||cost<0||cost>1000000)return errorJson(r,400,"INVALID_CREDIT_COST","Enter a non-negative whole-number credit cost.");patch.credit_cost_per_run=cost;}
+ if(Object.hasOwn(b,"memberDiscountPercent")){const discount=Number(b.memberDiscountPercent);if(!Number.isInteger(discount)||discount<0||discount>90)return errorJson(r,400,"INVALID_DISCOUNT","Discount must be between 0 and 90 percent.");patch.member_discount_percent=discount;}
+ if(Object.hasOwn(b,"includedSetupHours")){const hours=Number(b.includedSetupHours);if(!Number.isFinite(hours)||hours<0||hours>100)return errorJson(r,400,"INVALID_SETUP_HOURS","Setup hours must be between 0 and 100.");patch.included_setup_hours=hours;}
+ if(Object.hasOwn(b,"hostedPath")){const url=String(b.hostedPath||"").trim();if(url&&(url.length>300||!url.startsWith("/")||url.startsWith("//")))return errorJson(r,400,"INVALID_HOSTED_PATH","Hosted path must be a site-local path beginning with a single slash.");patch.hosted_path=url;}
+ if(Object.hasOwn(b,"sourceCodeUrl")){const url=String(b.sourceCodeUrl||"").trim();if(url&&(!/^https:\/\//i.test(url)||url.length>1000))return errorJson(r,400,"INVALID_SOURCE_URL","Source code delivery URL must be an HTTPS link.");patch.source_code_url=url||null;}
+ if(Object.hasOwn(b,"features"))patch.features=(Array.isArray(b.features)?b.features:String(b.features||"").split(/\r?\n/)).map(x=>cleanText(x,200)).filter(Boolean).slice(0,20);
+ const finalActive=Object.hasOwn(patch,"active")?patch.active:current.data.active;
+ const finalSelfHosted=Object.hasOwn(patch,"self_hosted_enabled")?patch.self_hosted_enabled:current.data.self_hosted_enabled;
+ const finalHosted=Object.hasOwn(patch,"hosted_enabled")?patch.hosted_enabled:current.data.hosted_enabled;
+ const finalPrice=Object.hasOwn(patch,"price_minor")?patch.price_minor:Number(current.data.price_minor);
+ const finalCost=Object.hasOwn(patch,"credit_cost_per_run")?patch.credit_cost_per_run:current.data.credit_cost_per_run;
+ if(finalActive&&finalSelfHosted&&finalPrice<1)return errorJson(r,400,"LICENSE_PRICE_REQUIRED","Set a positive one-time licence price before publishing a self-hosted product.");
+ if(finalActive&&finalHosted&&finalCost<1)return errorJson(r,400,"HOSTED_RUN_COST_REQUIRED","Set a positive credit cost before publishing a hosted tool.");
+ const result=await db.from("tp_products").update(patch).eq("id",q.params.id).select("*").maybeSingle();
+ if(result.error){logFailure("admin-product-update",result.error);return errorJson(r,503,"PRODUCT_UPDATE_FAILED","The product could not be updated.");}
+ if(!result.data)return errorJson(r,404,"PRODUCT_NOT_FOUND","That product was not found.");
+ r.json({ok:true,product:result.data});
+}));
+app.post("/api/admin/commerce/plans",csrf,authLimit,authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ const b=q.body||{},slug=String(b.slug||"").trim().toLowerCase(),name=cleanText(b.name,100),description=cleanText(b.description,1200),price=Number(b.priceNaira),credits=Number(b.monthlyCredits),discount=Number(b.memberDiscountPercent||0),sort=Number(b.sortOrder||100);
+ if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)||name.length<2||!Number.isFinite(price)||price<=0||price>1000000000||!Number.isSafeInteger(credits)||credits<1||credits>100000000||!Number.isInteger(discount)||discount<0||discount>90||!Number.isSafeInteger(sort))
+  return errorJson(r,400,"INVALID_PLAN","Check plan slug, name, monthly price, monthly credits, discount and sort order.");
+ const result=await db.from("tp_subscription_plans").insert({slug,name,description,price_minor:Math.round(price*100),currency:"NGN",monthly_credits:credits,member_discount_percent:discount,active:Boolean(b.active),sort_order:sort,updated_at:new Date().toISOString()}).select(publicPlanFields).single();
+ if(result.error){logFailure("admin-plan-create",result.error);return errorJson(r,result.error.code==="23505"?409:503,result.error.code==="23505"?"PLAN_SLUG_EXISTS":"PLAN_CREATE_FAILED",result.error.code==="23505"?"That plan slug already exists.":"The plan could not be saved.");}
+ r.status(201).json({ok:true,plan:result.data});
+}));
+app.patch("/api/admin/commerce/plans/:id",csrf,authLimit,authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ if(!validWorkspaceId(q.params.id))return errorJson(r,400,"INVALID_PLAN_ID","This plan link is invalid.");
+ const b=q.body||{};
+ const changesBillingTerms=Object.hasOwn(b,"priceNaira")||Object.hasOwn(b,"monthlyCredits")||Object.hasOwn(b,"slug");
+ if(changesBillingTerms){
+  const active=await db.from("tp_subscriptions").select("id",{head:true,count:"exact"}).eq("plan_id",q.params.id).in("status",["active","past_due","cancelled"]).gt("current_period_end",new Date().toISOString());
+  if(active.error){logFailure("admin-plan-subscriber-check",active.error);return errorJson(r,503,"PLAN_CHECK_FAILED","Could not check plan subscribers.");}
+  if((active.count||0)>0)return errorJson(r,409,"PLAN_IN_USE","This plan has current subscribers. Create a new plan instead of changing its price or monthly credit allowance.");
+ }
+ const patch={updated_at:new Date().toISOString()};
+ if(Object.hasOwn(b,"slug")){const slug=String(b.slug||"").trim().toLowerCase();if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))return errorJson(r,400,"INVALID_PLAN_SLUG","Use lowercase letters, numbers and hyphens.");patch.slug=slug;}
+ if(Object.hasOwn(b,"name")){patch.name=cleanText(b.name,100);if(patch.name.length<2)return errorJson(r,400,"INVALID_PLAN_NAME","Plan name is too short.");}
+ if(Object.hasOwn(b,"description"))patch.description=cleanText(b.description,1200);
+ if(Object.hasOwn(b,"priceNaira")){const price=Number(b.priceNaira);if(!Number.isFinite(price)||price<=0||price>1000000000)return errorJson(r,400,"INVALID_PLAN_PRICE","Enter a valid monthly price.");patch.price_minor=Math.round(price*100);patch.paystack_plan_code=null;patch.flutterwave_payment_plan_id=null;}
+ if(Object.hasOwn(b,"monthlyCredits")){const credits=Number(b.monthlyCredits);if(!Number.isSafeInteger(credits)||credits<1||credits>100000000)return errorJson(r,400,"INVALID_MONTHLY_CREDITS","Monthly credits must be a positive whole number.");patch.monthly_credits=credits;}
+ if(Object.hasOwn(b,"memberDiscountPercent")){const d=Number(b.memberDiscountPercent);if(!Number.isInteger(d)||d<0||d>90)return errorJson(r,400,"INVALID_DISCOUNT","Discount must be from 0 to 90 percent.");patch.member_discount_percent=d;}
+ if(Object.hasOwn(b,"sortOrder")){const s=Number(b.sortOrder);if(!Number.isSafeInteger(s))return errorJson(r,400,"INVALID_SORT_ORDER","Sort order must be a whole number.");patch.sort_order=s;}
+ if(Object.hasOwn(b,"active")){if(typeof b.active!=="boolean")return errorJson(r,400,"INVALID_PLAN_STATUS","Plan active status must be true or false.");patch.active=b.active;}
+ const result=await db.from("tp_subscription_plans").update(patch).eq("id",q.params.id).select(publicPlanFields).maybeSingle();
+ if(result.error){logFailure("admin-plan-update",result.error);return errorJson(r,503,"PLAN_UPDATE_FAILED","The plan could not be updated.");}
+ if(!result.data)return errorJson(r,404,"PLAN_NOT_FOUND","The plan was not found.");
+ r.json({ok:true,plan:result.data});
+}));
+app.post("/api/admin/commerce/plans/:id/sync-gateway",csrf,authLimit,authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ if(!validWorkspaceId(q.params.id))return errorJson(r,400,"INVALID_PLAN_ID","This plan link is invalid.");
+ const gateway=String(q.body&&q.body.gateway||"");
+ if(!["paystack","flutterwave"].includes(gateway))return errorJson(r,400,"INVALID_PAYMENT_GATEWAY","Choose Paystack or Flutterwave.");
+ if(!paymentReady(gateway))return errorJson(r,503,"PAYMENT_GATEWAY_NOT_CONFIGURED","This gateway is not configured for the current payment mode.");
+ try{
+  const result=await db.from("tp_subscription_plans").select("id,slug,name,price_minor,currency,active").eq("id",q.params.id).maybeSingle();
+  if(result.error)throw result.error;
+  if(!result.data||!result.data.active)return errorJson(r,404,"ACTIVE_PLAN_NOT_FOUND","Activate the plan before syncing it with a gateway.");
+  const synced=await createGatewayPlan(result.data,gateway);
+  r.json({ok:true,gateway,plan:publicPlan(synced),message:"A monthly "+gateway+" billing plan was created for this membership."});
+ }catch(e){logFailure("admin-plan-sync",e);errorJson(r,502,"PLAN_SYNC_FAILED","The recurring plan could not be created in the payment provider. Check the gateway test key and try again.");}
+}));
+app.post("/api/admin/commerce/credit-packs",csrf,authLimit,authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ const b=q.body||{},slug=String(b.slug||"").trim().toLowerCase(),name=cleanText(b.name,100),description=cleanText(b.description,1000),credits=Number(b.credits),price=Number(b.priceNaira);
+ if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)||name.length<2||!Number.isSafeInteger(credits)||credits<1||credits>100000000||!Number.isFinite(price)||price<=0||price>1000000000)return errorJson(r,400,"INVALID_CREDIT_PACK","Check the pack slug, name, credit amount and price.");
+ const result=await db.from("tp_credit_packs").insert({slug,name,description,credits,price_minor:Math.round(price*100),currency:"NGN",active:Boolean(b.active),updated_at:new Date().toISOString()}).select("*").single();
+ if(result.error){logFailure("admin-credit-pack-create",result.error);return errorJson(r,result.error.code==="23505"?409:503,result.error.code==="23505"?"CREDIT_PACK_SLUG_EXISTS":"CREDIT_PACK_CREATE_FAILED",result.error.code==="23505"?"That credit-pack slug already exists.":"The credit pack could not be saved.");}
+ r.status(201).json({ok:true,creditPack:result.data});
+}));
+app.patch("/api/admin/commerce/credit-packs/:id",csrf,authLimit,authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ if(!validWorkspaceId(q.params.id))return errorJson(r,400,"INVALID_PACK_ID","This credit pack link is invalid.");
+ const b=q.body||{},patch={updated_at:new Date().toISOString()};
+ if(Object.hasOwn(b,"slug")){const slug=String(b.slug||"").trim().toLowerCase();if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))return errorJson(r,400,"INVALID_PACK_SLUG","Use lowercase letters, numbers and hyphens.");patch.slug=slug;}
+ if(Object.hasOwn(b,"name")){patch.name=cleanText(b.name,100);if(patch.name.length<2)return errorJson(r,400,"INVALID_PACK_NAME","Pack name is too short.");}
+ if(Object.hasOwn(b,"description"))patch.description=cleanText(b.description,1000);
+ if(Object.hasOwn(b,"credits")){const credits=Number(b.credits);if(!Number.isSafeInteger(credits)||credits<1||credits>100000000)return errorJson(r,400,"INVALID_PACK_CREDITS","Enter a positive whole number of credits.");patch.credits=credits;}
+ if(Object.hasOwn(b,"priceNaira")){const price=Number(b.priceNaira);if(!Number.isFinite(price)||price<=0||price>1000000000)return errorJson(r,400,"INVALID_PACK_PRICE","Enter a valid price.");patch.price_minor=Math.round(price*100);}
+ if(Object.hasOwn(b,"active")){if(typeof b.active!=="boolean")return errorJson(r,400,"INVALID_PACK_STATUS","Active status must be true or false.");patch.active=b.active;}
+ const result=await db.from("tp_credit_packs").update(patch).eq("id",q.params.id).select("*").maybeSingle();
+ if(result.error){logFailure("admin-credit-pack-update",result.error);return errorJson(r,503,"PACK_UPDATE_FAILED","The credit pack could not be updated.");}
+ if(!result.data)return errorJson(r,404,"PACK_NOT_FOUND","The credit pack was not found.");
+ r.json({ok:true,creditPack:result.data});
+}));
+app.get("/api/admin/commerce/deployments",authenticated,isAdmin,asyncRoute(async(_q,r)=>{
+ const result=await db.from("tp_deployments").select("id,license_id,user_id,hosting_provider,deployment_url,status,notes,created_at,updated_at,tp_tool_licenses(license_key,delivery_status,product_id,tp_products(name,slug)),tp_users(email,full_name)").order("updated_at",{ascending:false}).limit(100);
+ if(result.error){logFailure("admin-deployment-list",result.error);return errorJson(r,503,"DEPLOYMENT_LIST_FAILED","Deployment records could not be loaded.");}
+ r.json({ok:true,deployments:(result.data||[]).map(d=>({...d,license:d.tp_tool_licenses||null,user:d.tp_users||null}))});
+}));
+app.get("/api/admin/commerce/users",authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ const term=cleanText(q.query.search,120).toLowerCase(),limit=Math.max(1,Math.min(100,Number(q.query.limit)||50));
+ let query=db.from("tp_users").select("id,email,full_name,created_at").order("created_at",{ascending:false}).limit(limit);
+ if(term){const safeTerm=term.replace(/[%,().]/g," ").trim().slice(0,120);if(safeTerm)query=query.or("email.ilike.%"+safeTerm+"%,full_name.ilike.%"+safeTerm+"%");}
+ const result=await query;
+ if(result.error){logFailure("admin-commerce-users",result.error);return errorJson(r,503,"USERS_UNAVAILABLE","Users could not be loaded.");}
+ const users=await Promise.all((result.data||[]).map(async u=>{
+  const [balance,sub]=await Promise.all([
+   db.rpc("tp_credit_balance",{p_user_id:u.id}),
+   currentSubscription(u.id).catch(e=>({error:e}))
+  ]);
+  const s=sub&&!sub.error?sub:null;
+  return {...u,credits:Number(balance.data||0),subscription:s?{id:s.id,status:s.status,gateway:s.gateway,current_period_end:s.current_period_end,cancel_at_period_end:s.cancel_at_period_end,plan:s.tp_subscription_plans||null}:null};
+ }));
+ r.json({ok:true,users});
+}));
+app.post("/api/admin/commerce/users/:id/credits",csrf,authLimit,authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ if(!validWorkspaceId(q.params.id))return errorJson(r,400,"INVALID_USER_ID","This user link is invalid.");
+ const amount=Number(q.body&&q.body.amount),description=cleanText(q.body&&q.body.description,500);
+ if(!Number.isSafeInteger(amount)||amount===0||Math.abs(amount)>1000000||description.length<3)return errorJson(r,400,"INVALID_CREDIT_ADJUSTMENT","Provide a non-zero whole-number credit adjustment (up to 1,000,000) and a reason.");
+ const key="admin-credit:"+q.params.id+":"+Date.now()+":"+crypto.randomBytes(6).toString("hex");
+ const result=await db.rpc("tp_credit_apply",{p_user_id:q.params.id,p_amount:amount,p_entry_type:"admin_adjustment",p_description:description,p_idempotency_key:key,p_payment_id:null,p_created_by:q.user.id});
+ if(result.error){logFailure("admin-credit-adjustment",result.error);return errorJson(r,503,"CREDIT_ADJUSTMENT_FAILED","The credit adjustment could not be saved.");}
+ const data=result.data||{};
+ if(data.status==="insufficient_credits")return r.status(409).json({error:"INSUFFICIENT_CREDITS",message:"This adjustment would take the user's balance below zero.",balance:Number(data.balance||0)});
+ if(data.status!=="applied")return errorJson(r,400,"CREDIT_ADJUSTMENT_REJECTED","This credit adjustment could not be applied.");
+ r.json({ok:true,balance:data.balance,entryId:data.entry_id,message:"Credit balance adjusted and recorded in the ledger."});
+}));
+app.get("/api/admin/commerce/licenses",authenticated,isAdmin,asyncRoute(async(_q,r)=>{
+ const result=await db.from("tp_tool_licenses").select("id,user_id,product_id,payment_id,license_key,status,deployment_mode,delivery_status,source_code_url,delivery_notes,included_setup_hours,purchased_at,updated_at,tp_products(name,slug),tp_users(email,full_name)").order("purchased_at",{ascending:false}).limit(100);
+ if(result.error){logFailure("admin-license-list",result.error);return errorJson(r,503,"LICENSES_UNAVAILABLE","Tool licences could not be loaded.");}
+ r.json({ok:true,licenses:(result.data||[]).map(l=>({...l,product:l.tp_products||null,user:l.tp_users||null}))});
+}));
+app.patch("/api/admin/commerce/licenses/:id",csrf,authLimit,authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ if(!validWorkspaceId(q.params.id))return errorJson(r,400,"INVALID_LICENSE_ID","This licence link is invalid.");
+ const b=q.body||{},patch={updated_at:new Date().toISOString()};
+ if(Object.hasOwn(b,"status")){if(!["active","revoked"].includes(b.status))return errorJson(r,400,"INVALID_LICENSE_STATUS","Choose active or revoked.");patch.status=b.status;}
+ if(Object.hasOwn(b,"deploymentMode")){if(!["customer_hosted","managed"].includes(b.deploymentMode))return errorJson(r,400,"INVALID_DEPLOYMENT_MODE","Choose customer-hosted or managed.");patch.deployment_mode=b.deploymentMode;}
+ if(Object.hasOwn(b,"deliveryStatus")){if(!["awaiting_setup","in_progress","ready","delivered"].includes(b.deliveryStatus))return errorJson(r,400,"INVALID_DELIVERY_STATUS","Choose a supported delivery status.");patch.delivery_status=b.deliveryStatus;}
+ if(Object.hasOwn(b,"sourceCodeUrl")){const url=String(b.sourceCodeUrl||"").trim();if(url&&(!/^https:\/\//i.test(url)||url.length>1000))return errorJson(r,400,"INVALID_SOURCE_URL","Source code must be an HTTPS link.");patch.source_code_url=url||null;}
+ if(Object.hasOwn(b,"deliveryNotes"))patch.delivery_notes=cleanText(b.deliveryNotes,3000);
+ const result=await db.from("tp_tool_licenses").update(patch).eq("id",q.params.id).select("id,user_id,product_id,license_key,status,deployment_mode,delivery_status,source_code_url,delivery_notes,updated_at").maybeSingle();
+ if(result.error){logFailure("admin-license-update",result.error);return errorJson(r,503,"LICENSE_UPDATE_FAILED","The licence could not be updated.");}
+ if(!result.data)return errorJson(r,404,"LICENSE_NOT_FOUND","The licence was not found.");
+ r.json({ok:true,license:result.data});
+}));
+app.post("/api/commerce/licenses/:id/deployments",csrf,authLimit,authenticated,asyncRoute(async(q,r)=>{
+ if(!validWorkspaceId(q.params.id))return errorJson(r,400,"INVALID_LICENSE_ID","This licence link is invalid.");
+ const license=await db.from("tp_tool_licenses").select("id,user_id,status").eq("id",q.params.id).eq("user_id",q.user.id).maybeSingle();
+ if(license.error){logFailure("user-deployment-license",license.error);return errorJson(r,503,"DEPLOYMENT_UNAVAILABLE","Deployment details could not be saved.");}
+ if(!license.data||license.data.status!=="active")return errorJson(r,404,"ACTIVE_LICENSE_NOT_FOUND","An active licence was not found for your account.");
+ const b=q.body||{},host=cleanText(b.hostingProvider,100),url=String(b.deploymentUrl||"").trim(),notes=cleanText(b.notes,3000);
+ if(url&&(!/^https:\/\//i.test(url)||url.length>1000))return errorJson(r,400,"INVALID_DEPLOYMENT_URL","Deployment URL must be an HTTPS link.");
+ const existing=await db.from("tp_deployments").select("id").eq("license_id",license.data.id).eq("user_id",q.user.id).limit(1).maybeSingle();
+ if(existing.error)throw existing.error;
+ const patch={hosting_provider:host,deployment_url:url,status:"not_started",notes,updated_at:new Date().toISOString()};
+ let saved;
+ if(existing.data)saved=await db.from("tp_deployments").update(patch).eq("id",existing.data.id).select("id,license_id,hosting_provider,deployment_url,status,notes,updated_at").single();
+ else saved=await db.from("tp_deployments").insert({...patch,license_id:license.data.id,user_id:q.user.id}).select("id,license_id,hosting_provider,deployment_url,status,notes,updated_at").single();
+ if(saved.error){logFailure("user-deployment-save",saved.error);return errorJson(r,503,"DEPLOYMENT_SAVE_FAILED","Deployment details could not be saved.");}
+ r.status(201).json({ok:true,deployment:saved.data});
+}));
+app.patch("/api/admin/commerce/deployments/:id",csrf,authLimit,authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ if(!validWorkspaceId(q.params.id))return errorJson(r,400,"INVALID_DEPLOYMENT_ID","This deployment link is invalid.");
+ const b=q.body||{},patch={updated_at:new Date().toISOString()};
+ if(Object.hasOwn(b,"status")){if(!["not_started","in_progress","live","paused","failed"].includes(b.status))return errorJson(r,400,"INVALID_DEPLOYMENT_STATUS","Choose a supported deployment status.");patch.status=b.status;}
+ if(Object.hasOwn(b,"deploymentUrl")){const url=String(b.deploymentUrl||"").trim();if(url&&(!/^https:\/\//i.test(url)||url.length>1000))return errorJson(r,400,"INVALID_DEPLOYMENT_URL","Deployment URL must be an HTTPS link.");patch.deployment_url=url;}
+ if(Object.hasOwn(b,"hostingProvider"))patch.hosting_provider=cleanText(b.hostingProvider,100);
+ if(Object.hasOwn(b,"notes"))patch.notes=cleanText(b.notes,3000);
+ const result=await db.from("tp_deployments").update(patch).eq("id",q.params.id).select("id,license_id,user_id,hosting_provider,deployment_url,status,notes,updated_at").maybeSingle();
+ if(result.error){logFailure("admin-deployment-update",result.error);return errorJson(r,503,"DEPLOYMENT_UPDATE_FAILED","The deployment could not be updated.");}
+ if(!result.data)return errorJson(r,404,"DEPLOYMENT_NOT_FOUND","The deployment was not found.");
+ r.json({ok:true,deployment:result.data});
 }));
 
 app.get("/api/admin/email/stats",authenticated,isAdmin,asyncRoute(async(_q,r)=>{const a=await db.from("tp_users").select("id",{count:"exact",head:true}).eq("marketing_opt_in",true),b=await db.from("tp_email_usage").select("id",{count:"exact",head:true}).eq("status","sent").gte("sent_at",new Date(new Date().setUTCHours(0,0,0,0)).toISOString());if(a.error||b.error){logFailure("admin-stats",a.error||b.error);return errorJson(r,503,"STATS_FAILED","Email statistics are unavailable.");}r.json({ok:true,optedInRecipients:a.count||0,sentToday:b.count||0,dailySoftLimit:DAILY_LIMIT});}));
