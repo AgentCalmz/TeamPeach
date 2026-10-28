@@ -210,3 +210,22 @@ test("commerce schema, checkout verification, credit expiry, and dashboard UI ar
  assert.ok(env.includes("FLW_SECRET_HASH="));
  for(const source of [server,client,adminClient,productClient,briefClient])assert.doesNotThrow(()=>new Function(source));
 });
+
+
+test("robots and sitemap expose the product catalogue but not private routes",async function(t){
+ const fs=require("node:fs"),path=require("node:path"),root=path.join(__dirname,"..");
+ const server=app.listen(0,"127.0.0.1");await once(server,"listening");t.after(()=>new Promise(resolve=>server.close(resolve)));
+ const base="http://127.0.0.1:"+server.address().port;
+ const robots=fs.readFileSync(path.join(root,"public","robots.txt"),"utf8");
+ const sitemap=fs.readFileSync(path.join(root,"public","sitemap.xml"),"utf8");
+ assert.match(robots,/Disallow: \\/api\\//);
+ assert.match(robots,/Disallow: \\/admin\\//);
+ assert.match(robots,/Disallow: \\/dashboard\\//);
+ assert.match(robots,/Sitemap: https:\\/\\/teampeach\\.org\\/sitemap\\.xml/);
+ assert.match(sitemap,/<loc>https:\\/\\/teampeach\\.org\\/products\\/<\\/loc>/);
+ assert.doesNotMatch(sitemap,/https:\\/\\/teampeach\\.org\\/(admin|dashboard|account|login)\\//);
+ const [robotsResponse,sitemapResponse]=await Promise.all([fetch(base+"/robots.txt"),fetch(base+"/sitemap.xml")]);
+ assert.equal(robotsResponse.status,200);assert.match(robotsResponse.headers.get("content-type")||"",/text\\/plain/);
+ assert.equal(sitemapResponse.status,200);assert.match(sitemapResponse.headers.get("content-type")||"",/xml/);
+ assert.match(await sitemapResponse.text(),/<loc>https:\\/\\/teampeach\\.org\\/products\\/<\\/loc>/);
+});
