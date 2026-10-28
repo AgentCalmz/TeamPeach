@@ -14,8 +14,10 @@
   const root=$("#catalog-products");root.replaceChildren();
   if(!products.length){root.append(empty("No products are published yet. The catalogue will show products once they have been reviewed and priced."));return;}
   products.forEach(p=>{
-   const c=node("article","commerce-catalog-card"),category=node("span","commerce-label",String(p.category||"tool").replaceAll("_"," ").toUpperCase()),h=node("h3","",p.name),desc=node("p","",p.summary||p.description||"A practical TeamPeach tool."),price=node("div","commerce-price",money(p.priceMinor,p.currency)),kind=node("small",""," one-time licence");
-   price.append(kind);c.append(category,h,desc,price);
+   const c=node("article","commerce-catalog-card"),category=node("span","commerce-label",String(p.category||"tool").replaceAll("_"," ").toUpperCase()),h=node("h3","",p.name),desc=node("p","",p.summary||p.description||"A practical TeamPeach tool.");
+   c.append(category,h,desc);
+   if(p.selfHostedEnabled){const price=node("div","commerce-price",money(p.priceMinor,p.currency)),kind=node("small",""," one-time licence");price.append(kind);c.append(price);}
+   else if(p.hostedEnabled)c.append(node("div","commerce-price","Included with membership"));
    const flags=node("div","commerce-payment-methods");if(p.hostedEnabled)flags.append(node("span","commerce-status-pill good","Hosted runs available"));if(p.selfHostedEnabled)flags.append(node("span","commerce-status-pill","Source-code licence"));c.append(flags);
    if(p.features&&p.features.length){const ul=document.createElement("ul");ul.className="commerce-feature-list";p.features.slice(0,5).forEach(f=>ul.append(node("li","",f)));c.append(ul);}
    const example=node("div","commerce-notice","Sample output is illustrative. Live processing requires sign-in, active membership and usage credits.");
