@@ -234,7 +234,7 @@ app.get("/api/health",asyncRoute(async(_q,r)=>{
   const failure=checks.find(x=>x.error);
   if(failure)logFailure("health-schema",failure.error);
  }
- const ready=authReady()&&schemaReady&&commerceSchemaReady&&emailReady();
+ const ready=authReady()&&schemaReady&&emailReady();
  r.status(ready?200:503).json({status:ready?"ready":"degraded",service:"teampeach",accountServicesConfigured:authReady(),
   databaseSchemaReady:schemaReady,commerceSchemaReady,emailDeliveryConfigured:emailReady(),emailTransport:emailReady()?emailTransportMode():"unconfigured",
   paymentMode:paymentMode(),paystackConfigured:paymentReady("paystack"),flutterwaveConfigured:paymentReady("flutterwave")});
