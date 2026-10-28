@@ -13,7 +13,7 @@
   function text(node,value){if(node)node.textContent=value==null?"":String(value);}
   function feedback(node,message,state){if(!node)return;node.textContent=message||"";node.dataset.state=state||"";}
   function element(tag,className,value){const node=document.createElement(tag);if(className)node.className=className;if(value!==undefined)node.textContent=String(value);return node;}
-  function toast(message){text(toastNode,message);toastNode.classList.add("visible");clearTimeout(toastTimer);toastTimer=setTimeout(()=>toastNode.classList.remove("visible"),3200);}
+  function toast(message){if(!toastNode)return;text(toastNode,message);toastNode.classList.add("visible");clearTimeout(toastTimer);toastTimer=setTimeout(()=>toastNode.classList.remove("visible"),3200);}
   function formatDate(value){if(!value)return "No due date";const d=new Date(value+(String(value).length===10?"T12:00:00":""));if(!Number.isFinite(d.getTime()))return "No due date";return d.toLocaleDateString(undefined,{month:"short",day:"numeric",year:d.getFullYear()!==new Date().getFullYear()?"numeric":undefined});}
   function formatUpdated(value){if(!value)return "Just now";const d=new Date(value);if(!Number.isFinite(d.getTime()))return "Recently updated";return "Updated "+d.toLocaleDateString(undefined,{month:"short",day:"numeric"});}
   function projectTypeLabel(type){return {"general":"General project","seo-brief":"SEO content brief","content":"Content & marketing","automation":"Automation idea"}[type]||"Project";}
@@ -66,6 +66,7 @@
     text($("#nav-project-count"),workspace.projects.length);
     text($("#stat-active-projects"),workspace.projects.filter(p=>p.status==="active").length);
     text($("#stat-projects-note"),workspace.projects.length===1?"1 idea in your workspace":workspace.projects.length+" ideas in your workspace");
+    if(!list)return;
     list.replaceChildren();
     if(!workspace.projects.length){renderProjectEmpty();return;}
     if(!projects.length){const box=element("div","project-card-empty");box.append(element("span","project-empty-icon","⌕"),element("h3","","No projects match that search."),element("p","","Try a shorter search or a different word."));list.append(box);return;}
@@ -98,9 +99,10 @@
     text($("#stat-open-tasks"),openTasks.length);
     text($("#stat-tasks-note"),openTasks.length===1?"One next step to focus on":"Your next steps, gathered in one place");
     text($("#stat-completed-tasks"),doneTasks.length);
+    if(!list)return;
     list.replaceChildren();
     if(!workspace.tasks.length){const empty=element("div","tasks-empty");empty.append(element("strong","","A clear list starts with one task."),element("span","","Add a next step above. You can link it to a project later."));list.append(empty);return;}
-    const ordered=[...openTasks,...doneTasks].slice(0,12);
+    const ordered=[...openTasks,...doneTasks];
     ordered.forEach(task=>{
       const row=element("div","task-row"+(task.completed?" is-complete":""));
       const check=element("input","task-check");check.type="checkbox";check.checked=Boolean(task.completed);check.setAttribute("aria-label",(task.completed?"Reopen ":"Complete ")+task.title);check.addEventListener("change",async()=>{check.disabled=true;try{await updateTask(task.id,{completed:check.checked});}catch(_){check.checked=!check.checked;}finally{check.disabled=false;}});row.append(check);
@@ -112,8 +114,7 @@
       const remove=element("button","task-delete","×");remove.type="button";remove.setAttribute("aria-label","Delete task "+task.title);remove.addEventListener("click",()=>deleteTask(task));row.append(remove);
       list.append(row);
     });
-    if(workspace.tasks.length>12){const more=element("div","tasks-empty","Showing 12 of "+workspace.tasks.length+" tasks.");list.append(more);}
-  }
+      }
 
   async function updateProject(id,patch){
     try{const result=await request("/api/workspace/projects/"+encodeURIComponent(id),"PATCH",patch);workspace.projects=workspace.projects.map(p=>p.id===id?result.project:p);renderProjects();toast("Project updated.");}
@@ -121,7 +122,7 @@
   }
   async function deleteProject(project){
     if(!window.confirm("Delete \""+project.title+"\"? Tasks linked to this project will remain in your workspace."))return;
-    try{await request("/api/workspace/projects/"+encodeURIComponent(project.id),"DELETE");workspace.projects=workspace.projects.filter(p=>p.id!==project.id);workspace.tasks=workspace.tasks.map(t=>t.project_id===project.id?{...t,project_id:null}:t);renderProjects();renderTasks();renderTaskProjectOptions();toast("Project deleted.");}
+    try{await request("/api/workspace/projects/"+encodeURIComponent(project.id),"DELETE");workspace.projects=workspace.projects.filter(p=>p.id!==project.id);workspace.tasks=workspace.tasks.map(t=>t.project_id===project.id?{...t,project_id:null}:t);text($("#workspace-load-feedback"),"");text($("#workspace-load-feedback"),"");renderProjects();renderTasks();renderTaskProjectOptions();toast("Project deleted.");}
     catch(error){toast(error.message);}
   }
   async function updateTask(id,patch){
@@ -138,6 +139,18 @@
     select.replaceChildren();const noProject=element("option","","No project");noProject.value="";select.append(noProject);
     workspace.projects.filter(project=>project.status!=="completed").forEach(project=>{const option=element("option","",project.title);option.value=project.id;select.append(option);});
   }
+  async function loadSupportUnreadCount(){
+    const badge=$("#support-unread-count");
+    if(!badge||$("#support-conversations"))return;
+    try{
+      const response=await fetch("/api/support/conversations",{credentials:"same-origin",cache:"no-store"});
+      if(!response.ok)return;
+      const body=await response.json().catch(()=>({}));
+      const count=(Array.isArray(body.conversations)?body.conversations:[]).filter(item=>item.unread===true).length;
+      text(badge,count);badge.hidden=count===0;
+    }catch(_){badge.hidden=true;}
+  }
+
   async function loadWorkspace(){
     try{
       const result=await request("/api/workspace","GET");
@@ -148,10 +161,11 @@
       text($("#welcome-subtitle"),"Your workspace is ready. Pick one useful next step and make it happen.");
       text($("#sidebar-name"),name);text($("#sidebar-email"),workspace.user&&workspace.user.email||"");
       text($("#sidebar-avatar"),first.charAt(0).toUpperCase());text($("#topbar-avatar"),first.charAt(0).toUpperCase());
+      const adminLink=$("#workspace-admin-link");if(adminLink)adminLink.hidden=!Boolean(workspace.user&&workspace.user.isAdmin);
       renderProjects();renderTasks();renderTaskProjectOptions();
     }catch(error){
       const list=$("#projects-list");if(list){const box=element("div","project-card-empty");box.append(element("span","project-empty-icon","!"),element("h3","","We couldn't open your workspace."),element("p","",error.message+" If this is a new deployment, confirm supabase/migrations/002_workspace_dashboard.sql has been run in Supabase."));const retry=element("button","button button-dark","Try again");retry.type="button";retry.addEventListener("click",loadWorkspace);box.append(retry);list.replaceChildren(box);}
-      const tasks=$("#tasks-list");if(tasks)tasks.replaceChildren(element("div","tasks-empty","Your tasks could not be loaded."));
+      const tasks=$("#tasks-list");if(tasks)tasks.replaceChildren(element("div","tasks-empty","Your tasks could not be loaded."));if(!$("#projects-list")&&!$("#tasks-list"))text($("#workspace-load-feedback"),"Workspace details could not be loaded: "+error.message);if(!$("#projects-list")&&!$("#tasks-list"))text($("#workspace-load-feedback"),"Workspace details could not be loaded: "+error.message);
     }
   }
 
@@ -184,4 +198,5 @@
     catch(error){toast(error.message);button.disabled=false;}
   });
   loadWorkspace();
+  loadSupportUnreadCount();
 })();

@@ -2,7 +2,7 @@
 TeamPeach is a peach/ivory/navy AI-tools and automation website served by one Node.js/Express Web Service on Render. Public pages live in public/; server code and secrets are outside that folder.
 
 ## Included
-- Responsive public website plus a signed-in workspace dashboard, saved projects, task tracking, an interactive SEO content brief builder and an AI-agent explainer article. The brief builder currently uses a structured local template; it does not call an LLM or pull live SERP data.
+- Responsive public website plus a multi-page signed-in workspace: Overview, Projects, Tasks, Tools & Services, Billing & Plans and Support Inbox. Each section has a dedicated URL and shared responsive navigation. The SEO content brief builder currently uses a structured local template; it does not call an LLM or pull live SERP data.
 - Clean URLs, redirects away from .html URLs, canonical URLs, a generated sitemap (including the public product catalogue), and a robots.txt that blocks crawling of API and private workspace routes.
 - Custom six-digit email OTP registration and password-reset codes. A user record is created only after the OTP is verified.
 - Interruption-friendly registration: only name/email are kept as browser draft; neither password nor OTP is persisted in browser storage.
@@ -30,6 +30,12 @@ TeamPeach is a peach/ivory/navy AI-tools and automation website served by one No
 - If SMTP delivery is ambiguous, the reservation is retained rather than risking duplicate sends. Interrupted queue rows are marked for operator inspection rather than automatically resent.
 - Free Render services may sleep after inactivity; background work pauses while sleeping and resumes on wake.
 - Before live launch, add real privacy, terms and business/operator contact pages; verify sender SPF/DKIM/DMARC; review retention, deletion, backups and abuse monitoring. Repository checks are not a live deployment test or a security certification.
+
+## Workspace and administration navigation
+
+Customers sign in at `/login/` and land at `/dashboard/`. The workspace has separate pages at `/dashboard/projects/`, `/dashboard/tasks/`, `/dashboard/tools/`, `/dashboard/billing/` and `/dashboard/support/` so the customer does not have to navigate one long dashboard. Each page shares the same responsive sidebar.
+
+The administrator console is at `/admin/`. Its own navigation separates Support Inbox, Products & Tools, Membership Plans, Credit Packs, Customers, Licences & Delivery, Payments, and Email & Enquiries into `/admin/support/`, `/admin/products/`, `/admin/memberships/`, `/admin/credits/`, `/admin/customers/`, `/admin/fulfilment/`, `/admin/payments/` and `/admin/communications/`. Administration remains restricted to accounts listed in `ADMIN_EMAILS`; the console verifies the signed-in account before showing its contents. The customer sidebar only displays the Admin console link for an allowlisted administrator.
 
 ## Public routes
 / ; /journal/what-is-an-ai-agent/ ; /tools/seo-content-brief/ ; /register/ ; /verify-email/ ; /login/ ; /forgot-password/ ; /account/ ; /admin/ ; /unsubscribe/.

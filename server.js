@@ -278,7 +278,7 @@ app.get("/api/workspace",authenticated,asyncRoute(async(q,r)=>{
   db.from("tp_workspace_tasks").select(workspaceTaskFields).eq("user_id",q.user.id).order("completed",{ascending:true}).order("due_on",{ascending:true,nullsFirst:false}).order("created_at",{ascending:false}).limit(200)
  ]);
  if(projects.error||tasks.error){logFailure("workspace-read",projects.error||tasks.error);return errorJson(r,503,"WORKSPACE_UNAVAILABLE","Your workspace is temporarily unavailable. Confirm the workspace database migration has been applied, then retry.");}
- r.json({ok:true,user:{id:q.user.id,email:q.user.email,fullName:q.user.full_name},projects:projects.data||[],tasks:tasks.data||[]});
+ r.json({ok:true,user:{id:q.user.id,email:q.user.email,fullName:q.user.full_name,isAdmin:q.isAdmin},projects:projects.data||[],tasks:tasks.data||[]});
 }));
 app.post("/api/workspace/projects",csrf,authenticated,asyncRoute(async(q,r)=>{
  const body=q.body||{},title=cleanText(body.title,120),description=cleanText(body.description,1200),type=String(body.projectType||"general"),data=workspaceObject(body.data);
