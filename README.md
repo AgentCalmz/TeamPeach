@@ -3,7 +3,7 @@ TeamPeach is a peach/ivory/navy AI-tools and automation website served by one No
 
 ## Included
 - Responsive public website plus a signed-in workspace dashboard, saved projects, task tracking, an interactive SEO content brief builder and an AI-agent explainer article. The brief builder currently uses a structured local template; it does not call an LLM or pull live SERP data.
-- Clean URLs, redirects away from .html URLs, canonical URLs and a generated sitemap.
+- Clean URLs, redirects away from .html URLs, canonical URLs, a generated sitemap (including the public product catalogue), and a robots.txt that blocks crawling of API and private workspace routes.
 - Custom six-digit email OTP registration and password-reset codes. A user record is created only after the OTP is verified.
 - Interruption-friendly registration: only name/email are kept as browser draft; neither password nor OTP is persisted in browser storage.
 - Server-side scrypt password hashes, HMAC-hashed opaque session cookies, logout/session revocation, CSRF checks, rate limits, CSP/security headers and validation.
