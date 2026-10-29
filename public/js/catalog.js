@@ -4,7 +4,7 @@
  const money=(minor,currency="USD")=>new Intl.NumberFormat(undefined,{style:"currency",currency,minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(minor||0)/100);
  const node=(tag,cls,value)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(value!==undefined)n.textContent=String(value);return n;};
  const empty=message=>node("div","commerce-empty",message);
- let signedIn=false, overview=null, csrf="";
+ let signedIn=false, overview=null, catalogGateways={}, csrf="";
  function say(message,state){const el=$("#catalog-feedback");if(el){el.textContent=message||"";el.dataset.state=state||"";}}
  async function token(){
   if(csrf)return csrf;
@@ -28,7 +28,7 @@
  }
  function checkoutButtons(type,slug,available){
   const wrap=node("div","commerce-actions");
-  const gateways=overview&&overview.gateways||{};
+  const gateways=catalogGateways;
   const options=[["paystack","Paystack"],["flutterwave","Flutterwave"]].filter(([key])=>Boolean(gateways[key]&&available[key]));
   if(!options.length){
    const info=node("p","commerce-notice","Online checkout for this item is not fully configured yet. You can still review membership and billing in your workspace.");
@@ -74,7 +74,7 @@
    c.append(node("div","commerce-notice",p.hostedEnabled?"Hosted use requires sign-in, an eligible membership and usage credits.":"Review licence scope, delivery notes and supported payment options before purchase."));
    if(p.hostedEnabled)c.append(signedIn?signedInLink("Open in workspace ↗","/dashboard/tools/"):guestLink("Sign in to open ↗","/dashboard/tools/"));
    if(p.selfHostedEnabled){
-    if(signedIn)c.append(checkoutButtons("tool_license",p.slug,{paystack:Boolean(overview&&overview.gateways&&overview.gateways.paystack),flutterwave:Boolean(overview&&overview.gateways&&overview.gateways.flutterwave)}));
+    if(signedIn)c.append(checkoutButtons("tool_license",p.slug,catalogGateways));
     else c.append(guestLink("Sign in to purchase ↗","/dashboard/billing/#commerce-products"));
    }
    root.append(c);
@@ -86,7 +86,7 @@
   packs.forEach(p=>{
    const c=node("article","commerce-catalog-card"),k=node("span","commerce-label","ONE-TIME TOP-UP"),h=node("h3","",p.name),desc=node("p","",p.description||"Additional hosted-tool usage credits."),price=node("div","commerce-price",money(p.priceMinor,p.currency)),credits=node("span","commerce-status-pill",Number(p.credits).toLocaleString()+" credits");
    c.append(k,h,desc,price,credits);
-   if(signedIn)c.append(checkoutButtons("credit_topup",p.slug,{paystack:Boolean(overview&&overview.gateways&&overview.gateways.paystack),flutterwave:Boolean(overview&&overview.gateways&&overview.gateways.flutterwave)}));
+   if(signedIn)c.append(checkoutButtons("credit_topup",p.slug,catalogGateways));
    else c.append(guestLink("Sign in to buy credits ↗","/dashboard/billing/#commerce-topups"));
    root.append(c);
   });
@@ -99,6 +99,7 @@
    ]);
    const data=await catalogResponse.json().catch(()=>({}));
    if(!catalogResponse.ok)throw new Error(data.message||"Catalogue is temporarily unavailable.");
+   catalogGateways=data.gateways||{};
    const session=sessionResponse&&sessionResponse.ok?await sessionResponse.json().catch(()=>null):null;
    signedIn=Boolean(session&&session.user);
    if(signedIn){
