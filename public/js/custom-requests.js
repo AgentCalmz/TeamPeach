@@ -143,7 +143,9 @@
   const data=await api(url);requests=Array.isArray(data.requests)?data.requests:[];
   if(!keepSelection||!requests.some(item=>item.id===selectedId))selectedId=requests[0]?requests[0].id:"";
   renderList();
-  if(selectedId)await loadThread(selectedId);else renderEmptyDetail();
+  const detail=$("#custom-request-detail"),active=document.activeElement;
+  const editingDraft=Boolean(detail&&active&&detail.contains(active)&&active.matches("input,textarea,select"));
+  if(selectedId&&(!keepSelection||!editingDraft))await loadThread(selectedId);else if(!selectedId)renderEmptyDetail();
  }
  if(!admin){
   $("#custom-request-form")?.addEventListener("submit",async event=>{
