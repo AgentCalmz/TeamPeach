@@ -267,6 +267,7 @@ test("commerce schema, checkout verification, credit expiry, and dashboard UI ar
  assert.ok(adminProducts.includes("admin-commerce.js?v=3"));
  assert.ok(catalog.includes('id="catalog-products"'));
  assert.ok(client.includes('api("/api/commerce/checkout","POST"'));
+ assert.ok(client.includes("money(sub.plan.price_minor,sub.plan.currency)"));
  assert.ok(adminClient.includes('api("/api/admin/commerce/plans","POST"'));
  assert.ok(productClient.includes('fetch("/api/commerce/catalog"'));
  assert.ok(briefClient.includes('api("/api/commerce/tool-runs","POST"'));
