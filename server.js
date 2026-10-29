@@ -207,7 +207,7 @@ async function runEmailQueue(){if(emailCoordinatorBusy)return;emailCoordinatorBu
 async function cleanup(){if(!db)return;try{await db.from("tp_pending_registrations").delete().lt("expires_at",new Date(Date.now()-86400000).toISOString());await db.from("tp_password_resets").delete().lt("expires_at",new Date(Date.now()-86400000).toISOString());await db.from("tp_sessions").delete().lt("expires_at",new Date().toISOString());await db.from("tp_sessions").delete().lt("revoked_at",new Date(Date.now()-30*86400000).toISOString());}catch(e){logFailure("cleanup",e);}}
 
 app.get("/api/health",asyncRoute(async(_q,r)=>{
- let schemaReady=false,commerceSchemaReady=false,customRequestsSchemaReady=false,usdPricingReady=false;
+ let schemaReady=false,commerceSchemaReady=false,customRequestsSchemaReady=false,usdPricingReady=false,legacyBriefStorageReady=false;
  if(db){
   const checks=await Promise.all([
    db.from("tp_users").select("id",{head:true,count:"exact"}),
@@ -235,15 +235,16 @@ app.get("/api/health",asyncRoute(async(_q,r)=>{
    db.from("tp_credit_packs").select("currency").eq("active",true).limit(100)
   ]);
   schemaReady=[checks[0],checks[1],checks[2],checks[5],checks[6]].every(x=>!x.error);
+  legacyBriefStorageReady=[checks[3],checks[4]].every(x=>!x.error);
   commerceSchemaReady=checks.slice(7,18).every(x=>!x.error);
   customRequestsSchemaReady=[checks[18],checks[19]].every(x=>!x.error);
   usdPricingReady=[checks[20],checks[21],checks[22]].every(x=>!x.error&&(x.data||[]).every(row=>row.currency==="USD"));
   const failure=checks.find(x=>x.error);
   if(failure)logFailure("health-schema",failure.error);
  }
- const ready=authReady()&&schemaReady&&emailReady()&&customRequestsSchemaReady&&usdPricingReady;
+ const ready=authReady()&&schemaReady&&commerceSchemaReady&&emailReady()&&customRequestsSchemaReady&&usdPricingReady;
  r.status(ready?200:503).json({status:ready?"ready":"degraded",service:"teampeach",accountServicesConfigured:authReady(),
-  databaseSchemaReady:schemaReady,commerceSchemaReady,customRequestsSchemaReady,usdPricingReady,emailDeliveryConfigured:emailReady(),emailTransport:emailReady()?emailTransportMode():"unconfigured",
+  databaseSchemaReady:schemaReady,legacyBriefStorageReady,commerceSchemaReady,customRequestsSchemaReady,usdPricingReady,emailDeliveryConfigured:emailReady(),emailTransport:emailReady()?emailTransportMode():"unconfigured",
   paymentMode:paymentMode(),paystackConfigured:paymentReady("paystack"),flutterwaveConfigured:paymentReady("flutterwave")});
 }));
 app.get("/api/csrf",(_q,r)=>{const token=crypto.randomBytes(32).toString("base64url");r.cookie("tp_csrf",token,{httpOnly:false,secure:isProd,sameSite:"lax",path:"/",maxAge:7200000});r.json({token});});
