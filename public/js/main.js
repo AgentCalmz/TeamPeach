@@ -1,4 +1,6 @@
 (() => {
+  let currentSession = null;
+  let sessionCheckPromise = Promise.resolve(null);
   const menuButton = document.querySelector(".menu-toggle");
   const nav = document.querySelector(".nav-links");
   if (menuButton && nav) {
@@ -64,22 +66,52 @@
     const feedback = document.querySelector("#form-feedback");
     const button = form.querySelector('button[type="submit"]');
     if (button) button.disabled = true;
-    if (feedback) feedback.textContent = "Sending your inquiry securely…";
+    if (feedback) feedback.textContent = "Sending your request securely…";
     try {
-      const csrfResponse = await fetch("/api/csrf", { credentials: "same-origin" });
+      if (sessionCheckPromise) currentSession = await sessionCheckPromise;
+      const csrfResponse = await fetch("/api/csrf", { credentials: "same-origin", cache: "no-store" });
       if (!csrfResponse.ok) throw new Error("Secure request setup failed. Refresh and try again.");
       const csrf = await csrfResponse.json();
-      const response = await fetch("/api/projects", {
-        method: "POST", credentials: "same-origin",
+      const type = form.elements.type.value;
+      const details = form.elements.details.value.trim();
+      let endpoint = "/api/projects";
+      let payload = {name: form.elements.name.value.trim(), email: form.elements.email.value.trim(), type, details};
+      if (currentSession && currentSession.user && !currentSession.isAdmin) {
+        const requestType = {
+          "AI agent or assistant": "AI agent or assistant",
+          "WhatsApp or Telegram bot": "Website or messaging bot",
+          "Workflow automation": "Workflow automation",
+          "Custom AI tool": "Custom AI tool",
+          "Help me scope the idea": "Help scope an idea"
+        }[type] || "Other";
+        if (details.length < 20) throw new Error("Please describe your requirements in at least 20 characters.");
+        endpoint = "/api/custom-requests";
+        payload = {
+          title: (type + " request").slice(0, 120),
+          requestType,
+          description: details,
+          desiredOutcome: "",
+          budgetRange: "not_sure",
+          timeline: "flexible"
+        };
+      }
+      const response = await fetch(endpoint, {
+        method: "POST", credentials: "same-origin", cache: "no-store",
         headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf.token },
-        body: JSON.stringify({name: form.elements.name.value.trim(), email: form.elements.email.value.trim(), type: form.elements.type.value, details: form.elements.details.value.trim()})
+        body: JSON.stringify(payload)
       });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.message || "Your inquiry could not be submitted.");
+      if (!response.ok) throw new Error(result.message || "Your request could not be submitted.");
       form.reset();
-      if (feedback) feedback.textContent = result.message || "Thank you. Your inquiry has been received.";
+      if (currentSession && currentSession.user && !currentSession.isAdmin) {
+        form.elements.name.value = currentSession.user.fullName || "";
+        form.elements.email.value = currentSession.user.email || "";
+      }
+      if (feedback) feedback.textContent = currentSession && currentSession.user && !currentSession.isAdmin
+        ? "Request submitted. You can track status, pricing and project chat in your dashboard."
+        : (result.message || "Thank you. Your inquiry has been received.");
     } catch (error) {
-      if (feedback) feedback.textContent = error.message || "Your inquiry was not submitted. Please try again.";
+      if (feedback) feedback.textContent = error.message || "Your request was not submitted. Please try again.";
     } finally { if (button) button.disabled = false; }
   });
 
@@ -125,21 +157,31 @@
   const year = document.querySelector("#current-year");
   if (year) year.textContent = new Date().getFullYear();
   const authLinks = document.querySelectorAll(".nav-links .nav-auth-link");
-  if (authLinks.length) {
-    fetch("/api/auth/me", { credentials: "same-origin", cache: "no-store" })
-      .then(response => response.ok ? response.json() : null)
-      .then(data => {
-        if (!data || !data.user) return;
-        const workspaceLink = authLinks[0];
-        workspaceLink.href = "/dashboard/";
-        workspaceLink.textContent = "Workspace";
-        const accountLink = authLinks[1];
-        if (accountLink) {
-          accountLink.href = "/account/";
-          accountLink.textContent = "Account";
-        }
-      })
-      .catch(() => {});
-  }
+  sessionCheckPromise = fetch("/api/auth/me", { credentials: "same-origin", cache: "no-store" })
+    .then(response => response.ok ? response.json() : null)
+    .catch(() => null);
+  sessionCheckPromise.then(data => {
+    currentSession = data;
+    if (!data || !data.user) return;
+    const workspaceLink = authLinks[0];
+    if (workspaceLink) {
+      workspaceLink.href = "/dashboard/";
+      workspaceLink.textContent = "Workspace";
+    }
+    const accountLink = authLinks[1];
+    if (accountLink) {
+      accountLink.href = "/account/";
+      accountLink.textContent = "Account";
+    }
+    if (!data.isAdmin) {
+      const form = document.querySelector("#project-form");
+      if (form) {
+        form.elements.name.value = data.user.fullName || "";
+        form.elements.email.value = data.user.email || "";
+        form.elements.name.readOnly = true;
+        form.elements.email.readOnly = true;
+      }
+    }
+  });
 
 })();

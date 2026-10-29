@@ -96,3 +96,16 @@ A one-time licence record confirms the purchase and the agreed delivery status; 
 ## USD catalogue pricing
 
 Run `supabase/migrations/005_usd_pricing.sql` once in the Supabase SQL Editor after migration 004. It converts existing NGN catalogue amounts to USD cents using an indicative market reference of **USD 1 = NGN 1,341.62 on 28 October 2026**; review and adjust the resulting commercial prices in Admin → Memberships, Credits and Products before treating them as final retail pricing. Existing payment records remain in their original currency. Plan rows referenced by payment/subscription history are preserved for those records, with separate USD plans created for new sales. Because the migration clears provider IDs for converted/new USD plans, open Admin → Memberships and sync each published USD plan with the gateway(s) you intend to offer. Paystack currently lists a USD transaction minimum of $2 and Nigeria-based USD acceptance requires the relevant international-payments approval; confirm that capability in your Paystack dashboard. Flutterwave USD card acceptance also depends on your account and enabled payment methods.
+
+
+## Customization requests and project chat
+
+The customer dashboard is focused on tools, billing, general support and **Custom requests**. Customers can submit a scoped request for a custom tool, agent, bot, integration or automation, including requirements, desired outcome, budget range and timeline. Each request has its own private thread so scope discussion stays attached to that project.
+
+Administrators with an email in `ADMIN_EMAILS` can open `/admin/custom-requests/`, review the request queue, set its status (**New**, **In discussion**, **In progress**, or **Completed**), add quote notes and set a price in USD. A changed quote is added to the request thread as a system message; the customer can view it and ask follow-up questions. Status, messages and quotes are validated by authenticated server routes. One customer's request and messages are not available to another customer.
+
+After migrations 001–005 have been applied, run `supabase/migrations/006_custom_requests.sql` in the Supabase SQL Editor. The customer page is `/dashboard/custom-requests/`; the administrator queue is `/admin/custom-requests/`. The old personal task/project tracker routes redirect to the custom requests page. Internal workspace storage is retained only for features such as saving SEO briefs; the generic project/task tracker is no longer part of the customer dashboard.
+
+The public catalogue at `/products/` checks the signed-in session and exposes the appropriate checkout/workspace actions. Signed-in customers can start a supported USD checkout directly from the catalogue without being asked to sign in again. Monthly plans still need to be synced with each payment gateway from Admin → Memberships before that gateway can sell the plan. Verify international/USD payment acceptance, provider account settings, and test-mode checkout before publishing real prices.
+
+The editorial journal has its own landing page at `/journal/`, separate from the product catalogue. The sitemap generator automatically includes this page and published journal articles.

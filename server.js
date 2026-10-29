@@ -213,10 +213,10 @@ app.get("/api/health",asyncRoute(async(_q,r)=>{
    db.from("tp_users").select("id",{head:true,count:"exact"}),
    db.from("tp_rate_limits").select("bucket_hash",{head:true,count:"exact"}),
    db.from("tp_email_usage").select("id",{head:true,count:"exact"}),
-   db.from("tp_workspace_projects").select("id",{head:true,count:"exact"}),
-   db.from("tp_workspace_tasks").select("id",{head:true,count:"exact"}),
    db.from("tp_support_conversations").select("id",{head:true,count:"exact"}),
    db.from("tp_support_messages").select("id",{head:true,count:"exact"}),
+   db.from("tp_custom_requests").select("id",{head:true,count:"exact"}),
+   db.from("tp_custom_request_messages").select("id",{head:true,count:"exact"}),
    db.from("tp_products").select("id",{head:true,count:"exact"}),
    db.from("tp_subscription_plans").select("id",{head:true,count:"exact"}),
    db.from("tp_credit_packs").select("id",{head:true,count:"exact"}),
@@ -348,6 +348,143 @@ app.patch("/api/account/preferences",csrf,authenticated,asyncRoute(async(q,r)=>{
  r.json({ok:true,marketingOptIn:d.data.marketing_opt_in,message:"Your email preference has been saved."});
 }));
 app.post("/api/projects",csrf,authLimit,persistentInquiryIpLimit,persistentInquiryEmailLimit,asyncRoute(async(q,r)=>{if(!backendReady(r,false))return;const name=normalizePersonName(q.body&&q.body.name),email=normalizeEmail(q.body&&q.body.email),type=cleanText(q.body&&q.body.type,100),details=cleanText(q.body&&q.body.details,5000);if(name.length<2||!isValidEmail(email)||type.length<3||details.length<10)return errorJson(r,400,"INVALID_INQUIRY","Enter your name, valid email, project type and at least 10 characters about the work.");try{const d=await db.from("tp_project_requests").insert({full_name:name,email,project_type:type,details,status:"new"}).select("id").single();if(d.error)throw d.error;const recipients=adminEmailsFromEnv(process.env.ADMIN_EMAILS).map(e=>({email:e,name:"TeamPeach administrator"}));if(recipients.length){try{await queueJob(null,"system","New TeamPeach project inquiry","Name: "+name+"\nEmail: "+email+"\nType: "+type+"\n\nDetails:\n"+details,recipients);runEmailQueue();}catch(e){logFailure("project-notice",e);}}r.status(201).json({ok:true,message:"Thank you. Your inquiry has been received. We’ll review it and follow up using the email address you provided."});}catch(e){logFailure("project-inquiry",e);errorJson(r,503,"INQUIRY_UNAVAILABLE","Your inquiry could not be submitted. Please try again later.");}}));
+
+
+// Customer-specific custom tool requests and project-scoped discussion.
+const customRequestFields="id,user_id,title,request_type,description,desired_outcome,budget_range,timeline,status,quoted_price_minor,quoted_currency,quote_notes,quoted_at,last_message_at,created_at,updated_at";
+const customRequestAdminFields=customRequestFields+",tp_users(email,full_name)";
+const customRequestStatuses=["new","discussion","in_progress","completed"];
+const customRequestTypes=["Custom AI tool","AI agent or assistant","Workflow automation","Website or messaging bot","Integration or API","Help scope an idea","Other"];
+const customBudgetRanges=["under_500","500_1500","1500_5000","over_5000","not_sure"];
+const customTimelines=["asap","2_4_weeks","1_3_months","flexible"];
+async function notifyCustomRequest(subject,body,recipients,requestedBy){
+ if(!Array.isArray(recipients)||!recipients.length)return;
+ try{await queueJob(requestedBy||null,"system",subject,body,recipients);runEmailQueue();}
+ catch(error){logFailure("custom-request-notification",error);}
+}
+function customRequestRecipients(){return adminEmailsFromEnv(process.env.ADMIN_EMAILS).map(email=>({email,name:"TeamPeach administrator"}));}
+async function findCustomRequest(id,user){
+ const query=db.from("tp_custom_requests").select(customRequestFields).eq("id",id);
+ if(user&&!user.isAdmin)query.eq("user_id",user.id);
+ const result=await query.maybeSingle();
+ if(result.error)throw result.error;
+ return result.data;
+}
+app.get("/api/custom-requests",authenticated,asyncRoute(async(q,r)=>{
+ try{
+  const result=await db.from("tp_custom_requests").select(customRequestFields).eq("user_id",q.user.id).order("updated_at",{ascending:false}).limit(100);
+  if(result.error)throw result.error;
+  r.json({ok:true,requests:result.data||[]});
+ }catch(error){logFailure("custom-request-user-list",error);errorJson(r,503,"CUSTOM_REQUESTS_UNAVAILABLE","Your customization requests could not be loaded. Confirm migration 006_custom_requests.sql has been applied, then retry.");}
+}));
+app.post("/api/custom-requests",csrf,authLimit,authenticated,asyncRoute(async(q,r)=>{
+ const body=q.body||{},title=cleanText(body.title,120),requestType=cleanText(body.requestType,80),description=cleanText(body.description,8000),desiredOutcome=cleanText(body.desiredOutcome,4000);
+ const budgetRange=String(body.budgetRange||"not_sure"),timeline=String(body.timeline||"flexible");
+ if(title.length<3)return errorJson(r,400,"INVALID_CUSTOM_REQUEST_TITLE","Give your request a title of at least three characters.");
+ if(!customRequestTypes.includes(requestType))return errorJson(r,400,"INVALID_CUSTOM_REQUEST_TYPE","Choose a supported request type.");
+ if(description.length<20)return errorJson(r,400,"INVALID_CUSTOM_REQUEST_DESCRIPTION","Describe the problem or tool you need in at least 20 characters.");
+ if(!customBudgetRanges.includes(budgetRange))return errorJson(r,400,"INVALID_CUSTOM_REQUEST_BUDGET","Choose a budget range from the list.");
+ if(!customTimelines.includes(timeline))return errorJson(r,400,"INVALID_CUSTOM_REQUEST_TIMELINE","Choose a requested timeframe from the list.");
+ const now=new Date().toISOString();
+ try{
+  const saved=await db.from("tp_custom_requests").insert({user_id:q.user.id,title,request_type:requestType,description,desired_outcome:desiredOutcome,budget_range:budgetRange,timeline,status:"new",quoted_currency:"USD",last_message_at:now,created_at:now,updated_at:now}).select(customRequestFields).single();
+  if(saved.error)throw saved.error;
+  const details="Customer: "+q.user.full_name+" ("+q.user.email+")\nRequest: "+title+"\nType: "+requestType+"\nBudget range: "+budgetRange+"\nTimeline: "+timeline+"\n\nProblem and requirements:\n"+description+(desiredOutcome?"\n\nDesired outcome:\n"+desiredOutcome:"");
+  void notifyCustomRequest("New TeamPeach customization request",details,customRequestRecipients(),q.user.id);
+  r.status(201).json({ok:true,request:saved.data,message:"Your customization request has been submitted. You can follow updates and discuss it in this request's private chat."});
+ }catch(error){logFailure("custom-request-create",error);errorJson(r,503,"CUSTOM_REQUEST_CREATE_FAILED","We could not save your request. Confirm migration 006_custom_requests.sql has been applied, then retry.");}
+}));
+app.get("/api/admin/custom-requests",authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ try{
+  let query=db.from("tp_custom_requests").select(customRequestAdminFields).order("updated_at",{ascending:false}).limit(100);
+  const status=String(q.query.status||"");
+  if(status&&customRequestStatuses.includes(status))query=query.eq("status",status);
+  const result=await query;
+  if(result.error)throw result.error;
+  r.json({ok:true,requests:result.data||[]});
+ }catch(error){logFailure("custom-request-admin-list",error);errorJson(r,503,"ADMIN_CUSTOM_REQUESTS_UNAVAILABLE","The custom request queue could not be loaded. Confirm migration 006_custom_requests.sql has been applied.");}
+}));
+app.get("/api/custom-requests/:id/messages",authenticated,asyncRoute(async(q,r)=>{
+ if(!validWorkspaceId(q.params.id))return errorJson(r,400,"INVALID_CUSTOM_REQUEST_ID","This request link is invalid.");
+ try{
+  const requestQuery=db.from("tp_custom_requests").select(q.isAdmin?customRequestAdminFields:customRequestFields).eq("id",q.params.id);
+  if(!q.isAdmin)requestQuery.eq("user_id",q.user.id);
+  const requestResult=await requestQuery.maybeSingle();
+  if(requestResult.error)throw requestResult.error;
+  if(!requestResult.data)return errorJson(r,404,"CUSTOM_REQUEST_NOT_FOUND","That customization request could not be found.");
+  const messagesResult=await db.from("tp_custom_request_messages").select("id,request_id,sender_user_id,sender_role,sender_name,body,created_at").eq("request_id",q.params.id).order("created_at",{ascending:true}).limit(300);
+  if(messagesResult.error)throw messagesResult.error;
+  r.json({ok:true,request:requestResult.data,messages:messagesResult.data||[]});
+ }catch(error){logFailure("custom-request-thread-read",error);errorJson(r,503,"CUSTOM_REQUEST_THREAD_UNAVAILABLE","This request's discussion could not be loaded. Please refresh and try again.");}
+}));
+app.post("/api/custom-requests/:id/messages",csrf,authLimit,authenticated,asyncRoute(async(q,r)=>{
+ if(!validWorkspaceId(q.params.id))return errorJson(r,400,"INVALID_CUSTOM_REQUEST_ID","This request link is invalid.");
+ const body=cleanText(q.body&&q.body.body,4000);
+ if(body.length<1)return errorJson(r,400,"INVALID_CUSTOM_REQUEST_MESSAGE","Write a message before sending.");
+ try{
+  const requestRow=await findCustomRequest(q.params.id,{id:q.user.id,isAdmin:q.isAdmin});
+  if(!requestRow)return errorJson(r,404,"CUSTOM_REQUEST_NOT_FOUND","That customization request could not be found.");
+  const now=new Date().toISOString(),role=q.isAdmin?"staff":"user",senderName=cleanText(q.user.full_name,100)|| (q.isAdmin?"TeamPeach staff":"Customer");
+  const saved=await db.from("tp_custom_request_messages").insert({request_id:q.params.id,sender_user_id:q.user.id,sender_role:role,sender_name:senderName,body,created_at:now}).select("id,request_id,sender_user_id,sender_role,sender_name,body,created_at").single();
+  if(saved.error)throw saved.error;
+  const patch={last_message_at:now,updated_at:now};
+  if(q.isAdmin&&requestRow.status==="new")patch.status="discussion";
+  const updated=await db.from("tp_custom_requests").update(patch).eq("id",q.params.id);
+  if(updated.error)logFailure("custom-request-timestamp",updated.error);
+  const owner=await db.from("tp_users").select("email,full_name").eq("id",requestRow.user_id).maybeSingle();
+  if(owner.error)logFailure("custom-request-owner",owner.error);
+  if(q.isAdmin){
+   if(owner.data&&owner.data.email)void notifyCustomRequest("TeamPeach replied to your customization request", "TeamPeach sent a new message on: "+requestRow.title+"\n\nMessage:\n"+body, [{email:owner.data.email,name:owner.data.full_name||"TeamPeach customer"}], q.user.id);
+  }else{
+   void notifyCustomRequest("New message on a TeamPeach customization request", "Customer: "+q.user.full_name+" ("+q.user.email+")\nRequest: "+requestRow.title+"\n\nMessage:\n"+body, customRequestRecipients(), q.user.id);
+  }
+  r.status(201).json({ok:true,message:saved.data});
+ }catch(error){logFailure("custom-request-message-create",error);errorJson(r,503,"CUSTOM_REQUEST_MESSAGE_FAILED","Your message could not be sent. Please retry.");}
+}));
+app.patch("/api/admin/custom-requests/:id",csrf,authLimit,authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ if(!validWorkspaceId(q.params.id))return errorJson(r,400,"INVALID_CUSTOM_REQUEST_ID","This request link is invalid.");
+ const body=q.body||{},updates={updated_at:new Date().toISOString()};
+ if(Object.prototype.hasOwnProperty.call(body,"status")){
+  if(!customRequestStatuses.includes(body.status))return errorJson(r,400,"INVALID_CUSTOM_REQUEST_STATUS","Choose New, Discussion, In progress or Completed.");
+  updates.status=body.status;
+ }
+ let quoteChanged=false;
+ if(Object.prototype.hasOwnProperty.call(body,"quotedPriceUsd")){
+  const raw=body.quotedPriceUsd;
+  if(raw===null||raw===""){
+   updates.quoted_price_minor=null;updates.quoted_at=null;updates.quoted_currency="USD";quoteChanged=true;
+  }else{
+   const amount=Number(raw);
+   if(!Number.isFinite(amount)||amount<0.01||amount>1000000)return errorJson(r,400,"INVALID_CUSTOM_REQUEST_QUOTE","Enter a USD quote between $0.01 and $1,000,000.");
+   updates.quoted_price_minor=Math.round(amount*100);updates.quoted_currency="USD";updates.quoted_at=new Date().toISOString();quoteChanged=true;
+  }
+ }
+ if(Object.prototype.hasOwnProperty.call(body,"quoteNotes"))updates.quote_notes=cleanText(body.quoteNotes,2000);
+ if(Object.keys(updates).length===1)return errorJson(r,400,"EMPTY_CUSTOM_REQUEST_UPDATE","Choose a status, price or quote note to update.");
+ try{
+  const existing=await db.from("tp_custom_requests").select(customRequestFields).eq("id",q.params.id).maybeSingle();
+  if(existing.error)throw existing.error;
+  if(!existing.data)return errorJson(r,404,"CUSTOM_REQUEST_NOT_FOUND","That customization request could not be found.");
+  const previousQuote=existing.data.quoted_price_minor===null?null:Number(existing.data.quoted_price_minor);
+  const saved=await db.from("tp_custom_requests").update(updates).eq("id",q.params.id).select(customRequestFields).single();
+  if(saved.error)throw saved.error;
+  const currentQuote=saved.data.quoted_price_minor===null?null:Number(saved.data.quoted_price_minor);
+  if(quoteChanged&&currentQuote!==null&&currentQuote!==previousQuote){
+   const amount=(currentQuote/100).toFixed(2);
+   const notes=saved.data.quote_notes?"\\n\\n"+saved.data.quote_notes:"";
+   const notice=await db.from("tp_custom_request_messages").insert({request_id:q.params.id,sender_user_id:q.user.id,sender_role:"system",sender_name:"TeamPeach",body:"TeamPeach shared a project quote: USD $"+amount+"."+notes,created_at:new Date().toISOString()}).select("created_at").single();
+   if(notice.error)logFailure("custom-request-quote-message",notice.error);
+   else {
+    const timestamp=notice.data.created_at||new Date().toISOString();
+    const threadUpdate=await db.from("tp_custom_requests").update({last_message_at:timestamp,updated_at:timestamp}).eq("id",q.params.id);
+    if(threadUpdate.error)logFailure("custom-request-quote-timestamp",threadUpdate.error);
+    saved.data.last_message_at=timestamp;
+    saved.data.updated_at=timestamp;
+   }
+  }
+  r.json({ok:true,request:saved.data,message:"The request has been updated."});
+ }catch(error){logFailure("custom-request-admin-update",error);errorJson(r,503,"CUSTOM_REQUEST_UPDATE_FAILED","We could not update this request. Please retry.");}
+}));
 
 
 const supportConversationFields="id,user_id,subject,status,last_message_at,last_user_read_at,last_staff_read_at,created_at,updated_at";
@@ -1127,6 +1264,8 @@ app.post("/api/unsubscribe",csrf,asyncRoute(async(q,r)=>{
   r.json({ok:true,message:"You have been unsubscribed from optional product/news email. Account and security messages are unaffected."});
  }catch(error){logFailure("unsubscribe",error);errorJson(r,503,"UNSUBSCRIBE_FAILED","Your email preference could not be updated. Please try again.");}
 }));
+app.get("/dashboard/projects/",(_q,r)=>r.redirect(302,"/dashboard/custom-requests/"));
+app.get("/dashboard/tasks/",(_q,r)=>r.redirect(302,"/dashboard/custom-requests/"));
 app.use((q,r,n)=>{if(!["GET","HEAD"].includes(q.method)||!/\.html$/i.test(q.path))return n();let t=/\/index\.html$/i.test(q.path)?(q.path.slice(0,-10)||"/"):q.path.slice(0,-5);if(!t.startsWith("/"))t="/"+t;if(t!=="/"&&!t.endsWith("/"))t+="/";r.redirect(301,t+(q.url.includes("?")?q.url.slice(q.url.indexOf("?")):""));});
 app.use(express.static(PUBLIC_DIR,{index:"index.html",extensions:["html"],setHeaders(res,file){res.setHeader("Cache-Control",/\.html$/i.test(file)?"no-cache":"public, max-age=3600");}}));
 app.use((q,r,n)=>q.path.startsWith("/api/")?errorJson(r,404,"API_ROUTE_NOT_FOUND","This API route does not exist."):n());
