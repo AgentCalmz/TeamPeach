@@ -9,7 +9,7 @@ test("web service exposes clean public URLs and hides .html extensions",async t=
  await once(server,"listening");
  t.after(()=>new Promise(resolve=>server.close(resolve)));
  const base="http://127.0.0.1:"+server.address().port;
- for(const route of ["/","/journal/what-is-an-ai-agent/","/tools/seo-content-brief/","/register/","/verify-email/","/login/","/forgot-password/","/dashboard/","/dashboard/projects/","/dashboard/tasks/","/dashboard/tools/","/dashboard/billing/","/dashboard/support/","/account/","/admin/","/admin/login/","/admin/support/","/admin/products/","/admin/memberships/","/admin/credits/","/admin/customers/","/admin/fulfilment/","/admin/payments/","/admin/communications/","/unsubscribe/","/products/"]){
+ for(const route of ["/","/journal/","/journal/what-is-an-ai-agent/","/journal/choosing-an-ai-tool/","/journal/business-tasks-worth-automating/","/tools/seo-content-brief/","/register/","/verify-email/","/login/","/forgot-password/","/dashboard/","/dashboard/requests/","/dashboard/requests/view/","/dashboard/tools/","/dashboard/billing/","/dashboard/support/","/account/","/admin/","/admin/login/","/admin/requests/","/admin/support/","/admin/products/","/admin/memberships/","/admin/credits/","/admin/customers/","/admin/fulfilment/","/admin/payments/","/admin/communications/","/unsubscribe/","/products/"]){
   const response=await fetch(base+route);
   assert.equal(response.status,200,"expected 200 for "+route);
   assert.match(response.headers.get("content-type")||"",/text\/html/);
@@ -19,6 +19,15 @@ test("web service exposes clean public URLs and hides .html extensions",async t=
  const old=await fetch(base+"/register/index.html",{redirect:"manual"});
  assert.equal(old.status,301);
  assert.equal(old.headers.get("location"),"/register/");
+ const oldProjects=await fetch(base+"/dashboard/projects/",{redirect:"manual"});
+ assert.equal(oldProjects.status,301);
+ assert.equal(oldProjects.headers.get("location"),"/dashboard/requests/");
+ const oldTasks=await fetch(base+"/dashboard/tasks/",{redirect:"manual"});
+ assert.equal(oldTasks.status,301);
+ assert.equal(oldTasks.headers.get("location"),"/dashboard/requests/");
+ const oldBlog=await fetch(base+"/blog/",{redirect:"manual"});
+ assert.equal(oldBlog.status,301);
+ assert.equal(oldBlog.headers.get("location"),"/journal/");
  const health=await fetch(base+"/api/health");
  assert.ok([200,503].includes(health.status));
  assert.equal(health.headers.get("cache-control"),"no-store");
@@ -96,45 +105,56 @@ test("email broadcasts include signed unsubscribe handling and re-check opt-in",
  assert.match(sql,/j\.mode in\('single','system','broadcast'\)/);
 });
 
-test("workspace dashboard has scoped project/task APIs and a protected storage migration",function(){
- const fs=require("node:fs");
- const path=require("node:path");
- const server=fs.readFileSync(path.join(__dirname,"..","server.js"),"utf8");
- const migration=fs.readFileSync(path.join(__dirname,"..","supabase","migrations","002_workspace_dashboard.sql"),"utf8");
- const dashboard=fs.readFileSync(path.join(__dirname,"..","public","dashboard","index.html"),"utf8");
- const projectsPage=fs.readFileSync(path.join(__dirname,"..","public","dashboard","projects","index.html"),"utf8");
- const tasksPage=fs.readFileSync(path.join(__dirname,"..","public","dashboard","tasks","index.html"),"utf8");
- const dashboardClient=fs.readFileSync(path.join(__dirname,"..","public","js","dashboard.js"),"utf8");
- const adminShell=fs.readFileSync(path.join(__dirname,"..","public","js","admin-shell.js"),"utf8");
+test("customer workspace replaces generic projects and tasks with private custom requests",function(){
+ const fs=require("node:fs"),path=require("node:path"),root=path.join(__dirname,"..");
+ const server=fs.readFileSync(path.join(root,"server.js"),"utf8");
+ const legacyMigration=fs.readFileSync(path.join(root,"supabase","migrations","002_workspace_dashboard.sql"),"utf8");
+ const migration=fs.readFileSync(path.join(root,"supabase","migrations","006_custom_project_requests.sql"),"utf8");
+ const dashboard=fs.readFileSync(path.join(root,"public","dashboard","index.html"),"utf8");
+ const requestPage=fs.readFileSync(path.join(root,"public","dashboard","requests","index.html"),"utf8");
+ const detailPage=fs.readFileSync(path.join(root,"public","dashboard","requests","view","index.html"),"utf8");
+ const adminPage=fs.readFileSync(path.join(root,"public","admin","requests","index.html"),"utf8");
+ const dashboardClient=fs.readFileSync(path.join(root,"public","js","dashboard.js"),"utf8");
+ const customerClient=fs.readFileSync(path.join(root,"public","js","custom-requests.js"),"utf8");
+ const adminClient=fs.readFileSync(path.join(root,"public","js","admin-custom-requests.js"),"utf8");
  for(const route of [
-  'app.get("/api/workspace"',
-  'app.post("/api/workspace/projects"',
-  'app.patch("/api/workspace/projects/:id"',
-  'app.delete("/api/workspace/projects/:id"',
-  'app.post("/api/workspace/tasks"',
-  'app.patch("/api/workspace/tasks/:id"',
-  'app.delete("/api/workspace/tasks/:id"'
+  'app.get("/api/custom-requests"',
+  'app.post("/api/custom-requests"',
+  'app.get("/api/admin/custom-requests"',
+  'app.get("/api/custom-requests/:id/messages"',
+  'app.post("/api/custom-requests/:id/messages"',
+  'app.patch("/api/custom-requests/:id/quote"',
+  'app.patch("/api/admin/custom-requests/:id"'
  ])assert.ok(server.includes(route),"missing "+route);
- assert.match(server,/\.eq\("user_id",q\.user\.id\)/);
- assert.match(migration,/create table if not exists public\.tp_workspace_projects/);
- assert.match(migration,/create table if not exists public\.tp_workspace_tasks/);
- assert.match(migration,/alter table public\.tp_workspace_projects enable row level security/);
- assert.match(migration,/alter table public\.tp_workspace_tasks enable row level security/);
- assert.match(migration,/grant select, insert, update, delete on public\.tp_workspace_projects, public\.tp_workspace_tasks to service_role/);
- assert.ok(dashboard.includes('href="/dashboard/projects/"'));
- assert.ok(dashboard.includes('href="/dashboard/tasks/"'));
- assert.match(projectsPage,/id="projects-list"/);
- assert.match(projectsPage,/id="new-project-form"/);
- assert.match(tasksPage,/id="tasks-list"/);
- assert.match(tasksPage,/id="new-task-form"/);
- assert.match(dashboard,/id="workspace-admin-link"/);
- assert.ok(server.includes("isAdmin:q.isAdmin"));
- assert.ok(dashboardClient.includes("workspace.user&&workspace.user.isAdmin"));
- assert.ok(adminShell.includes("/api/auth/me"));
- assert.ok(dashboardClient.includes('request("/api/auth/me","GET")'));
- assert.ok(dashboardClient.indexOf('request("/api/auth/me","GET")')<dashboardClient.indexOf('request("/api/workspace","GET")'));
- assert.ok(dashboardClient.includes("const needsWorkspaceData=Boolean("));
- assert.ok(dashboardClient.includes("002_workspace_dashboard.sql"));
+ assert.ok(server.includes('"/dashboard/projects"'));
+ assert.ok(server.includes('"/dashboard/tasks"'));
+ assert.ok(server.includes('"/blog"'));
+ assert.match(legacyMigration,/create table if not exists public\.tp_workspace_projects/);
+ assert.match(legacyMigration,/create table if not exists public\.tp_workspace_tasks/);
+ assert.match(legacyMigration,/alter table public\.tp_workspace_projects enable row level security/);
+ assert.match(legacyMigration,/alter table public\.tp_workspace_tasks enable row level security/);
+ assert.match(migration,/create table if not exists public\.tp_custom_requests/);
+ assert.match(migration,/create table if not exists public\.tp_custom_request_messages/);
+ assert.match(migration,/quote_currency text not null default 'USD' check \(quote_currency = 'USD'\)/);
+ assert.match(migration,/alter table public\.tp_custom_requests enable row level security/);
+ assert.match(migration,/grant select, insert, update, delete on public\.tp_custom_requests, public\.tp_custom_request_messages to service_role/);
+ assert.doesNotMatch(dashboard,/href="\/dashboard\/(?:projects|tasks)\//);
+ assert.match(dashboard,/href="\/dashboard\/requests\//);
+ assert.match(dashboard,/id="welcome-title"/);
+ assert.match(requestPage,/id="custom-request-form"/);
+ assert.match(requestPage,/id="custom-request-list"/);
+ assert.match(detailPage,/id="custom-project-messages"/);
+ assert.match(detailPage,/id="custom-quote-accept"/);
+ assert.match(adminPage,/id="admin-custom-request-quote-form"/);
+ assert.match(adminPage,/id="admin-custom-request-reply-form"/);
+ assert.match(adminPage,/href="\/admin\/requests\//);
+ assert.match(customerClient,/setInterval\(\(\)=>\{if\(document\.visibilityState==="visible"\)loadThread\(\);\},8000\)/);
+ assert.match(customerClient,/location\.replace\("\/login\//);
+ assert.match(adminClient,/location\.replace\("\/admin\/login\//);
+ assert.match(dashboardClient,/json\("\/api\/auth\/me"\)/);
+ assert.doesNotMatch(dashboardClient,/api\/workspace/);
+ assert.ok(server.includes("customRequestsSchemaReady"));
+ assert.ok(server.includes("usdPricingReady"));
 });
 
 test("SEO content brief builder is interactive and states its current data limitations",function(){
@@ -274,6 +294,37 @@ test("commerce schema, checkout verification, credit expiry, and dashboard UI ar
  for(const source of [server,client,adminClient,productClient,briefClient,dashboardClient,adminShell,supportClient])assert.doesNotThrow(()=>new Function(source));
 });
 
+
+test("public catalogue respects signed-in sessions and routes guests back to the chosen page",function(){
+ const fs=require("node:fs"),path=require("node:path"),root=path.join(__dirname,"..");
+ const client=fs.readFileSync(path.join(root,"public","js","catalog.js"),"utf8");
+ const html=fs.readFileSync(path.join(root,"public","products","index.html"),"utf8");
+ assert.ok(client.includes('fetch("/api/auth/me"'));
+ assert.ok(client.includes('credentials:"same-origin"'));
+ assert.ok(client.includes('signedIn?signedInLabel:guestLabel'));
+ assert.ok(client.includes('"/dashboard/billing/#commerce-plans"'));
+ assert.ok(client.includes('"/dashboard/billing/#commerce-topups"'));
+ assert.ok(client.includes('"/dashboard/tools/"'));
+ assert.ok(client.includes('"/login/?next="+encodeURIComponent(destination)'));
+ assert.ok(html.includes('href="#membership-plans"'));
+});
+
+test("journal is a separate editorial destination rather than a tool catalogue",function(){
+ const fs=require("node:fs"),path=require("node:path"),root=path.join(__dirname,"..");
+ const home=fs.readFileSync(path.join(root,"public","index.html"),"utf8");
+ const journal=fs.readFileSync(path.join(root,"public","journal","index.html"),"utf8");
+ const buyingGuide=fs.readFileSync(path.join(root,"public","journal","choosing-an-ai-tool","index.html"),"utf8");
+ const automationGuide=fs.readFileSync(path.join(root,"public","journal","business-tasks-worth-automating","index.html"),"utf8");
+ const products=fs.readFileSync(path.join(root,"public","products","index.html"),"utf8");
+ assert.ok(home.includes('href="/journal/"'));
+ assert.ok(journal.includes('class="journal-grid"'));
+ assert.ok(journal.includes('href="/journal/choosing-an-ai-tool/"'));
+ assert.ok(journal.includes('href="/journal/business-tasks-worth-automating/"'));
+ assert.ok(buyingGuide.includes('class="journal-article-body"'));
+ assert.ok(automationGuide.includes('class="journal-article-body"'));
+ assert.match(products,/Tools and software licences/);
+ assert.ok(!products.includes('class="journal-grid"'));
+});
 
 test("robots and sitemap expose the product catalogue but not private routes",async function(t){
  const fs=require("node:fs"),path=require("node:path"),root=path.join(__dirname,"..");
