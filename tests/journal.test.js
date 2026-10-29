@@ -43,3 +43,37 @@ test("journal slug generation produces a clean URL-safe slug",()=>{
  assert.equal(slugifyJournalTitle("How to Choose AI Tools: A Guide!"),"how-to-choose-ai-tools-a-guide");
  assert.equal(slugifyJournalTitle("  "), "");
 });
+
+
+test("journal editor is administrator-only and keeps drafts out of the public API",()=>{
+ const fs=require("node:fs");
+ const path=require("node:path");
+ const root=path.join(__dirname,"..");
+ const server=fs.readFileSync(path.join(root,"server.js"),"utf8");
+ const migration=fs.readFileSync(path.join(root,"supabase","migrations","007_journal_articles.sql"),"utf8");
+ const editor=fs.readFileSync(path.join(root,"public","dashboard","journal","index.html"),"utf8");
+ const client=fs.readFileSync(path.join(root,"public","js","journal-editor.js"),"utf8");
+ assert.ok(server.includes('app.get("/api/admin/journal/articles",authenticated,isAdmin'));
+ assert.ok(server.includes('app.post("/api/admin/journal/articles",authLimit,csrf,authenticated,isAdmin'));
+ assert.ok(server.includes('app.patch("/api/admin/journal/articles/:id",authLimit,csrf,authenticated,isAdmin'));
+ assert.ok(server.includes('app.delete("/api/admin/journal/articles/:id",authLimit,csrf,authenticated,isAdmin'));
+ assert.match(server,/\.eq\("status","published"\)/);
+ assert.match(migration,/alter table public\.tp_journal_articles enable row level security/);
+ assert.match(migration,/revoke all on public\.tp_journal_articles from public, anon, authenticated/);
+ assert.match(editor,/name="robots" content="noindex,nofollow"/);
+ assert.match(editor,/data-format="bold"/);
+ assert.match(editor,/data-format="italic"/);
+ assert.match(editor,/id="preview-body"/);
+ assert.match(client,/\/api\/admin\/journal\/articles/);
+});
+
+test("homepage mobile layout explicitly prevents horizontal page panning",()=>{
+ const fs=require("node:fs");
+ const path=require("node:path");
+ const root=path.join(__dirname,"..");
+ const html=fs.readFileSync(path.join(root,"public","index.html"),"utf8");
+ const css=fs.readFileSync(path.join(root,"public","css","styles.css"),"utf8");
+ assert.match(html,/href="\/css\/styles\.css\?v=6"/);
+ assert.match(css,/html,body\{width:100%;max-width:100%;overflow-x:hidden!important\}/);
+ assert.match(css,/@media\(max-width:760px\)[\s\S]*?overflow-x:hidden!important/);
+});
