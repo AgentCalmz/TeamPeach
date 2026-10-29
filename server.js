@@ -347,6 +347,30 @@ app.patch("/api/account/preferences",csrf,authenticated,asyncRoute(async(q,r)=>{
  if(d.error){logFailure("preferences",d.error);return errorJson(r,503,"PREFERENCE_FAILED","Your preference could not be saved.");}
  r.json({ok:true,marketingOptIn:d.data.marketing_opt_in,message:"Your email preference has been saved."});
 }));
+// Change a signed-in user's password only after checking the current password.
+app.patch("/api/account/password",authLimit,csrf,authenticated,asyncRoute(async(q,r)=>{
+ const currentPassword=q.body&&q.body.currentPassword,newPassword=q.body&&q.body.newPassword;
+ if(typeof currentPassword!=="string"||currentPassword.length<1||currentPassword.length>128)return errorJson(r,400,"INVALID_CURRENT_PASSWORD","Enter your current password.");
+ if(!validPassword(newPassword))return errorJson(r,400,"INVALID_PASSWORD","Use a new password between 12 and 128 characters.");
+ try{
+  const account=await db.from("tp_users").select("password_hash").eq("id",q.user.id).maybeSingle();
+  if(account.error)throw account.error;
+  if(!account.data)return errorJson(r,404,"ACCOUNT_NOT_FOUND","This account could not be found.");
+  if(!await verifyPassword(currentPassword,account.data.password_hash))return errorJson(r,401,"INVALID_CURRENT_PASSWORD","Your current password is incorrect.");
+  if(await verifyPassword(newPassword,account.data.password_hash))return errorJson(r,400,"PASSWORD_REUSE","Choose a password different from your current password.");
+  const now=new Date().toISOString(),newHash=await hashPassword(newPassword);
+  const saved=await db.from("tp_users").update({password_hash:newHash,updated_at:now}).eq("id",q.user.id).select("id").maybeSingle();
+  if(saved.error)throw saved.error;
+  if(!saved.data)return errorJson(r,404,"ACCOUNT_NOT_FOUND","This account could not be found.");
+  const revoked=await db.from("tp_sessions").update({revoked_at:now}).eq("user_id",q.user.id).is("revoked_at",null);
+  r.clearCookie("tp_session",{httpOnly:true,secure:isProd,sameSite:"lax",path:"/"});
+  if(revoked.error){
+   logFailure("password-change-session-revocation",revoked.error);
+   return r.json({ok:true,sessionsRevoked:false,message:"Your password has changed, but we could not confirm that all other sessions were signed out. This device has been signed out. Contact support if you need help securing other sessions."});
+  }
+  return r.json({ok:true,sessionsRevoked:true,message:"Password changed successfully. All active sessions have been signed out. Please sign in again."});
+ }catch(e){logFailure("account-password-change",e);return errorJson(r,503,"PASSWORD_CHANGE_FAILED","Your password could not be changed. Please try again.");}
+}));
 app.post("/api/projects",csrf,authLimit,persistentInquiryIpLimit,persistentInquiryEmailLimit,asyncRoute(async(q,r)=>{if(!backendReady(r,false))return;const name=normalizePersonName(q.body&&q.body.name),email=normalizeEmail(q.body&&q.body.email),type=cleanText(q.body&&q.body.type,100),details=cleanText(q.body&&q.body.details,5000);if(name.length<2||!isValidEmail(email)||type.length<3||details.length<10)return errorJson(r,400,"INVALID_INQUIRY","Enter your name, valid email, project type and at least 10 characters about the work.");try{const d=await db.from("tp_project_requests").insert({full_name:name,email,project_type:type,details,status:"new"}).select("id").single();if(d.error)throw d.error;const recipients=adminEmailsFromEnv(process.env.ADMIN_EMAILS).map(e=>({email:e,name:"TeamPeach administrator"}));if(recipients.length){try{await queueJob(null,"system","New TeamPeach project inquiry","Name: "+name+"\nEmail: "+email+"\nType: "+type+"\n\nDetails:\n"+details,recipients);runEmailQueue();}catch(e){logFailure("project-notice",e);}}r.status(201).json({ok:true,message:"Thank you. Your inquiry has been received. We’ll review it and follow up using the email address you provided."});}catch(e){logFailure("project-inquiry",e);errorJson(r,503,"INQUIRY_UNAVAILABLE","Your inquiry could not be submitted. Please try again later.");}}));
 
 
