@@ -155,6 +155,7 @@ test("customer workspace replaces generic projects and tasks with private custom
  assert.doesNotMatch(dashboardClient,/api\/workspace/);
  assert.ok(server.includes("customRequestsSchemaReady"));
  assert.ok(server.includes("usdPricingReady"));
+ for(const source of [dashboardClient,customerClient,adminClient])assert.doesNotThrow(()=>new Function(source));
 });
 
 test("SEO content brief builder is interactive and states its current data limitations",function(){
@@ -291,7 +292,11 @@ test("commerce schema, checkout verification, credit expiry, and dashboard UI ar
  const dashboardClient=fs.readFileSync(path.join(root,"public","js","dashboard.js"),"utf8");
  const adminShell=fs.readFileSync(path.join(root,"public","js","admin-shell.js"),"utf8");
  const supportClient=fs.readFileSync(path.join(root,"public","js","support-chat.js"),"utf8");
- for(const source of [server,client,adminClient,productClient,briefClient,dashboardClient,adminShell,supportClient])assert.doesNotThrow(()=>new Function(source));
+ const customClient=fs.readFileSync(path.join(root,"public","js","custom-requests.js"),"utf8");
+ const adminCustomClient=fs.readFileSync(path.join(root,"public","js","admin-custom-requests.js"),"utf8");
+ const catalogClient=fs.readFileSync(path.join(root,"public","js","catalog.js"),"utf8");
+ const dashboardCommon=fs.readFileSync(path.join(root,"public","js","dashboard.js"),"utf8");
+ for(const source of [server,client,adminClient,productClient,briefClient,dashboardClient,adminShell,supportClient,customClient,adminCustomClient,catalogClient,dashboardCommon])assert.doesNotThrow(()=>new Function(source));
 });
 
 
