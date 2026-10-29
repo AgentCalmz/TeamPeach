@@ -207,7 +207,7 @@ async function runEmailQueue(){if(emailCoordinatorBusy)return;emailCoordinatorBu
 async function cleanup(){if(!db)return;try{await db.from("tp_pending_registrations").delete().lt("expires_at",new Date(Date.now()-86400000).toISOString());await db.from("tp_password_resets").delete().lt("expires_at",new Date(Date.now()-86400000).toISOString());await db.from("tp_sessions").delete().lt("expires_at",new Date().toISOString());await db.from("tp_sessions").delete().lt("revoked_at",new Date(Date.now()-30*86400000).toISOString());}catch(e){logFailure("cleanup",e);}}
 
 app.get("/api/health",asyncRoute(async(_q,r)=>{
- let schemaReady=false,commerceSchemaReady=false;
+ let schemaReady=false,commerceSchemaReady=false,customRequestsSchemaReady=false,usdPricingReady=false;
  if(db){
   const checks=await Promise.all([
    db.from("tp_users").select("id",{head:true,count:"exact"}),
