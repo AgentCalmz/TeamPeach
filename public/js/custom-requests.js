@@ -6,8 +6,8 @@
  const $=s=>app.querySelector(s);
  const esc=html=>String(html==null?"":html).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
  const statusLabels={new:"New",discussion:"In discussion",in_progress:"In progress",completed:"Completed"};
- const budgetLabels={under_500:"Under $500",500_1500:"$500–$1,500",1500_5000:"$1,500–$5,000",over_5000:"Over $5,000",not_sure:"Not sure yet"};
- const timelineLabels={asap:"As soon as possible",2_4_weeks:"2–4 weeks",1_3_months:"1–3 months",flexible:"Flexible"};
+ const budgetLabels={"under_500":"Under $500","500_1500":"$500–$1,500","1500_5000":"$1,500–$5,000","over_5000":"Over $5,000","not_sure":"Not sure yet"};
+ const timelineLabels={"asap":"As soon as possible","2_4_weeks":"2–4 weeks","1_3_months":"1–3 months","flexible":"Flexible"};
  const money=minor=>new Intl.NumberFormat(undefined,{style:"currency",currency:"USD",minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(minor||0)/100);
  const date=value=>{const d=new Date(value);return Number.isNaN(d.getTime())?"":d.toLocaleString(undefined,{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"});};
  const node=(tag,className,value)=>{const el=document.createElement(tag);if(className)el.className=className;if(value!==undefined)el.textContent=String(value);return el;};
