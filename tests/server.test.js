@@ -200,14 +200,14 @@ test("public membership catalogue respects existing sign-in sessions and journal
  assert.match(catalog,/fetch\("\/api\/auth\/me",\{credentials:"same-origin",cache:"no-store"\}\)/);
  assert.match(catalog,/signedIn=Boolean\(session&&session\.user\)/);
  assert.match(catalog,/View membership/);
- assert.match(catalog,/Pay with "+label/);
+ assert.ok(catalog.includes('"Pay with "+label'));
  assert.match(catalog,/Open in workspace/);
  assert.match(catalog,/\/login\/\?next=/);
  assert.match(home,/href="\/journal\/">Journal<\/a>/);
  assert.match(productPage,/\/js\/catalog\.js/);
  assert.match(journal,/THE TEAMPEACH JOURNAL/);
  assert.match(journal,/href="\/journal\/what-is-an-ai-agent\/"/);
- assert.match(article,/href="\\/journal\\/">Journal<\\/a>/);
+ assert.ok(article.includes('href="/journal/">Journal</a>'));
  assert.doesNotMatch(journal,/id="catalog-products"|id="catalog-plans"/);
  assert.notEqual(journal,productPage);
 });
