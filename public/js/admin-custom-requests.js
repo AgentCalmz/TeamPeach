@@ -60,7 +60,7 @@
    const wrap=$("#admin-custom-request-outcome-wrap");if(wrap)wrap.hidden=!request.desired_outcome;
    const status=$("#admin-custom-request-status");if(status)status.value=request.status;
    const price=$("#admin-custom-request-price");if(price)price.value=request.quoteAmountUsd==null?"":Number(request.quoteAmountUsd).toFixed(2);
-   escText($("#admin-custom-request-quote-notes"),request.quote_notes||"");
+   if($("#admin-custom-request-quote-notes"))$("#admin-custom-request-quote-notes").value=request.quote_notes||"";
    const quoteState=request.quote_amount_cents==null?"No quote saved.":money(request.quote_amount_cents)+" · "+String(request.quote_status||"draft").replaceAll("_"," ");
    escText($("#admin-custom-request-quote-state"),quoteState);
    const messages=data.messages||[],signature=JSON.stringify(messages.map(m=>[m.id,m.created_at,m.body,m.sender_role]));
