@@ -35,6 +35,7 @@ test("web service exposes clean public URLs and hides .html extensions",async t=
  assert.ok(["ready","degraded"].includes(body.status));
  assert.equal(Object.hasOwn(body,"SUPABASE_SERVICE_ROLE_KEY"),false);
  assert.equal(Object.hasOwn(body,"emailTransport"),true);
+ assert.equal(Object.hasOwn(body,"legacyBriefStorageReady"),true);
  const missing=await fetch(base+"/does-not-exist/");
  assert.equal(missing.status,404);
 });
