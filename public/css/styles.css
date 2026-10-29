@@ -130,3 +130,15 @@ body{position:relative}
  .orbit-b{width:calc(100% - 45px);height:300px}
  .workflow-card{padding:14px 13px 12px}
 }
+
+.journal-cover-placeholder{display:grid;place-items:center;width:100%;height:100%;min-height:145px;background:radial-gradient(circle at 80% 20%,#f3d7c7,transparent 42%),#e9e0d5;color:#a96449;font:800 24px var(--display);letter-spacing:-1px}
+.article-answer{margin:0 0 25px;padding:19px 20px;border-left:3px solid var(--deep);border-radius:0 9px 9px 0;background:#f5eee5;color:#414a58}
+.article-answer h2{font-size:18px!important;margin:0 0 8px!important}
+.article-answer p{font-size:13px;line-height:1.8;margin:0}
+.article-faq{margin-top:38px}
+.article-faq h2,.article-sources h2{font-size:25px;margin:0 0 16px}
+.article-faq h3{font:800 15px/1.45 var(--display);letter-spacing:-.3px;margin:22px 0 7px;color:var(--ink)}
+.article-faq p,.article-sources li{color:#525b6a;font-size:13px;line-height:1.85}
+.article-sources{margin-top:32px;padding-top:20px;border-top:1px solid var(--line)}
+.article-sources a{color:#9f5e43;text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}
+@media(max-width:760px){.article-answer{padding:15px}.article-faq h2,.article-sources h2{font-size:22px}}
