@@ -148,7 +148,7 @@
    if(!d.isAdmin){loading.hidden=true;fallback.hidden=false;fallback.textContent="The journal editor is available to authorised TeamPeach administrators only. Return to your workspace.";return;}
    const first=(String(d.user.fullName||"T").trim().split(/[ ]+/)[0]||"T").charAt(0).toUpperCase();
    $("#sidebar-name").textContent=d.user.fullName||"Administrator";$("#sidebar-email").textContent=d.user.email||"";
-   $("#sidebar-avatar").textContent=first;$("#topbar-avatar").textContent=first;$("#workspace-admin-link").hidden=false;
+   $("#sidebar-avatar").textContent=first;$("#topbar-avatar").textContent=first;$("#workspace-admin-link").hidden=false;$("#workspace-journal-link").hidden=false;
    const menu=$("#mobile-sidebar-toggle"),shell=$("#journal-workspace");
    if(menu){menu.addEventListener("click",()=>{const isOpen=shell.classList.toggle("mobile-nav-open");menu.setAttribute("aria-expanded",String(isOpen));menu.setAttribute("aria-label",isOpen?"Close navigation":"Open navigation");});}
    $("#dashboard-logout")?.addEventListener("click",async()=>{try{await api("/api/auth/logout","POST",{});location.href="/login/";}catch(e){say(e.message,"error");}});
