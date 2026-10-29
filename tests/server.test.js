@@ -344,6 +344,9 @@ test("robots and sitemap expose the product catalogue but not private routes",as
  assert.ok(robots.includes("Disallow: /dashboard/"));
  assert.ok(robots.includes("Sitemap: https://teampeach.org/sitemap.xml"));
  assert.ok(sitemap.includes("<loc>https://teampeach.org/products/</loc>"));
+ assert.ok(sitemap.includes("<loc>https://teampeach.org/journal/</loc>"));
+ assert.ok(sitemap.includes("<loc>https://teampeach.org/journal/choosing-an-ai-tool/</loc>"));
+ assert.ok(sitemap.includes("<loc>https://teampeach.org/journal/business-tasks-worth-automating/</loc>"));
  assert.ok(!sitemap.includes("https://teampeach.org/admin/"));
  assert.ok(!sitemap.includes("https://teampeach.org/dashboard/"));
  const [robotsResponse,sitemapResponse]=await Promise.all([fetch(base+"/robots.txt"),fetch(base+"/sitemap.xml")]);
