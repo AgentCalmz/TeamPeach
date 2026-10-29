@@ -1,13 +1,17 @@
 -- TeamPeach USD catalogue pricing and legacy billing preservation.
--- Run once after 004_commerce.sql.
+-- Safe to rerun after 004_commerce.sql; each pricing conversion only targets rows still marked NGN.
 -- Reference conversion: USD 1 = NGN 1,341.62 (market quote, 2026-10-28).
 -- Amount columns are minor units: kobo before conversion, cents after conversion.
 -- Historical payment records are deliberately not converted.
 
 alter table public.tp_products drop constraint if exists tp_products_currency_check;
+alter table public.tp_products drop constraint if exists tp_products_currency_usd_ngn_check;
 alter table public.tp_subscription_plans drop constraint if exists tp_subscription_plans_currency_check;
+alter table public.tp_subscription_plans drop constraint if exists tp_subscription_plans_currency_usd_ngn_check;
 alter table public.tp_credit_packs drop constraint if exists tp_credit_packs_currency_check;
+alter table public.tp_credit_packs drop constraint if exists tp_credit_packs_currency_usd_ngn_check;
 alter table public.tp_payments drop constraint if exists tp_payments_currency_check;
+alter table public.tp_payments drop constraint if exists tp_payments_currency_usd_ngn_check;
 
 alter table public.tp_products
   alter column currency set default 'USD',
