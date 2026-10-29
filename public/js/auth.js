@@ -24,10 +24,35 @@
   verify.addEventListener("submit",async e=>{e.preventDefault();email=verify.elements.email.value.trim().toLowerCase();say($("#verify-feedback"),"Checking your code…","");busy(verify,true,"Verifying…");try{const r=await api("/api/auth/register/verify","POST",{email,code:verify.elements.code.value.trim()});safeRemove(draftKey);safeRemove(pendingKey);say($("#verify-feedback"),r.message,"success");if(r.authenticated)location.href="/dashboard/";else setTimeout(()=>location.href="/login/?next=%2Fdashboard%2F",1200);}catch(err){say($("#verify-feedback"),err.message,"error");busy(verify,false);}});
   $("#resend-code")?.addEventListener("click",async()=>{const b=$("#resend-code");b.disabled=true;try{const r=await api("/api/auth/register/resend","POST",{email:verify.elements.email.value.trim().toLowerCase()});say($("#verify-feedback"),r.message,"success");}catch(err){say($("#verify-feedback"),err.message,"error");if(err.message.toLowerCase().includes("wait")){setTimeout(()=>{b.disabled=false;},60000);return;}}b.disabled=false;});
  }
- const login=$("#login-form");if(login)login.addEventListener("submit",async e=>{e.preventDefault();busy(login,true,"Signing in…");try{await api("/api/auth/login","POST",{email:login.elements.email.value.trim().toLowerCase(),password:login.elements.password.value});location.href=nextAfterLogin("/dashboard/");}catch(err){say($("#login-feedback"),err.message,"error");busy(login,false);}});
+ const login=$("#login-form");
+ if(login&&new URLSearchParams(location.search).get("passwordChanged")==="1")say($("#login-feedback"),"Your password was changed. Sign in using your new password.","success");if(login)login.addEventListener("submit",async e=>{e.preventDefault();busy(login,true,"Signing in…");try{await api("/api/auth/login","POST",{email:login.elements.email.value.trim().toLowerCase(),password:login.elements.password.value});location.href=nextAfterLogin("/dashboard/");}catch(err){say($("#login-feedback"),err.message,"error");busy(login,false);}});
  const reset=$("#reset-form");
  if(reset){let stage=0;const stageBox=$("#reset-stage-complete");stageBox.hidden=true;reset.addEventListener("submit",async e=>{e.preventDefault();const email=reset.elements.email.value.trim().toLowerCase(),b=reset.querySelector('button[type="submit"]');busy(reset,true,stage?"Changing password…":"Sending code…");try{if(!stage){const r=await api("/api/auth/password-reset/start","POST",{email});stage=1;stageBox.hidden=false;reset.querySelectorAll("[data-complete-only]").forEach(el=>{el.hidden=false;el.required=true;});b.dataset.idleLabel="Change password";say($("#reset-feedback"),r.message+" Check your inbox if an account exists.","success");busy(reset,false);return;}const r=await api("/api/auth/password-reset/complete","POST",{email,code:reset.elements.code.value.trim(),password:reset.elements.password.value});say($("#reset-feedback"),r.message,"success");reset.reset();setTimeout(()=>location.href="/login/",1200);}catch(err){say($("#reset-feedback"),err.message,"error");busy(reset,false);}});}
- async function loadAccount(){const panel=$("#account-panel");if(!panel)return;try{const r=await fetch("/api/auth/me",{credentials:"same-origin"}),d=await r.json().catch(()=>({}));if(!r.ok){location.href="/login/?next=%2Faccount%2F";return;}$("#account-name").textContent=d.user.fullName;$("#account-email").textContent=d.user.email;$("#marketing-opt-in").checked=!!d.user.marketingOptIn;if(d.isAdmin)$("#admin-shortcut").hidden=false;panel.hidden=false;}catch(_){say($("#account-feedback"),"We could not load your account. Refresh and retry.","error");}}
+ async function loadAccount(){const panel=$("#account-panel"),loading=$("#account-loading");if(!panel)return;try{const r=await fetch("/api/auth/me",{credentials:"same-origin",cache:"no-store"}),d=await r.json().catch(()=>({}));if(!r.ok){location.href="/login/?next=%2Faccount%2F";return;}const fullName=String(d.user.fullName||"Your account"),email=String(d.user.email||"");$("#account-name").textContent=fullName;$("#account-email").textContent=email;$("#marketing-opt-in").checked=!!d.user.marketingOptIn;const first=(fullName.trim().split(/[ ]+/)[0]||"T").charAt(0).toUpperCase();if($("#sidebar-name"))$("#sidebar-name").textContent=fullName;if($("#sidebar-email"))$("#sidebar-email").textContent=email;if($("#sidebar-avatar"))$("#sidebar-avatar").textContent=first;if($("#topbar-avatar"))$("#topbar-avatar").textContent=first;const adminLink=$("#workspace-admin-link");if(adminLink)adminLink.hidden=!Boolean(d.isAdmin);panel.hidden=false;if(loading)loading.hidden=true;}catch(_){if(loading)loading.hidden=true;panel.hidden=false;say($("#account-feedback"),"We could not load your account. Refresh and retry.","error");}}
+
+
+ const passwordForm=$("#password-form");
+ passwordForm?.addEventListener("submit",async event=>{
+  event.preventDefault();
+  const currentPassword=passwordForm.elements.currentPassword.value;
+  const newPassword=passwordForm.elements.newPassword.value;
+  if(newPassword!==passwordForm.elements.confirmPassword.value){say($("#account-feedback"),"The new password entries do not match.","error");return;}
+  busy(passwordForm,true,"Changing password…");
+  try{
+   const result=await api("/api/account/password","PATCH",{currentPassword,newPassword});
+   passwordForm.reset();
+   busy(passwordForm,false);
+   say($("#account-feedback"),result.message||"Your password has changed. Please sign in again.","success");
+   setTimeout(()=>location.href="/login/?passwordChanged=1",result.sessionsRevoked===false?4500:1400);
+  }catch(error){say($("#account-feedback"),error.message,"error");busy(passwordForm,false);}
+ });
+ const accountShell=$("#account-workspace"),mobileToggle=$("#mobile-sidebar-toggle");
+ if(accountShell&&mobileToggle){
+  const closeMenu=()=>{accountShell.classList.remove("mobile-nav-open");mobileToggle.setAttribute("aria-expanded","false");mobileToggle.setAttribute("aria-label","Open navigation");};
+  mobileToggle.addEventListener("click",()=>{const open=accountShell.classList.toggle("mobile-nav-open");mobileToggle.setAttribute("aria-expanded",String(open));mobileToggle.setAttribute("aria-label",open?"Close navigation":"Open navigation");});
+  document.querySelectorAll("#workspace-sidebar .workspace-nav-link").forEach(link=>link.addEventListener("click",closeMenu));
+  accountShell.addEventListener("click",event=>{if(event.target===accountShell&&accountShell.classList.contains("mobile-nav-open"))closeMenu();});
+ }
  loadAccount();
  $("#preferences-form")?.addEventListener("submit",async e=>{e.preventDefault();const b=e.currentTarget.querySelector('button[type="submit"]');b.disabled=true;try{const d=await api("/api/account/preferences","PATCH",{marketingOptIn:$("#marketing-opt-in").checked});say($("#account-feedback"),d.marketingOptIn?"Email preference saved.":"You have opted out of product/news email.","success");}catch(err){say($("#account-feedback"),err.message,"error");}finally{b.disabled=false;}});
  $("#logout-button")?.addEventListener("click",async()=>{const b=$("#logout-button");b.disabled=true;try{await api("/api/auth/logout","POST",{});location.href="/login/";}catch(err){say($("#account-feedback"),err.message,"error");b.disabled=false;}});

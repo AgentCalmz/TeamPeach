@@ -77,3 +77,24 @@
 
 
 .nav-auth-link{font-size:12px;font-weight:700;white-space:nowrap;transition:color .2s ease}.nav-auth-link:hover{color:var(--deep)}.nav-auth-create{padding:9px 13px;border:1px solid var(--line);border-radius:999px;background:rgba(255,253,250,.62)}.nav-auth-create:hover{background:var(--ink);color:var(--white);border-color:var(--ink)}@media(max-width:900px){.nav-auth-link{padding:9px 0}.nav-auth-create{padding:9px 13px}}
+
+/* Keep small screens inside the viewport; decorative art is not a reason for horizontal scrolling. */
+html{max-width:100%;overflow-x:clip}
+body{max-width:100%;overflow-x:clip}
+@media(max-width:760px){
+ .hero-visual{max-width:100%;overflow:clip}
+ .hero-visual .orbit-a{width:min(325px,100%)}
+ .hero-visual .orbit-b{width:min(285px,100%)}
+ .hero-visual .float-card-top{right:4px;max-width:calc(100% - 8px)}
+ .hero-visual .float-card-bottom{left:4px;max-width:calc(100% - 8px)}
+ .hero-visual .workflow-card{max-width:calc(100% - 34px)}
+ .hero,.hero-copy,.discipline-strip,.custom-section,.custom-copy,.inquiry-card,.insights-section,.insight-card,.share-section,.share-copy,.share-actions,.site-footer,.footer-main,.footer-bottom{min-width:0;max-width:100%}
+ .page-wrap,.nav-wrap{min-width:0}
+ .hero-actions>*{max-width:100%;min-width:0}
+ .share-button{max-width:100%;min-width:0}
+}
+@media(max-width:390px){
+ .hero-visual .orbit-a{width:min(295px,100%)}
+ .hero-visual .orbit-b{width:min(260px,100%)}
+ .hero-visual .workflow-card{max-width:calc(100% - 20px)}
+}

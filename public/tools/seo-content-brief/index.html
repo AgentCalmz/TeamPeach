@@ -2,20 +2,55 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f8f4ee">
-<meta name="robots" content="noindex,nofollow">
-<meta name="description" content="The TeamPeach tools collection is being curated.">
-<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/css/styles.css?v=5">
-<title>TeamPeach Tools & Services</title>
+<meta name="description" content="Build a practical SEO content brief from a topic, audience and goal. Review the outline, questions and editorial direction.">
+<link rel="canonical" href="https://teampeach.org/tools/seo-content-brief/"><meta property="og:url" content="https://teampeach.org/tools/seo-content-brief/"><meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../css/styles.css?v=5"><link rel="stylesheet" href="../../css/brief-builder.css?v=2">
+<title>SEO Content Brief Builder | TeamPeach</title><meta property="og:title" content="SEO Content Brief Builder | TeamPeach"><meta property="og:description" content="Turn a topic into a clear content plan, outline and reader questions.">
 </head>
-<body>
+<body class="brief-body">
 <a class="skip-link" href="#main">Skip to content</a>
-<header class="site-header"><div class="nav-wrap"><a class="brand" href="/" aria-label="TeamPeach home"><span class="brand-mark">✳</span><span class="brand-name">Team<span>Peach</span></span></a><nav class="nav-links" aria-label="Main navigation"><a href="/">Home</a><a href="/journal/">Journal</a><a href="/products/">Plans & pricing</a><a href="/#custom">Custom projects</a></nav></div></header>
-<main id="main" class="page-wrap" style="min-height:55vh;padding-top:80px;padding-bottom:80px">
-<p class="eyebrow"><span></span> TEAMPEACH COLLECTION</p>
-<h1>Tools and services<br><em>are being curated.</em></h1>
-<p style="max-width:620px;color:#687080;line-height:1.9">This listing is not part of the published collection. Browse the journal for practical guides, review plans and pricing, or describe a workflow for a custom project.</p>
-<div class="hero-actions"><a class="button button-dark" href="/journal/">Read the journal <b>↗</b></a><a class="quiet-link" href="/#custom">Discuss a custom project <span>→</span></a></div>
+<header class="site-header"><div class="nav-wrap">
+<a class="brand" href="../../" aria-label="TeamPeach home"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M7 11h20c6 0 9 4 9 9s-3 9-9 9h-8v9M21 38V17h10c7 0 11 4 11 10s-4 10-11 10H21" fill="none" stroke="currentColor" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="31" cy="8" r="4" fill="#ff936f"/></svg></span><span class="brand-name">Team<span>Peach</span></span></a>
+<button class="menu-toggle" aria-label="Open navigation" aria-expanded="false" aria-controls="tool-navigation"><span></span><span></span></button>
+<nav class="nav-links" id="tool-navigation" aria-label="Main navigation"><a href="../../#tools">Explore tools</a><a href="../../#approach">Our approach</a><a href="../../#custom">Custom projects</a><a class="nav-auth-link" href="/dashboard/">Workspace</a><a class="nav-auth-link nav-auth-create" href="/account/">Account</a></nav>
+</div></header>
+<main id="main" class="brief-page">
+<section class="page-wrap brief-intro">
+<div class="brief-breadcrumb"><a href="../../">Home</a><span>/</span><a href="../../#tools">Tools</a><span>/</span><strong>SEO content brief</strong></div>
+<div class="brief-heading-row"><div><p class="eyebrow"><span></span> A PRACTICAL STARTING POINT</p><h1>Make your topic<br><em>clearer before you write.</em></h1><p class="brief-lede">Turn a topic, target reader and goal into a structured content brief you can edit, review and keep in your workspace.</p></div><div class="brief-tool-stamp"><span>✳</span><strong>TOOL 01</strong><small>EDITORIAL PLANNING</small></div></div>
+<div class="brief-capability-note"><span>i</span><p><strong>Transparent about what it does.</strong> This version builds an editable brief from a structured template. It does not call an AI model or fetch live Google results yet, so review the outline and verify current search intent before publishing.</p></div>
+</section>
+<section class="page-wrap brief-workspace">
+<div class="brief-form-column">
+<div class="brief-panel-heading"><span class="brief-panel-index">01</span><div><h2>Give the idea some shape.</h2><p>A few clear inputs lead to a more useful starting brief.</p></div></div>
+<form id="brief-form" class="brief-form">
+<label for="brief-topic">What is the topic? <span>Required</span></label><input id="brief-topic" name="topic" maxlength="180" placeholder="e.g. bookkeeping for small businesses" required>
+<div class="brief-field-grid"><div><label for="brief-keyword">Primary keyword</label><input id="brief-keyword" name="primaryKeyword" maxlength="160" placeholder="e.g. small business bookkeeping"></div><div><label for="brief-audience">Who is this for?</label><input id="brief-audience" name="audience" maxlength="120" placeholder="e.g. first-time founders"></div></div>
+<div class="brief-field-grid"><div><label for="brief-intent">Likely search intent</label><select id="brief-intent" name="intent"><option value="informational">Learn / understand</option><option value="commercial">Compare options</option><option value="transactional">Take action / buy</option><option value="navigational">Find a specific brand</option></select></div><div><label for="brief-format">Content format</label><select id="brief-format" name="format"><option value="guide">Practical guide</option><option value="listicle">List / roundup</option><option value="comparison">Comparison</option><option value="tutorial">Step-by-step tutorial</option><option value="landing-page">Service / landing page</option></select></div></div>
+<label for="brief-goal">What should the reader be able to do?</label><textarea id="brief-goal" name="goal" rows="2" maxlength="400" placeholder="e.g. choose a simple bookkeeping process and know what to do first"></textarea>
+<label for="brief-related">Related topics or reader questions <small>Optional · one per line</small></label><textarea id="brief-related" name="related" rows="4" maxlength="1200" placeholder="How much time does it take?\nWhat are the common mistakes?\nWhich records should I keep?"></textarea>
+<div class="brief-form-footer"><span><span class="brief-lock">⌑</span> Your brief is saved only when you choose Save.</span><button type="submit" class="button button-dark" id="generate-brief">Build my brief <span>↗</span></button></div>
+<p id="brief-form-feedback" class="brief-feedback" role="status" aria-live="polite"></p>
+</form>
+</div>
+<div class="brief-output-column">
+<div class="brief-panel-heading output-panel-heading"><span class="brief-panel-index">02</span><div><h2>Your content brief.</h2><p>A clear scaffold for a human editor to review.</p></div></div>
+<section class="brief-sample-output" aria-labelledby="brief-sample-title"><div class="brief-sample-kicker">STATIC SAMPLE · NOT A LIVE RUN</div><h3 id="brief-sample-title">Example: bookkeeping for a small business</h3><p class="brief-sample-meta">Audience: first-time founders · Intent: informational · Format: practical guide</p><div class="brief-sample-block"><strong>Suggested H1</strong><p>Small Business Bookkeeping: A Practical Guide to Getting Started</p></div><div class="brief-sample-block"><strong>Sample outline</strong><ol><li>What bookkeeping tracks and why it matters</li><li>Set up a simple chart of accounts</li><li>Record income, expenses and receipts</li><li>Reconcile records and review cash flow</li><li>Common mistakes and when to ask an accountant</li></ol></div><div class="brief-sample-block"><strong>Questions to address</strong><p>Which records should I keep? How often should I reconcile transactions? When is professional help worth the cost?</p></div><p class="brief-sample-footnote">This prewritten example is visible without an account. Building a custom brief is a hosted tool run and requires an active membership plus sufficient credits.</p></section>
+<section class="brief-output-empty" id="brief-output-empty"><div class="empty-document-icon"><span></span><span></span><span></span><i>✳</i></div><h3>Your plan starts here.</h3><p>Fill in a topic and choose <strong>Build my brief</strong>. The suggested structure will appear here, ready to copy, download or save.</p><div class="empty-document-foot"><span>TOPIC</span><i></i><span>INTENT</span><i></i><span>OUTLINE</span></div></section>
+<section class="brief-output-card" id="brief-output" hidden>
+<div class="brief-output-toolbar"><span class="brief-ready"><i></i> BRIEF READY TO REVIEW</span><button type="button" class="brief-icon-button" id="regenerate-brief" title="Rebuild from current inputs">↻ <span>Refresh</span></button></div>
+<div id="brief-output-body" class="brief-output-body"></div>
+<div class="brief-output-actions"><button type="button" class="button button-outline" id="copy-brief">Copy as Markdown</button><button type="button" class="button button-outline" id="download-brief">Download .md</button><button type="button" class="button button-dark" id="save-brief" hidden>Save to workspace <span>↗</span></button><a class="button button-dark" id="signin-save" href="/login/?next=%2Ftools%2Fseo-content-brief%2F">Sign in to save <span>↗</span></a></div>
+<p id="brief-save-feedback" class="brief-feedback" role="status" aria-live="polite"></p>
+</section>
+<div class="brief-review-note"><span>✧</span><p><strong>Human review is part of the process.</strong> Check the outline against the current search results, authoritative sources and the real questions your readers ask.</p></div>
+</div>
+</section>
+<section class="page-wrap brief-next-step"><div><p class="eyebrow"><span></span> KEEP THE WORK MOVING</p><h2>A brief is a beginning,<br><em>not the finish line.</em></h2><p>Save the brief to your workspace, turn its recommendations into tasks and keep the next step visible.</p></div><a class="button button-dark" href="/dashboard/">Open my workspace <span>↗</span></a></section>
 </main>
-<footer class="site-footer"><div class="page-wrap footer-bottom"><span>© TeamPeach. Built with intention.</span><a href="/">Home ↑</a><a href="/journal/">Journal</a></div></footer>
-<script src="/js/main.js?v=5" defer></script>
-</body></html>
+<footer class="site-footer"><div class="page-wrap footer-bottom"><span>© TeamPeach. Built with intention.</span><a href="/dashboard/">Workspace ↑</a><a href="../../">Website home</a></div></footer>
+<script src="../../js/main.js?v=3" defer></script><script src="../../js/brief-builder.js?v=2" defer></script>
+</body>
+</html>
