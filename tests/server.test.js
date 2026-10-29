@@ -287,7 +287,7 @@ test("commerce schema, checkout verification, credit expiry, and dashboard UI ar
  assert.ok(usdMigration.includes("currency in"));
  assert.ok(usdMigration.includes("tp_subscriptions"));
  assert.ok(billingPage.includes("commerce.js?v=3"));
- assert.ok(catalog.includes("catalog.js?v=2"));
+ assert.ok(catalog.includes("catalog.js?v=3"));
  assert.ok(adminProducts.includes("admin-commerce.js?v=3"));
  const dashboardClient=fs.readFileSync(path.join(root,"public","js","dashboard.js"),"utf8");
  const adminShell=fs.readFileSync(path.join(root,"public","js","admin-shell.js"),"utf8");
