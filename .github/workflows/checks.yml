@@ -29,4 +29,6 @@ jobs:
       - run: node --check public/js/commerce.js
       - run: node --check public/js/admin-commerce.js
       - run: node --check public/js/catalog.js
+      - run: node --check public/js/custom-requests.js
+      - run: node --check public/js/admin-custom-requests.js
       - run: node --check scripts/generate-sitemap.js
