@@ -163,6 +163,8 @@
     text($("#topbar-avatar"),first.charAt(0).toUpperCase());
     const adminLink=$("#workspace-admin-link");
     if(adminLink)adminLink.hidden=!Boolean(workspace.user&&workspace.user.isAdmin);
+    const journalLink=$("#workspace-journal-link");
+    if(journalLink)journalLink.hidden=!Boolean(workspace.user&&workspace.user.isAdmin);
   }
 
   async function loadWorkspace(){
