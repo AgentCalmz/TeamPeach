@@ -144,10 +144,13 @@ test("customer workspace replaces generic projects and tasks with private custom
  assert.match(dashboard,/id="welcome-title"/);
  assert.match(requestPage,/id="custom-request-form"/);
  assert.match(requestPage,/id="custom-request-list"/);
+ assert.ok(requestPage.includes("custom-requests.js?v=1"));
+ assert.ok(detailPage.includes("custom-requests.js?v=1"));
  assert.match(detailPage,/id="custom-project-messages"/);
  assert.match(detailPage,/id="custom-quote-accept"/);
  assert.match(adminPage,/id="admin-custom-request-quote-form"/);
  assert.match(adminPage,/id="admin-custom-request-reply-form"/);
+ assert.ok(adminPage.includes("admin-custom-requests.js?v=1"));
  assert.match(adminPage,/href="\/admin\/requests\//);
  assert.match(customerClient,/setInterval\(\(\)=>\{if\(document\.visibilityState==="visible"\)loadThread\(\);\},8000\)/);
  assert.match(customerClient,/location\.replace\("\/login\//);
