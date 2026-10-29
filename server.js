@@ -1,10 +1,11 @@
 "use strict";
 require("dotenv").config();
-const path=require("node:path"),crypto=require("node:crypto"),express=require("express"),helmet=require("helmet"),cookieParser=require("cookie-parser"),rateLimit=require("express-rate-limit");
+const path=require("node:path"),fs=require("node:fs"),crypto=require("node:crypto"),express=require("express"),helmet=require("helmet"),cookieParser=require("cookie-parser"),rateLimit=require("express-rate-limit");
 const{createClient}=require("@supabase/supabase-js");
 const nodemailer=require("nodemailer");
 const{normalizeEmail,isValidEmail,cleanText,otpHash,hashPassword,verifyPassword,generateOtp,hashSessionToken,adminEmailsFromEnv,normalizePersonName,safeStringEqual}=require("./src/security");
 const{otpEmail,plainNotificationEmail}=require("./src/email-templates");
+const{renderJournalPage,slugifyJournalTitle}=require("./src/journal");
 const app=express(),PUBLIC_DIR=path.join(__dirname,"public"),isProd=process.env.NODE_ENV==="production";
 const OTP_MINS=Math.max(5,Math.min(15,Number(process.env.OTP_TTL_MINUTES||10))),SESSION_DAYS=Math.max(1,Math.min(30,Number(process.env.SESSION_TTL_DAYS||7))),DAILY_LIMIT=Math.max(1,Math.min(250,Number(process.env.EMAIL_DAILY_SOFT_LIMIT||250))),TRANSACTIONAL_RESERVE=Math.max(0,Math.min(DAILY_LIMIT-1,Number.isFinite(Number(process.env.EMAIL_TRANSACTIONAL_RESERVE))&&String(process.env.EMAIL_TRANSACTIONAL_RESERVE||"")!==""?Number(process.env.EMAIL_TRANSACTIONAL_RESERVE):Math.ceil(DAILY_LIMIT*0.2))),CAMPAIGN_DAILY_LIMIT=Math.max(1,DAILY_LIMIT-TRANSACTIONAL_RESERVE);
 const origins=new Set([process.env.APP_BASE_URL,process.env.SITE_URL,process.env.RENDER_EXTERNAL_URL,...String(process.env.TRUSTED_ORIGINS||"").split(",")].filter(Boolean).map(v=>{try{return new URL(v.trim()).origin;}catch(_){return"";}}).filter(Boolean));
@@ -1288,6 +1289,129 @@ app.post("/api/unsubscribe",csrf,asyncRoute(async(q,r)=>{
   r.json({ok:true,message:"You have been unsubscribed from optional product/news email. Account and security messages are unaffected."});
  }catch(error){logFailure("unsubscribe",error);errorJson(r,503,"UNSUBSCRIBE_FAILED","Your email preference could not be updated. Please try again.");}
 }));
+
+const journalArticleFields="id,slug,title,excerpt,content_markdown,meta_title,meta_description,category,cover_image_url,author_name,status,created_by,published_at,created_at,updated_at";
+const journalPublicFields="id,slug,title,excerpt,meta_title,meta_description,category,cover_image_url,author_name,published_at,updated_at";
+const builtInJournalSlugs=new Set(["what-is-an-ai-agent","choosing-an-ai-tool","business-tasks-worth-automating"]);
+function journalBaseUrl(){
+ const candidate=process.env.SITE_URL||process.env.APP_BASE_URL||process.env.RENDER_EXTERNAL_URL||"https://teampeach.org";
+ try{return new URL(candidate).origin;}catch(_){return "https://teampeach.org";}
+}
+function journalPayload(body){
+ const b=body||{};
+ const title=cleanText(b.title,160);
+ const excerpt=cleanText(b.excerpt,420);
+ const metaTitle=cleanText(b.metaTitle||title,180);
+ const metaDescription=cleanText(b.metaDescription||excerpt,320);
+ const category=cleanText(b.category||"Journal",80);
+ const authorName=cleanText(b.authorName||"TeamPeach Editorial Team",100);
+ const contentMarkdown=String(b.contentMarkdown||"").replace(/\r\n?/g,"\n").replace(/\u0000/g,"").trim();
+ let slug=cleanText(b.slug,100).toLowerCase().trim();
+ if(!slug)slug=slugifyJournalTitle(title);
+ const coverImageUrl=String(b.coverImageUrl||"").trim();
+ const status=String(b.status||"draft");
+ if(title.length<5)return{error:"Enter an article title of at least five characters."};
+ if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)||slug.length<3||slug.length>100)return{error:"Use a URL slug containing lowercase letters, numbers and hyphens."};
+ if(builtInJournalSlugs.has(slug)||fs.existsSync(path.join(PUBLIC_DIR,"journal",slug,"index.html")))return{error:"That URL is already used by an existing journal page. Choose a different slug."};
+ if(excerpt.length<30)return{error:"Add a useful article summary of at least 30 characters."};
+ if(contentMarkdown.length<80||contentMarkdown.length>80000)return{error:"Article content must contain between 80 and 80,000 characters."};
+ if(metaTitle.length<5)return{error:"Add a search title of at least five characters."};
+ if(metaDescription.length<50)return{error:"Add a search description of at least 50 characters."};
+ if(category.length<2||authorName.length<2)return{error:"Add a category and a byline."};
+ if(coverImageUrl&&(!/^https:\/\/[^\s"'<>]+$/i.test(coverImageUrl)||coverImageUrl.length>1200))return{error:"Cover image must be a valid HTTPS URL."};
+ if(!["draft","published","archived"].includes(status))return{error:"Choose draft, published or archived status."};
+ return{data:{slug,title,excerpt,content_markdown:contentMarkdown,meta_title:metaTitle,meta_description:metaDescription,category,cover_image_url:coverImageUrl,author_name:authorName,status}};
+}
+
+app.get("/api/journal/articles",asyncRoute(async(_q,r)=>{
+ if(!db)return r.json({ok:true,articles:[]});
+ try{
+  const d=await db.from("tp_journal_articles").select(journalPublicFields).eq("status","published").order("published_at",{ascending:false}).limit(60);
+  if(d.error)throw d.error;
+  return r.json({ok:true,articles:d.data||[]});
+ }catch(e){logFailure("journal-public-list",e);return r.json({ok:true,articles:[]});}
+}));
+
+app.get("/api/admin/journal/articles",authenticated,isAdmin,asyncRoute(async(_q,r)=>{
+ if(!db)return errorJson(r,503,"JOURNAL_NOT_CONFIGURED","The journal database is not configured.");
+ const d=await db.from("tp_journal_articles").select(journalArticleFields).order("updated_at",{ascending:false}).limit(200);
+ if(d.error){logFailure("journal-admin-list",d.error);return errorJson(r,503,"JOURNAL_SCHEMA_NOT_READY","Journal storage is not ready. Apply migration 007_journal_articles.sql in Supabase, then retry.");}
+ return r.json({ok:true,articles:d.data||[]});
+}));
+
+app.post("/api/admin/journal/articles",authLimit,csrf,authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ if(!db)return errorJson(r,503,"JOURNAL_NOT_CONFIGURED","The journal database is not configured.");
+ const prepared=journalPayload(q.body);
+ if(prepared.error)return errorJson(r,400,"INVALID_JOURNAL_ARTICLE",prepared.error);
+ const now=new Date().toISOString(),row={...prepared.data,created_by:q.user.id,published_at:prepared.data.status==="published"?now:null,created_at:now,updated_at:now};
+ const saved=await db.from("tp_journal_articles").insert(row).select(journalArticleFields).single();
+ if(saved.error){logFailure("journal-create",saved.error);if(saved.error.code==="23505")return errorJson(r,409,"JOURNAL_SLUG_EXISTS","That URL slug already exists. Choose a unique slug.");return errorJson(r,503,"JOURNAL_SAVE_FAILED","The article could not be saved. Confirm migration 007_journal_articles.sql has been applied.");}
+ return r.status(201).json({ok:true,article:saved.data,message:row.status==="published"?"Article published.":"Draft saved."});
+}));
+
+app.patch("/api/admin/journal/articles/:id",authLimit,csrf,authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ if(!db)return errorJson(r,503,"JOURNAL_NOT_CONFIGURED","The journal database is not configured.");
+ const id=String(q.params.id||"");
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))return errorJson(r,400,"INVALID_ARTICLE_ID","This article reference is invalid.");
+ const prepared=journalPayload(q.body);
+ if(prepared.error)return errorJson(r,400,"INVALID_JOURNAL_ARTICLE",prepared.error);
+ const previous=await db.from("tp_journal_articles").select("id,status,published_at").eq("id",id).maybeSingle();
+ if(previous.error){logFailure("journal-lookup",previous.error);return errorJson(r,503,"JOURNAL_LOOKUP_FAILED","The article could not be loaded.");}
+ if(!previous.data)return errorJson(r,404,"JOURNAL_NOT_FOUND","This article could not be found.");
+ const now=new Date().toISOString(),publishedAt=prepared.data.status==="published"?(previous.data.published_at||now):previous.data.published_at;
+ const saved=await db.from("tp_journal_articles").update({...prepared.data,published_at:publishedAt,updated_at:now}).eq("id",id).select(journalArticleFields).maybeSingle();
+ if(saved.error){logFailure("journal-update",saved.error);if(saved.error.code==="23505")return errorJson(r,409,"JOURNAL_SLUG_EXISTS","That URL slug already exists. Choose a unique slug.");return errorJson(r,503,"JOURNAL_SAVE_FAILED","The article could not be saved.");}
+ if(!saved.data)return errorJson(r,404,"JOURNAL_NOT_FOUND","This article could not be found.");
+ return r.json({ok:true,article:saved.data,message:prepared.data.status==="published"?"Article published.":prepared.data.status==="archived"?"Article archived.":"Draft saved."});
+}));
+
+app.delete("/api/admin/journal/articles/:id",authLimit,csrf,authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ if(!db)return errorJson(r,503,"JOURNAL_NOT_CONFIGURED","The journal database is not configured.");
+ const id=String(q.params.id||"");
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))return errorJson(r,400,"INVALID_ARTICLE_ID","This article reference is invalid.");
+ const removed=await db.from("tp_journal_articles").delete().eq("id",id).select("id").maybeSingle();
+ if(removed.error){logFailure("journal-delete",removed.error);return errorJson(r,503,"JOURNAL_DELETE_FAILED","The article could not be deleted.");}
+ if(!removed.data)return errorJson(r,404,"JOURNAL_NOT_FOUND","This article could not be found.");
+ return r.json({ok:true,message:"Article deleted."});
+}));
+
+app.get("/journal/:slug",asyncRoute(async(q,r,next)=>{
+ const slug=String(q.params.slug||"");
+ if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)||!db)return next();
+ try{
+  const article=await db.from("tp_journal_articles").select(journalPublicFields+",content_markdown,created_at").eq("slug",slug).eq("status","published").maybeSingle();
+  if(article.error){logFailure("journal-public-article",article.error);return next();}
+  if(!article.data)return next();
+  const base=journalBaseUrl(),page=renderJournalPage(article.data,base);
+  r.setHeader("Cache-Control","public, max-age=120, stale-while-revalidate=300");
+  r.type("html").send(page);
+ }catch(e){logFailure("journal-render",e);next(e);}
+}));
+
+app.get("/sitemap.xml",asyncRoute(async(_q,r)=>{
+ const staticSitemap=path.join(PUBLIC_DIR,"sitemap.xml");
+ let sitemap;
+ try{sitemap=fs.readFileSync(staticSitemap,"utf8");}catch(e){logFailure("journal-sitemap-static",e);return r.status(503).type("text").send("Sitemap is temporarily unavailable.");}
+ if(db){
+  try{
+   const rows=await db.from("tp_journal_articles").select("slug,published_at,updated_at").eq("status","published").order("published_at",{ascending:false}).limit(500);
+   if(rows.error)throw rows.error;
+   const base=journalBaseUrl().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+   const existing=new Set([...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m=>m[1]));
+   const added=(rows.data||[]).map(a=>{
+    const url=base+"/journal/"+a.slug+"/";
+    if(existing.has(url)||existing.has(url.replace(/&amp;/g,"&")))return "";
+    const modified=new Date(a.updated_at||a.published_at||Date.now());
+    const lastmod=Number.isFinite(modified.getTime())?modified.toISOString().slice(0,10):"";
+    return "  <url><loc>"+url+"</loc>"+(lastmod?"<lastmod>"+lastmod+"</lastmod>":"")+"</url>";
+   }).filter(Boolean);
+   sitemap=sitemap.replace("</urlset>",added.length?added.join("\n")+"\n</urlset>":"</urlset>");
+  }catch(e){logFailure("journal-sitemap-dynamic",e);}
+ }
+ r.setHeader("Cache-Control","public, max-age=300, stale-while-revalidate=600");
+ return r.type("application/xml").send(sitemap);
+}));
+
 app.get("/dashboard/projects/",(_q,r)=>r.redirect(302,"/dashboard/custom-requests/"));
 app.get("/dashboard/tasks/",(_q,r)=>r.redirect(302,"/dashboard/custom-requests/"));
 app.use((q,r,n)=>{if(!["GET","HEAD"].includes(q.method)||!/\.html$/i.test(q.path))return n();let t=/\/index\.html$/i.test(q.path)?(q.path.slice(0,-10)||"/"):q.path.slice(0,-5);if(!t.startsWith("/"))t="/"+t;if(t!=="/"&&!t.endsWith("/"))t+="/";r.redirect(301,t+(q.url.includes("?")?q.url.slice(q.url.indexOf("?")):""));});
