@@ -13,7 +13,7 @@ if(!isProd){origins.add("http://localhost:3000");origins.add("http://127.0.0.1:3
 const db=process.env.SUPABASE_URL&&process.env.SUPABASE_SERVICE_ROLE_KEY?createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}}):null;
 app.disable("x-powered-by");app.set("trust proxy",1);
 app.use(helmet({contentSecurityPolicy:{directives:{defaultSrc:["'self'"],baseUri:["'self'"],formAction:["'self'"],frameAncestors:["'none'"],objectSrc:["'none'"],scriptSrc:["'self'"],styleSrc:["'self'","'unsafe-inline'","https://fonts.googleapis.com"],fontSrc:["'self'","https://fonts.gstatic.com","data:"],imgSrc:["'self'","data:","https:"],connectSrc:["'self'"]}},crossOriginEmbedderPolicy:false}));
-app.use(express.json({limit:"128kb",strict:true,verify(req,res,buf){if(String(req.originalUrl||"").includes("/api/payments/webhooks/"))req.rawBody=Buffer.from(buf);}}));app.use(cookieParser());
+app.use(express.json({limit:"64kb",strict:true,verify(req,res,buf){if(String(req.originalUrl||"").includes("/api/payments/webhooks/"))req.rawBody=Buffer.from(buf);}}));app.use(cookieParser());
 app.use("/api",(req,res,next)=>{res.setHeader("Cache-Control","no-store");res.setHeader("Pragma","no-cache");next();});
 app.use("/api",rateLimit({windowMs:15*60*1000,limit:150,standardHeaders:true,legacyHeaders:false,message:{error:"RATE_LIMITED",message:"Too many requests. Please wait a little and try again."}}));
 const authLimit=rateLimit({windowMs:60*60*1000,limit:30,standardHeaders:true,legacyHeaders:false,message:{error:"AUTH_RATE_LIMITED",message:"Too many account attempts. Wait before trying again."}});
@@ -1314,7 +1314,7 @@ function journalPayload(body){
  if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)||slug.length<3||slug.length>100)return{error:"Use a URL slug containing lowercase letters, numbers and hyphens."};
  if(builtInJournalSlugs.has(slug)||fs.existsSync(path.join(PUBLIC_DIR,"journal",slug,"index.html")))return{error:"That URL is already used by an existing journal page. Choose a different slug."};
  if(excerpt.length<30)return{error:"Add a useful article summary of at least 30 characters."};
- if(contentMarkdown.length<80||contentMarkdown.length>28000)return{error:"Article content must contain between 80 and 28,000 characters."};
+ if(contentMarkdown.length<80||contentMarkdown.length>18000)return{error:"Article content must contain between 80 and 18,000 characters."};
  if(metaTitle.length<5)return{error:"Add a search title of at least five characters."};
  if(metaDescription.length<50)return{error:"Add a search description of at least 50 characters."};
  if(category.length<2||authorName.length<2)return{error:"Add a category and a byline."};
@@ -1388,7 +1388,8 @@ app.get("/journal/:slug",asyncRoute(async(q,r,next)=>{
  }catch(e){logFailure("journal-render",e);next(e);}
 }));
 
-app.get("/sitemap.xml",asyncRoute(async(_q,r)=>{
+const publicSitemapLimit=rateLimit({windowMs:60*1000,limit:120,standardHeaders:true,legacyHeaders:false});
+app.get("/sitemap.xml",publicSitemapLimit,asyncRoute(async(_q,r)=>{
  const staticSitemap=path.join(PUBLIC_DIR,"sitemap.xml");
  let sitemap;
  try{sitemap=fs.readFileSync(staticSitemap,"utf8");}catch(e){logFailure("journal-sitemap-static",e);return r.status(503).type("text").send("Sitemap is temporarily unavailable.");}
