@@ -409,12 +409,10 @@ app.get("/api/custom-requests/:id/messages",authenticated,asyncRoute(async(q,r)=
  try{
   const requestQuery=db.from("tp_custom_requests").select(q.isAdmin?customRequestAdminFields:customRequestFields).eq("id",q.params.id);
   if(!q.isAdmin)requestQuery.eq("user_id",q.user.id);
-  const [requestResult,messagesResult]=await Promise.all([
-   requestQuery.maybeSingle(),
-   db.from("tp_custom_request_messages").select("id,request_id,sender_user_id,sender_role,sender_name,body,created_at").eq("request_id",q.params.id).order("created_at",{ascending:true}).limit(300)
-  ]);
+  const requestResult=await requestQuery.maybeSingle();
   if(requestResult.error)throw requestResult.error;
   if(!requestResult.data)return errorJson(r,404,"CUSTOM_REQUEST_NOT_FOUND","That customization request could not be found.");
+  const messagesResult=await db.from("tp_custom_request_messages").select("id,request_id,sender_user_id,sender_role,sender_name,body,created_at").eq("request_id",q.params.id).order("created_at",{ascending:true}).limit(300);
   if(messagesResult.error)throw messagesResult.error;
   r.json({ok:true,request:requestResult.data,messages:messagesResult.data||[]});
  }catch(error){logFailure("custom-request-thread-read",error);errorJson(r,503,"CUSTOM_REQUEST_THREAD_UNAVAILABLE","This request's discussion could not be loaded. Please refresh and try again.");}
@@ -432,7 +430,7 @@ app.post("/api/custom-requests/:id/messages",csrf,authLimit,authenticated,asyncR
   const patch={last_message_at:now,updated_at:now};
   if(q.isAdmin&&requestRow.status==="new")patch.status="discussion";
   const updated=await db.from("tp_custom_requests").update(patch).eq("id",q.params.id);
-  if(updated.error)throw updated.error;
+  if(updated.error)logFailure("custom-request-timestamp",updated.error);
   const owner=await db.from("tp_users").select("email,full_name").eq("id",requestRow.user_id).maybeSingle();
   if(owner.error)logFailure("custom-request-owner",owner.error);
   if(q.isAdmin){
@@ -467,14 +465,22 @@ app.patch("/api/admin/custom-requests/:id",csrf,authLimit,authenticated,isAdmin,
   const existing=await db.from("tp_custom_requests").select(customRequestFields).eq("id",q.params.id).maybeSingle();
   if(existing.error)throw existing.error;
   if(!existing.data)return errorJson(r,404,"CUSTOM_REQUEST_NOT_FOUND","That customization request could not be found.");
+  const previousQuote=existing.data.quoted_price_minor===null?null:Number(existing.data.quoted_price_minor);
   const saved=await db.from("tp_custom_requests").update(updates).eq("id",q.params.id).select(customRequestFields).single();
   if(saved.error)throw saved.error;
-  if(quoteChanged&&saved.data.quoted_price_minor!==null){
-   const amount=(Number(saved.data.quoted_price_minor)/100).toFixed(2);
-   const notes=saved.data.quote_notes?"\n\n"+saved.data.quote_notes:"";
+  const currentQuote=saved.data.quoted_price_minor===null?null:Number(saved.data.quoted_price_minor);
+  if(quoteChanged&&currentQuote!==null&&currentQuote!==previousQuote){
+   const amount=(currentQuote/100).toFixed(2);
+   const notes=saved.data.quote_notes?"\\n\\n"+saved.data.quote_notes:"";
    const notice=await db.from("tp_custom_request_messages").insert({request_id:q.params.id,sender_user_id:q.user.id,sender_role:"system",sender_name:"TeamPeach",body:"TeamPeach shared a project quote: USD $"+amount+"."+notes,created_at:new Date().toISOString()}).select("created_at").single();
    if(notice.error)logFailure("custom-request-quote-message",notice.error);
-   else await db.from("tp_custom_requests").update({last_message_at:notice.data.created_at,updated_at:new Date().toISOString()}).eq("id",q.params.id);
+   else {
+    const timestamp=notice.data.created_at||new Date().toISOString();
+    const threadUpdate=await db.from("tp_custom_requests").update({last_message_at:timestamp,updated_at:timestamp}).eq("id",q.params.id);
+    if(threadUpdate.error)logFailure("custom-request-quote-timestamp",threadUpdate.error);
+    saved.data.last_message_at=timestamp;
+    saved.data.updated_at=timestamp;
+   }
   }
   r.json({ok:true,request:saved.data,message:"The request has been updated."});
  }catch(error){logFailure("custom-request-admin-update",error);errorJson(r,503,"CUSTOM_REQUEST_UPDATE_FAILED","We could not update this request. Please retry.");}
