@@ -40,7 +40,7 @@
     else{parent.append(document.createTextNode(match[4]));last=re.lastIndex;continue;}
    }else{
     const url=safeUrl(match[7]);
-    if(url){el=document.createElement("a");el.href=url;el.append(document.createTextNode(match[6]));el.rel="nofollow noopener noreferrer";}
+    if(url){parent.append(document.createTextNode(match[6]));last=re.lastIndex;continue;}
     else{parent.append(document.createTextNode(match[6]));last=re.lastIndex;continue;}
    }
    parent.append(el);last=re.lastIndex;
