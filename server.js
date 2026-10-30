@@ -96,7 +96,7 @@ app.use("/api",lusca.csrf({
    return a.length===b.length&&crypto.timingSafeEqual(a,b);
   }
  }
-});
+}));
 app.use((error,req,res,next)=>{
  if(error&&(error.message==="CSRF token missing"||error.message==="CSRF token mismatch"))
   return errorJson(res,403,"CSRF_CHECK_FAILED","Refresh the page and try again.");
