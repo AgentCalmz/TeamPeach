@@ -58,6 +58,8 @@ test("journal editor is administrator-only and keeps drafts out of the public AP
  assert.ok(server.includes("app.use(csrf)"));
  assert.ok(server.includes("lusca.csrf("));
  assert.ok(server.includes('app.use("/api",luscaCsrfMiddleware)'));
+ assert.ok(server.includes('error.message==="CSRF token missing"||error.message==="CSRF token mismatch"'));
+ assert.ok(server.includes("errorJson(res,403,\"CSRF_CHECK_FAILED\""));
  assert.ok(server.includes('app.get("/api/csrf",(q,r)=>r.json({token:q.csrfToken()}))'));
  assert.ok(server.includes('req.path.startsWith("/api/payments/webhooks/")'));
  assert.ok(server.includes('app.post("/api/admin/journal/articles",authLimit,csrf,authenticated,isAdmin'));
