@@ -20,6 +20,7 @@
     "express": "^4.21.2",
     "express-rate-limit": "^8.1.0",
     "helmet": "^8.1.0",
-    "nodemailer": "^10.2.1"
+    "nodemailer": "^10.2.1",
+    "lusca": "1.7.0"
   }
 }
