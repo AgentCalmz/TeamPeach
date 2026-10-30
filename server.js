@@ -69,15 +69,16 @@ function backendReady(res,needEmail){if(!authReady()){errorJson(res,503,"SERVICE
 function cookies(){return{httpOnly:true,secure:isProd,sameSite:"lax",path:"/",maxAge:SESSION_DAYS*86400000};}
 function logFailure(area,e){const code=String(e&&(e.code||e.status||e.name)||"unknown").slice(0,40),details=[e&&e.responseCode?"response="+String(e.responseCode).slice(0,12):"",e&&e.providerCode?"provider="+String(e.providerCode).replace(/[^a-zA-Z0-9_. -]/g,"").slice(0,70):"",e&&e.deliveryCause?"cause="+String(e.deliveryCause).replace(/[^a-zA-Z0-9_. -]/g,"").slice(0,40):""].filter(Boolean).join(" ");console.error("["+area+"] operation failed ("+code+(details?" "+details:"")+").");}
 function trusted(req){const o=req.get("origin");if(!o)return true;try{return origins.has(new URL(o).origin);}catch(_){return false;}}
-function csrf(req,res,next){const c=Buffer.from(String(req.cookies.tp_csrf||"")),h=Buffer.from(String(req.get("x-csrf-token")||""));if(!trusted(req)||c.length<24||h.length<24||c.length!==h.length||!crypto.timingSafeEqual(c,h))return errorJson(res,403,"CSRF_CHECK_FAILED","Refresh the page and try again.");next();}
-/* All browser-originated state-changing requests require the same-origin double-submit CSRF token.
-   Payment provider webhooks are exempt here because each handler verifies its own provider signature. */
-function csrfForMutations(req,res,next){
+function csrf(req,res,next){
  if(!["POST","PUT","PATCH","DELETE"].includes(req.method))return next();
  if(req.path.startsWith("/api/payments/webhooks/"))return next();
- return csrf(req,res,next);
+ const c=Buffer.from(String(req.cookies.tp_csrf||"")),h=Buffer.from(String(req.get("x-csrf-token")||""));
+ if(!trusted(req)||c.length<24||h.length<24||c.length!==h.length||!crypto.timingSafeEqual(c,h))return errorJson(res,403,"CSRF_CHECK_FAILED","Refresh the page and try again.");
+ next();
 }
-app.use(csrfForMutations);
+/* All browser-originated mutations are checked before route handlers. Payment-provider webhooks
+   are exempt because their handlers validate provider signatures independently. */
+app.use(csrf);
 function baseUrl(){return cleanText(process.env.APP_BASE_URL||process.env.SITE_URL||process.env.RENDER_EXTERNAL_URL||"https://teampeach.org",300);}
 async function reserveEmailUsage(to,category){
  const result=await db.rpc("tp_reserve_email_usage_v2",{p_recipient_email:normalizeEmail(to),p_category:category,p_daily_limit:DAILY_LIMIT,p_campaign_limit:CAMPAIGN_DAILY_LIMIT});
