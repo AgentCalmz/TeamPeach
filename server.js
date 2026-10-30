@@ -79,7 +79,7 @@ function csrf(req,res,next){
 }
 /* Lusca's recognised CSRF middleware uses our cryptographically random double-submit token.
    The existing guard adds trusted-Origin validation and repeats the timing-safe cookie/header check. */
-const luscaCsrfMiddleware=lusca.csrf({
+app.use("/api",lusca.csrf({
  header:"x-csrf-token",
  cookie:{name:"tp_csrf",options:{httpOnly:true,secure:isProd,sameSite:"lax",path:"/",maxAge:7200000}},
  blocklist:["/payments/webhooks/","/api/payments/webhooks/"],
@@ -97,7 +97,7 @@ const luscaCsrfMiddleware=lusca.csrf({
   }
  }
 });
-app.use("/api",luscaCsrfMiddleware);
+});
 app.use((error,req,res,next)=>{
  if(error&&(error.message==="CSRF token missing"||error.message==="CSRF token mismatch"))
   return errorJson(res,403,"CSRF_CHECK_FAILED","Refresh the page and try again.");
