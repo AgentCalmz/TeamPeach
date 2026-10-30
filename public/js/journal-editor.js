@@ -31,9 +31,9 @@
   while((match=re.exec(text))){
    if(match.index>last)parent.append(document.createTextNode(text.slice(last,match.index)));
    let el;
-   if(match[1]!==undefined){el=document.createElement("strong");el.textContent=match[1];}
-   else if(match[2]!==undefined){el=document.createElement("em");el.textContent=match[2];}
-   else if(match[3]!==undefined){el=document.createElement("code");el.textContent=match[3];}
+   if(match[1]!==undefined){el=document.createElement("strong");el.append(document.createTextNode(match[1]));}
+   else if(match[2]!==undefined){el=document.createElement("em");el.append(document.createTextNode(match[2]));}
+   else if(match[3]!==undefined){el=document.createElement("code");el.append(document.createTextNode(match[3]));}
    else if(match[4]!==undefined){
     const url=safeUrl(match[5]);
     if(url){el=document.createElement("img");el.src=url;el.alt=match[4];el.loading="lazy";}
