@@ -79,20 +79,29 @@ test("journal editor is administrator-only and keeps drafts out of the public AP
 });
 
 
-test("robots.txt explicitly allows Bingbot to crawl public pages and blocks private routes",()=>{
+test("robots and sitemap explicitly expose public journal, tools and product pages",()=>{
  const fs=require("node:fs");
  const path=require("node:path");
  const root=path.join(__dirname,"..");
- const files=["robots.txt",path.join("public","robots.txt")];
- for(const relative of files){
+ const robotsFiles=["robots.txt",path.join("public","robots.txt")];
+ for(const relative of robotsFiles){
   const robots=fs.readFileSync(path.join(root,relative),"utf8");
-  const group=robots.split(/\n(?=User-agent:)/i).find(section=>/^User-agent:\s*Bingbot\s*$/im.test(section));
-  assert.ok(group,"Bingbot-specific group must exist in "+relative);
-  assert.match(group,/^Allow:\s*\/$/im);
-  for(const route of ["/api/","/admin/","/dashboard/","/account/","/login/","/register/","/verify-email/","/forgot-password/","/unsubscribe/"]) {
-   assert.ok(group.includes("Disallow: "+route),"Bingbot group must block "+route);
+  for(const agent of ["*","Bingbot","OAI-SearchBot"]){
+   const group=robots.split(/\n(?=User-agent:)/i).find(section=>new RegExp("^User-agent:\\s*"+agent.replace(/[.*+?^${}()|[\\]\\\\]/g,"\\$&")+"\\s*$","im").test(section));
+   assert.ok(group,"Missing robots group for "+agent+" in "+relative);
+   for(const route of ["/journal/","/products/","/tools/"])assert.ok(group.includes("Allow: "+route),agent+" must allow "+route);
+   for(const route of ["/api/","/admin/","/dashboard/","/account/","/login/","/register/","/verify-email/","/forgot-password/","/unsubscribe/"])assert.ok(group.includes("Disallow: "+route),agent+" must block "+route);
   }
+  assert.ok(robots.includes("Sitemap: https://teampeach.org/sitemap.xml"));
  }
+ const publicMap=fs.readFileSync(path.join(root,"public","sitemap.xml"),"utf8");
+ const rootMap=fs.readFileSync(path.join(root,"sitemap.xml"),"utf8");
+ assert.equal(publicMap,rootMap,"root and public sitemap copies must match");
+ for(const route of ["/","/products/","/tools/seo-content-brief/","/journal/","/journal/business-tasks-worth-automating/","/journal/choosing-an-ai-tool/","/journal/what-is-an-ai-agent/"])assert.ok(publicMap.includes("<loc>https://teampeach.org"+route+"</loc>"),"Sitemap is missing "+route);
+ assert.doesNotMatch(publicMap,/\/(?:api|admin|dashboard|account|login|register)\//);
+ const tool=fs.readFileSync(path.join(root,"public","tools","seo-content-brief","index.html"),"utf8");
+ assert.match(tool,/<meta name="robots" content="index,follow/);
+ assert.doesNotMatch(tool,/<meta name="robots" content="noindex/i);
 });
 
 test("homepage mobile layout explicitly prevents horizontal page panning",()=>{
