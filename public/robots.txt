@@ -10,6 +10,18 @@ Disallow: /verify-email/
 Disallow: /forgot-password/
 Disallow: /unsubscribe/
 
+User-agent: Bingbot
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /dashboard/
+Disallow: /account/
+Disallow: /login/
+Disallow: /register/
+Disallow: /verify-email/
+Disallow: /forgot-password/
+Disallow: /unsubscribe/
+
 User-agent: OAI-SearchBot
 Allow: /
 Disallow: /api/
