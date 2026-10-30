@@ -54,8 +54,8 @@ test("journal editor is administrator-only and keeps drafts out of the public AP
  const editor=fs.readFileSync(path.join(root,"public","dashboard","journal","index.html"),"utf8");
  const client=fs.readFileSync(path.join(root,"public","js","journal-editor.js"),"utf8");
  assert.ok(server.includes('app.get("/api/admin/journal/articles",authenticated,isAdmin'));
- assert.ok(server.includes("function csrfForMutations(req,res,next)"));
- assert.ok(server.includes("app.use(csrfForMutations)"));
+ assert.ok(server.includes("function csrf(req,res,next)"));
+ assert.ok(server.includes("app.use(csrf)"));
  assert.ok(server.includes('req.path.startsWith("/api/payments/webhooks/")'));
  assert.ok(server.includes('app.post("/api/admin/journal/articles",authLimit,csrf,authenticated,isAdmin'));
  assert.ok(server.includes('app.patch("/api/admin/journal/articles/:id",authLimit,csrf,authenticated,isAdmin'));
@@ -68,7 +68,8 @@ test("journal editor is administrator-only and keeps drafts out of the public AP
  assert.match(editor,/data-format="italic"/);
  assert.match(editor,/id="preview-body"/);
  assert.match(client,/\/api\/admin\/journal\/articles/);
- assert.ok(client.includes("el.append(document.createTextNode(match[6]))"));
+ assert.ok(client.includes("parent.append(document.createTextNode(match[6]))"));
+ assert.doesNotMatch(client,/document\.createElement\("a"\).*match\[6\]/);
  assert.doesNotMatch(client,/textContent=match\[/);
 });
 
