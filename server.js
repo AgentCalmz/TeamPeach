@@ -98,6 +98,11 @@ const luscaCsrfMiddleware=lusca.csrf({
  }
 });
 app.use("/api",luscaCsrfMiddleware);
+app.use((error,req,res,next)=>{
+ if(error&&(error.message==="CSRF token missing"||error.message==="CSRF token mismatch"))
+  return errorJson(res,403,"CSRF_CHECK_FAILED","Refresh the page and try again.");
+ next(error);
+});
 /* All browser-originated mutations are checked before route handlers. Payment-provider webhooks
    are exempt from token checks here because their handlers validate provider signatures independently. */
 app.use(csrf);
