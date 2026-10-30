@@ -36,7 +36,7 @@ jobs:
         run: |
           node <<'NODE'
           const fs = require("node:fs");
-          const path = "results/javascript.sarif";
+          const path = "../results/javascript.sarif";
           if (!fs.existsSync(path)) {
             console.log("SARIF output file was not found at " + path);
             process.exit(0);
