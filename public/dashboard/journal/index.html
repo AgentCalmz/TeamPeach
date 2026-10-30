@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f8f4ee">
+<meta name="robots" content="noindex,nofollow"><meta name="description" content="Restricted TeamPeach journal editor.">
+<link rel="canonical" href="https://teampeach.org/dashboard/journal/"><link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/styles.css?v=6"><link rel="stylesheet" href="/css/dashboard.css?v=4"><link rel="stylesheet" href="/css/dashboard-pages.css?v=3"><link rel="stylesheet" href="/css/journal-editor.css?v=1">
+<title>Journal editor | TeamPeach</title>
+</head>
+<body class="workspace-body">
+<a class="skip-link" href="#workspace-main">Skip to journal editor</a>
+<div class="workspace-shell" id="journal-workspace">
+<aside class="workspace-sidebar" id="workspace-sidebar">
+<a class="brand workspace-brand" href="/" aria-label="TeamPeach home"><span class="brand-mark"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M7 11h20c6 0 9 4 9 9s-3 9-9 9h-8v9M21 38V17h10c7 0 11 4 11 10s-4 10-11 10H21" fill="none" stroke="currentColor" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="31" cy="8" r="4" fill="#ff936f"/></svg></span><span class="brand-name">Team<span>Peach</span></span></a>
+<div class="workspace-label">YOUR WORKSPACE</div>
+<nav class="workspace-nav" aria-label="Workspace navigation">
+<a class="workspace-nav-link" href="/dashboard/"><span class="nav-glyph">⌂</span>Overview</a>
+<a class="workspace-nav-link" href="/dashboard/custom-requests/"><span class="nav-glyph">✳</span>Custom requests</a>
+<a class="workspace-nav-link" href="/dashboard/tools/"><span class="nav-glyph">✳</span>Tools & services</a>
+<a class="workspace-nav-link" href="/dashboard/billing/"><span class="nav-glyph">＄</span>Billing & plans</a>
+<a class="workspace-nav-link" href="/dashboard/support/"><span class="nav-glyph">✉</span>Support inbox<span class="nav-count" id="support-unread-count" hidden>0</span></a>
+</nav>
+<div class="workspace-label workspace-label-tools">ADMINISTRATION</div>
+<nav class="workspace-nav" aria-label="Administration">
+<a class="workspace-nav-link active" id="workspace-journal-link" href="/dashboard/journal/" aria-current="page" hidden><span class="nav-glyph">✎</span>Journal editor</a>
+<a class="workspace-nav-link admin-nav-link" id="workspace-admin-link" href="/admin/" hidden><span class="nav-glyph">⚙</span>Admin console</a>
+</nav>
+<div class="sidebar-bottom">
+<div class="sidebar-help"><span class="sidebar-help-mark">✳</span><strong>Writing guidance</strong><p>Answer the reader's question clearly, use trustworthy evidence and keep claims specific.</p><a href="/journal/">View public journal <span>↗</span></a></div>
+<a class="workspace-nav-link" href="/account/"><span class="nav-glyph">⚙</span>Account settings</a>
+<button class="workspace-nav-link workspace-logout" id="dashboard-logout" type="button"><span class="nav-glyph">↪</span>Sign out</button>
+<div class="sidebar-version"><span class="sidebar-avatar" id="sidebar-avatar">T</span><span class="sidebar-user-copy"><strong id="sidebar-name">Your account</strong><small id="sidebar-email">Checking access…</small></span><a class="sidebar-settings" href="/account/" aria-label="Account settings">•••</a></div>
+</div>
+</aside>
+<div class="workspace-main-wrap">
+<header class="workspace-topbar"><button class="mobile-sidebar-toggle" id="mobile-sidebar-toggle" type="button" aria-label="Open navigation" aria-expanded="false">☰</button><div class="workspace-breadcrumb"><span>Workspace</span><span class="breadcrumb-divider">/</span><strong>Journal editor</strong></div><div class="workspace-topbar-actions"><span class="workspace-secure"><span></span>Administrator only</span><a class="topbar-avatar" href="/account/" id="topbar-avatar" aria-label="Account settings">T</a></div></header>
+<main id="workspace-main" class="workspace-main">
+<div class="workspace-page-intro"><div><p class="eyebrow"><span></span> PUBLISHING WORKBENCH</p><h1>Journal editor</h1><p>Write, format, preview and publish articles without editing website files. Drafts remain private; published articles receive their own public URL.</p></div><button class="button button-dark" type="button" id="new-article">＋ New article</button></div>
+<div id="journal-loading" class="workspace-page-callout" role="status"><span class="workspace-page-callout-mark">…</span><div>Checking administrator access and loading the journal…</div></div>
+<div id="journal-access-error" class="journal-access-error" role="alert" hidden></div>
+<div class="journal-editor-layout" id="journal-editor-app" hidden>
+<aside class="journal-list-panel">
+<div class="journal-list-header"><div><p class="eyebrow"><span></span> LIBRARY</p><h2>Your articles</h2></div><span class="journal-count" id="article-count">0</span></div>
+<label class="journal-filter-label" for="article-filter">Find an article</label><input id="article-filter" class="journal-filter" type="search" placeholder="Search titles or slugs…">
+<div id="article-list" class="journal-article-list"><div class="journal-empty">No saved articles yet. Start a new draft.</div></div>
+</aside>
+<section class="journal-editor-panel">
+<div class="journal-editor-toolbar"><div><p class="eyebrow"><span></span> EDITOR</p><h2 id="editor-heading">Create a journal article</h2></div><span id="editor-status" class="journal-status draft">Unsaved</span></div>
+<form id="journal-form" class="journal-form">
+<input type="hidden" name="id">
+<div class="journal-field-grid">
+<div class="journal-field journal-field-wide"><label for="journal-title">Article title</label><input id="journal-title" name="title" maxlength="160" required placeholder="Write a clear, specific title"></div>
+<div class="journal-field"><label for="journal-slug">URL slug</label><input id="journal-slug" name="slug" maxlength="100" required placeholder="article-title"><small>Lowercase words separated by hyphens.</small></div>
+<div class="journal-field"><label for="journal-category">Category</label><input id="journal-category" name="category" maxlength="80" required value="Practical guide" placeholder="Practical guide"></div>
+<div class="journal-field journal-field-wide"><label for="journal-excerpt">Answer-first summary / excerpt</label><textarea id="journal-excerpt" name="excerpt" rows="3" maxlength="420" required placeholder="Answer the main question in clear language. This is used near the top of the article and in the public journal list."></textarea><small><span id="excerpt-count">0</span>/420 characters · Keep it specific and useful on its own.</small></div>
+<div class="journal-field"><label for="journal-author">Byline</label><input id="journal-author" name="authorName" maxlength="100" value="TeamPeach Editorial Team" required></div>
+<div class="journal-field"><label for="journal-cover">Cover image URL (optional)</label><input id="journal-cover" name="coverImageUrl" type="url" maxlength="1200" placeholder="https://…"><small>HTTPS image URL only.</small></div>
+<div class="journal-field journal-field-wide"><label for="journal-meta-title">Search / browser title</label><input id="journal-meta-title" name="metaTitle" maxlength="180" required placeholder="A clear title that matches the article"><small><span id="meta-title-count">0</span>/180 characters.</small></div>
+<div class="journal-field journal-field-wide"><label for="journal-meta-description">Search description</label><textarea id="journal-meta-description" name="metaDescription" rows="2" maxlength="320" required placeholder="Describe the main value of the article without hype."></textarea><small><span id="meta-description-count">0</span>/320 characters.</small></div>
+</div>
+<div class="journal-content-heading"><div><label for="journal-content">Article body</label><p>Use the formatting toolbar. The preview updates as you type.</p></div><span id="content-count">0 characters</span></div>
+<div class="journal-format-toolbar" role="toolbar" aria-label="Article text formatting">
+<button type="button" data-format="bold" title="Bold" aria-label="Bold"><strong>B</strong></button>
+<button type="button" data-format="italic" title="Italic" aria-label="Italic"><em>I</em></button>
+<button type="button" data-format="h2" title="Section heading">H2</button>
+<button type="button" data-format="h3" title="Subheading">H3</button>
+<button type="button" data-format="bullets" title="Bullet list">• List</button>
+<button type="button" data-format="numbered" title="Numbered list">1. List</button>
+<button type="button" data-format="quote" title="Block quote">“ Quote</button>
+<button type="button" data-format="link" title="Insert link">↗ Link</button>
+<button type="button" data-format="code" title="Inline code">&lt;/&gt;</button>
+<button type="button" data-format="rule" title="Horizontal divider">— Rule</button>
+</div>
+<textarea id="journal-content" name="contentMarkdown" class="journal-content-input" required minlength="80" maxlength="18000" rows="20" spellcheck="true" placeholder="Start with the direct answer, then explain the reasoning, steps, examples, limitations and sources.
+
+## Start with the answer
+
+Explain the most important point in plain language.
+
+## Practical steps
+
+- First useful action
+- Second useful action
+
+## Sources and further reading
+
+Link to reliable primary sources where relevant."></textarea>
+<div class="journal-editor-help"><strong>Formatting guide</strong><span><code>**bold**</code> <code>*italic*</code> <code>## Heading</code> <code>- bullet</code> <code>[link text](https://example.com)</code></span></div>
+<section class="journal-preview-section" aria-labelledby="preview-title">
+<div class="journal-preview-heading"><div><p class="eyebrow"><span></span> LIVE PREVIEW</p><h3 id="preview-title">How readers will see it</h3></div><span class="journal-preview-device">Article view</span></div>
+<div class="journal-preview-card"><p class="journal-preview-category" id="preview-category">PRACTICAL GUIDE</p><h2 id="preview-heading">Your article title appears here</h2><p id="preview-excerpt" class="journal-preview-excerpt">Your answer-first summary will appear here.</p><div id="preview-body" class="journal-preview-body"><p>Your formatted article body will appear here as you write.</p></div></div>
+</section>
+<section class="journal-seo-preview" aria-label="Search snippet preview"><p class="eyebrow"><span></span> SEARCH SNIPPET PREVIEW</p><p class="serp-site">TeamPeach › Journal › <span id="preview-slug">article-slug</span></p><h3 id="preview-meta-title">Your search title</h3><p id="preview-meta-description">Your search description appears here.</p></section>
+<div class="journal-quality-checklist">
+<strong>Before publishing</strong>
+<label><input type="checkbox" id="check-answer"> The article answers the main question early.</label>
+<label><input type="checkbox" id="check-evidence"> Factual claims have trustworthy sources or clear attribution.</label>
+<label><input type="checkbox" id="check-original"> The article adds useful examples, context or original judgement.</label>
+<label><input type="checkbox" id="check-proofread"> I have checked names, dates, links and formatting.</label>
+<p>Good SEO, GEO and AEO begin with clear, helpful content. No metadata or formatting can guarantee rankings or AI citations.</p>
+</div>
+<div class="journal-form-actions">
+<button type="button" id="delete-article" class="button button-outline" hidden>Delete</button>
+<button type="button" id="unpublish-article" class="button button-outline" hidden>Move to draft</button>
+<span class="journal-actions-spacer"></span>
+<button type="button" id="save-draft" class="button button-outline">Save draft</button>
+<button type="button" id="publish-article" class="button button-dark">Publish article ↗</button>
+</div>
+<p id="journal-feedback" class="page-inline-feedback" role="status" aria-live="polite"></p>
+</form>
+</section>
+</div>
+<footer class="workspace-footer"><span>TeamPeach · Practical AI, human judgement.</span><a href="/journal/">View public journal</a><a href="/dashboard/">Workspace overview</a></footer>
+</main></div></div>
+<script src="/js/dashboard.js?v=4" defer></script><script src="/js/journal-editor.js?v=1" defer></script>
+</body></html>

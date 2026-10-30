@@ -1,18 +1,20 @@
 "use strict";
 require("dotenv").config();
-const path=require("node:path"),crypto=require("node:crypto"),express=require("express"),helmet=require("helmet"),cookieParser=require("cookie-parser"),rateLimit=require("express-rate-limit");
+const path=require("node:path"),fs=require("node:fs"),crypto=require("node:crypto"),express=require("express"),helmet=require("helmet"),cookieParser=require("cookie-parser"),rateLimit=require("express-rate-limit"),lusca=require("lusca");
 const{createClient}=require("@supabase/supabase-js");
 const nodemailer=require("nodemailer");
 const{normalizeEmail,isValidEmail,cleanText,otpHash,hashPassword,verifyPassword,generateOtp,hashSessionToken,adminEmailsFromEnv,normalizePersonName,safeStringEqual}=require("./src/security");
 const{otpEmail,plainNotificationEmail}=require("./src/email-templates");
+const{renderJournalPage,slugifyJournalTitle}=require("./src/journal");
 const app=express(),PUBLIC_DIR=path.join(__dirname,"public"),isProd=process.env.NODE_ENV==="production";
 const OTP_MINS=Math.max(5,Math.min(15,Number(process.env.OTP_TTL_MINUTES||10))),SESSION_DAYS=Math.max(1,Math.min(30,Number(process.env.SESSION_TTL_DAYS||7))),DAILY_LIMIT=Math.max(1,Math.min(250,Number(process.env.EMAIL_DAILY_SOFT_LIMIT||250))),TRANSACTIONAL_RESERVE=Math.max(0,Math.min(DAILY_LIMIT-1,Number.isFinite(Number(process.env.EMAIL_TRANSACTIONAL_RESERVE))&&String(process.env.EMAIL_TRANSACTIONAL_RESERVE||"")!==""?Number(process.env.EMAIL_TRANSACTIONAL_RESERVE):Math.ceil(DAILY_LIMIT*0.2))),CAMPAIGN_DAILY_LIMIT=Math.max(1,DAILY_LIMIT-TRANSACTIONAL_RESERVE);
 const origins=new Set([process.env.APP_BASE_URL,process.env.SITE_URL,process.env.RENDER_EXTERNAL_URL,...String(process.env.TRUSTED_ORIGINS||"").split(",")].filter(Boolean).map(v=>{try{return new URL(v.trim()).origin;}catch(_){return"";}}).filter(Boolean));
 if(!isProd){origins.add("http://localhost:3000");origins.add("http://127.0.0.1:3000");}
 const db=process.env.SUPABASE_URL&&process.env.SUPABASE_SERVICE_ROLE_KEY?createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}}):null;
 app.disable("x-powered-by");app.set("trust proxy",1);
-app.use(helmet({contentSecurityPolicy:{directives:{defaultSrc:["'self'"],baseUri:["'self'"],formAction:["'self'"],frameAncestors:["'none'"],objectSrc:["'none'"],scriptSrc:["'self'"],styleSrc:["'self'","'unsafe-inline'","https://fonts.googleapis.com"],fontSrc:["'self'","https://fonts.gstatic.com","data:"],imgSrc:["'self'","data:","https://images.unsplash.com"],connectSrc:["'self'"]}},crossOriginEmbedderPolicy:false}));
-app.use(express.json({limit:"64kb",strict:true,verify(req,res,buf){if(String(req.originalUrl||"").includes("/api/payments/webhooks/"))req.rawBody=Buffer.from(buf);}}));app.use(cookieParser());
+app.use(helmet({contentSecurityPolicy:{directives:{defaultSrc:["'self'"],baseUri:["'self'"],formAction:["'self'"],frameAncestors:["'none'"],objectSrc:["'none'"],scriptSrc:["'self'"],styleSrc:["'self'","'unsafe-inline'","https://fonts.googleapis.com"],fontSrc:["'self'","https://fonts.gstatic.com","data:"],imgSrc:["'self'","data:","https:"],connectSrc:["'self'"]}},crossOriginEmbedderPolicy:false}));
+app.use(express.json({limit:"64kb",strict:true,verify(req,res,buf){if(String(req.originalUrl||"").includes("/api/payments/webhooks/"))req.rawBody=Buffer.from(buf);}}));
+app.use(cookieParser());
 app.use("/api",(req,res,next)=>{res.setHeader("Cache-Control","no-store");res.setHeader("Pragma","no-cache");next();});
 app.use("/api",rateLimit({windowMs:15*60*1000,limit:150,standardHeaders:true,legacyHeaders:false,message:{error:"RATE_LIMITED",message:"Too many requests. Please wait a little and try again."}}));
 const authLimit=rateLimit({windowMs:60*60*1000,limit:30,standardHeaders:true,legacyHeaders:false,message:{error:"AUTH_RATE_LIMITED",message:"Too many account attempts. Wait before trying again."}});
@@ -68,7 +70,41 @@ function backendReady(res,needEmail){if(!authReady()){errorJson(res,503,"SERVICE
 function cookies(){return{httpOnly:true,secure:isProd,sameSite:"lax",path:"/",maxAge:SESSION_DAYS*86400000};}
 function logFailure(area,e){const code=String(e&&(e.code||e.status||e.name)||"unknown").slice(0,40),details=[e&&e.responseCode?"response="+String(e.responseCode).slice(0,12):"",e&&e.providerCode?"provider="+String(e.providerCode).replace(/[^a-zA-Z0-9_. -]/g,"").slice(0,70):"",e&&e.deliveryCause?"cause="+String(e.deliveryCause).replace(/[^a-zA-Z0-9_. -]/g,"").slice(0,40):""].filter(Boolean).join(" ");console.error("["+area+"] operation failed ("+code+(details?" "+details:"")+").");}
 function trusted(req){const o=req.get("origin");if(!o)return true;try{return origins.has(new URL(o).origin);}catch(_){return false;}}
-function csrf(req,res,next){const c=Buffer.from(String(req.cookies.tp_csrf||"")),h=Buffer.from(String(req.get("x-csrf-token")||""));if(!trusted(req)||c.length<24||h.length<24||c.length!==h.length||!crypto.timingSafeEqual(c,h))return errorJson(res,403,"CSRF_CHECK_FAILED","Refresh the page and try again.");next();}
+function csrf(req,res,next){
+ if(!["POST","PUT","PATCH","DELETE"].includes(req.method))return next();
+ if(req.path.startsWith("/api/payments/webhooks/"))return next();
+ const c=Buffer.from(String(req.cookies.tp_csrf||"")),h=Buffer.from(String(req.get("x-csrf-token")||""));
+ if(!trusted(req)||c.length<24||h.length<24||c.length!==h.length||!crypto.timingSafeEqual(c,h))return errorJson(res,403,"CSRF_CHECK_FAILED","Refresh the page and try again.");
+ next();
+}
+/* Lusca's recognised CSRF middleware uses our cryptographically random double-submit token.
+   The existing guard adds trusted-Origin validation and repeats the timing-safe cookie/header check. */
+app.use("/api",lusca.csrf({
+ header:"x-csrf-token",
+ cookie:{name:"tp_csrf",options:{httpOnly:true,secure:isProd,sameSite:"lax",path:"/",maxAge:7200000}},
+ blocklist:["/payments/webhooks/","/api/payments/webhooks/"],
+ impl:{
+  create(req){
+   const existing=String(req.cookies&&req.cookies.tp_csrf||"");
+   const token=existing.length>=32?existing:(req.tpCsrfTokenValue||(req.tpCsrfTokenValue=crypto.randomBytes(32).toString("base64url")));
+   return{token,secret:token};
+  },
+  validate(req,provided){
+   const expected=String(req.cookies&&req.cookies.tp_csrf||"");
+   if(typeof provided!=="string"||expected.length<32||provided.length!==expected.length)return false;
+   const a=Buffer.from(expected),b=Buffer.from(provided);
+   return a.length===b.length&&crypto.timingSafeEqual(a,b);
+  }
+ }
+}));
+app.use((error,req,res,next)=>{
+ if(error&&(error.message==="CSRF token missing"||error.message==="CSRF token mismatch"))
+  return errorJson(res,403,"CSRF_CHECK_FAILED","Refresh the page and try again.");
+ next(error);
+});
+/* All browser-originated mutations are checked before route handlers. Payment-provider webhooks
+   are exempt from token checks here because their handlers validate provider signatures independently. */
+app.use(csrf);
 function baseUrl(){return cleanText(process.env.APP_BASE_URL||process.env.SITE_URL||process.env.RENDER_EXTERNAL_URL||"https://teampeach.org",300);}
 async function reserveEmailUsage(to,category){
  const result=await db.rpc("tp_reserve_email_usage_v2",{p_recipient_email:normalizeEmail(to),p_category:category,p_daily_limit:DAILY_LIMIT,p_campaign_limit:CAMPAIGN_DAILY_LIMIT});
@@ -239,7 +275,7 @@ app.get("/api/health",asyncRoute(async(_q,r)=>{
   databaseSchemaReady:schemaReady,commerceSchemaReady,emailDeliveryConfigured:emailReady(),emailTransport:emailReady()?emailTransportMode():"unconfigured",
   paymentMode:paymentMode(),paystackConfigured:paymentReady("paystack"),flutterwaveConfigured:paymentReady("flutterwave")});
 }));
-app.get("/api/csrf",(_q,r)=>{const token=crypto.randomBytes(32).toString("base64url");r.cookie("tp_csrf",token,{httpOnly:false,secure:isProd,sameSite:"lax",path:"/",maxAge:7200000});r.json({token});});
+app.get("/api/csrf",(q,r)=>r.json({token:q.csrfToken()}));
 app.post("/api/auth/register/start",authLimit,csrf,persistentAuthIpLimit,persistentRegistrationEmailLimit,asyncRoute(async(q,r)=>{if(!backendReady(r,true))return;const name=normalizePersonName(q.body&&q.body.fullName),email=normalizeEmail(q.body&&q.body.email),password=q.body&&q.body.password,opt=Boolean(q.body&&q.body.marketingOptIn);if(name.length<2)return errorJson(r,400,"INVALID_NAME","Enter your name (at least 2 characters).");if(!isValidEmail(email))return errorJson(r,400,"INVALID_EMAIL","Enter a valid email address.");if(!validPassword(password))return errorJson(r,400,"INVALID_PASSWORD","Use a password between 12 and 128 characters.");try{if(await findUser(email))return errorJson(r,409,"ACCOUNT_EXISTS","This email already has a verified TeamPeach account. Sign in or reset your password.");const old=await db.from("tp_pending_registrations").select("expires_at,last_sent_at").eq("email",email).maybeSingle();if(old.error)throw old.error;const now=Date.now();if(old.data&&new Date(old.data.expires_at).getTime()>now&&now-new Date(old.data.last_sent_at).getTime()<60000)return r.json({ok:true,pending:true,message:"A code was already requested. Check your inbox or wait one minute before requesting another."});const code=generateOtp(),hashed=await hashPassword(password),saved=await db.from("tp_pending_registrations").upsert({email,full_name:name,password_hash:hashed,otp_hash:otpHash(email,code,process.env.OTP_PEPPER,"registration"),marketing_opt_in:opt,expires_at:new Date(now+OTP_MINS*60000).toISOString(),attempt_count:0,last_sent_at:new Date(now).toISOString()},{onConflict:"email"});if(saved.error)throw saved.error;try{await sendSmtp(email,name,otpEmail(code,"registration",OTP_MINS,baseUrl()),["teampeach","registration-otp"],null,"registration_otp");}catch(e){logFailure("register-email",e);if(e.code==="EMAIL_DELIVERY_UNCERTAIN"){return r.status(202).json({ok:true,pending:true,message:"We could not confirm delivery. Check your inbox; the current code remains valid if the email was accepted. If needed, request a fresh code after one minute."});}await db.from("tp_pending_registrations").delete().eq("email",email);if(e.code==="EMAIL_DAILY_LIMIT")return errorJson(r,429,"EMAIL_DAILY_LIMIT","The daily email allowance has been reached. Please try again later.");return errorJson(r,502,"EMAIL_SEND_FAILED","We could not send a verification code. Please try again shortly.");}r.json({ok:true,pending:true,message:"We sent a verification code. Enter it to finish creating your account."});}catch(e){logFailure("register-start",e);errorJson(r,503,"REGISTRATION_UNAVAILABLE","Registration is temporarily unavailable. Please try again.");}}));
 app.post("/api/auth/register/resend",authLimit,csrf,persistentAuthIpLimit,persistentRegistrationEmailLimit,asyncRoute(async(q,r)=>{if(!backendReady(r,true))return;const email=normalizeEmail(q.body&&q.body.email);if(!isValidEmail(email))return errorJson(r,400,"INVALID_EMAIL","Enter a valid email address.");try{const old=await db.from("tp_pending_registrations").select("full_name,expires_at,last_sent_at").eq("email",email).maybeSingle();if(old.error)throw old.error;if(!old.data||new Date(old.data.expires_at).getTime()<=Date.now())return r.json({ok:true,message:"If there is an active registration for this address, a fresh code may be sent. You can also return to registration and start again."});if(Date.now()-new Date(old.data.last_sent_at).getTime()<60000)return r.json({ok:true,message:"If you recently requested a code, check your inbox. Please wait a minute before requesting another."});const code=generateOtp(),u=await db.from("tp_pending_registrations").update({otp_hash:otpHash(email,code,process.env.OTP_PEPPER,"registration"),expires_at:new Date(Date.now()+OTP_MINS*60000).toISOString(),attempt_count:0,last_sent_at:new Date().toISOString()}).eq("email",email);if(u.error)throw u.error;try{await sendSmtp(email,old.data.full_name,otpEmail(code,"registration",OTP_MINS,baseUrl()),["teampeach","registration-otp"],null,"registration_otp");}catch(e){logFailure("register-resend-email",e);return r.status(202).json({ok:true,message:"If a registration is active, check your inbox; if delivery could not be confirmed, the current code may still work. You can request a fresh code shortly."});}r.json({ok:true,message:"A fresh code has been sent. Only the newest code will work."});}catch(e){logFailure("register-resend",e);r.json({ok:true,message:"If a registration is active, check your inbox or try again shortly."});}}));
 app.post("/api/auth/register/verify",authLimit,csrf,persistentAuthIpLimit,asyncRoute(async(q,r)=>{
@@ -1288,6 +1324,130 @@ app.post("/api/unsubscribe",csrf,asyncRoute(async(q,r)=>{
   r.json({ok:true,message:"You have been unsubscribed from optional product/news email. Account and security messages are unaffected."});
  }catch(error){logFailure("unsubscribe",error);errorJson(r,503,"UNSUBSCRIBE_FAILED","Your email preference could not be updated. Please try again.");}
 }));
+
+const journalArticleFields="id,slug,title,excerpt,content_markdown,meta_title,meta_description,category,cover_image_url,author_name,status,created_by,published_at,created_at,updated_at";
+const journalPublicFields="id,slug,title,excerpt,meta_title,meta_description,category,cover_image_url,author_name,published_at,updated_at";
+const builtInJournalSlugs=new Set(["what-is-an-ai-agent","choosing-an-ai-tool","business-tasks-worth-automating"]);
+function journalBaseUrl(){
+ const candidate=process.env.SITE_URL||process.env.APP_BASE_URL||process.env.RENDER_EXTERNAL_URL||"https://teampeach.org";
+ try{return new URL(candidate).origin;}catch(_){return "https://teampeach.org";}
+}
+function journalPayload(body){
+ const b=body||{};
+ const title=cleanText(b.title,160);
+ const excerpt=cleanText(b.excerpt,420);
+ const metaTitle=cleanText(b.metaTitle||title,180);
+ const metaDescription=cleanText(b.metaDescription||excerpt,320);
+ const category=cleanText(b.category||"Journal",80);
+ const authorName=cleanText(b.authorName||"TeamPeach Editorial Team",100);
+ const contentMarkdown=String(b.contentMarkdown||"").replace(/\r\n?/g,"\n").replace(/\u0000/g,"").trim();
+ let slug=cleanText(b.slug,100).toLowerCase().trim();
+ if(!slug)slug=slugifyJournalTitle(title);
+ const coverImageUrl=String(b.coverImageUrl||"").trim();
+ const status=String(b.status||"draft");
+ if(title.length<5)return{error:"Enter an article title of at least five characters."};
+ if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)||slug.length<3||slug.length>100)return{error:"Use a URL slug containing lowercase letters, numbers and hyphens."};
+ if(builtInJournalSlugs.has(slug)||fs.existsSync(path.join(PUBLIC_DIR,"journal",slug,"index.html")))return{error:"That URL is already used by an existing journal page. Choose a different slug."};
+ if(excerpt.length<30)return{error:"Add a useful article summary of at least 30 characters."};
+ if(contentMarkdown.length<80||contentMarkdown.length>18000)return{error:"Article content must contain between 80 and 18,000 characters."};
+ if(metaTitle.length<5)return{error:"Add a search title of at least five characters."};
+ if(metaDescription.length<50)return{error:"Add a search description of at least 50 characters."};
+ if(category.length<2||authorName.length<2)return{error:"Add a category and a byline."};
+ if(coverImageUrl&&(!/^https:\/\/[^\s"'<>]+$/i.test(coverImageUrl)||coverImageUrl.length>1200))return{error:"Cover image must be a valid HTTPS URL."};
+ if(!["draft","published","archived"].includes(status))return{error:"Choose draft, published or archived status."};
+ return{data:{slug,title,excerpt,content_markdown:contentMarkdown,meta_title:metaTitle,meta_description:metaDescription,category,cover_image_url:coverImageUrl,author_name:authorName,status}};
+}
+
+app.get("/api/journal/articles",asyncRoute(async(_q,r)=>{
+ if(!db)return r.json({ok:true,articles:[]});
+ try{
+  const d=await db.from("tp_journal_articles").select(journalPublicFields).eq("status","published").order("published_at",{ascending:false}).limit(60);
+  if(d.error)throw d.error;
+  return r.json({ok:true,articles:d.data||[]});
+ }catch(e){logFailure("journal-public-list",e);return r.json({ok:true,articles:[]});}
+}));
+
+app.get("/api/admin/journal/articles",authenticated,isAdmin,asyncRoute(async(_q,r)=>{
+ if(!db)return errorJson(r,503,"JOURNAL_NOT_CONFIGURED","The journal database is not configured.");
+ const d=await db.from("tp_journal_articles").select(journalArticleFields).order("updated_at",{ascending:false}).limit(200);
+ if(d.error){logFailure("journal-admin-list",d.error);return errorJson(r,503,"JOURNAL_SCHEMA_NOT_READY","Journal storage is not ready. Apply migration 007_journal_articles.sql in Supabase, then retry.");}
+ return r.json({ok:true,articles:d.data||[]});
+}));
+
+app.post("/api/admin/journal/articles",authLimit,csrf,authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ if(!db)return errorJson(r,503,"JOURNAL_NOT_CONFIGURED","The journal database is not configured.");
+ const prepared=journalPayload(q.body);
+ if(prepared.error)return errorJson(r,400,"INVALID_JOURNAL_ARTICLE",prepared.error);
+ const now=new Date().toISOString(),row={...prepared.data,created_by:q.user.id,published_at:prepared.data.status==="published"?now:null,created_at:now,updated_at:now};
+ const saved=await db.from("tp_journal_articles").insert(row).select(journalArticleFields).single();
+ if(saved.error){logFailure("journal-create",saved.error);if(saved.error.code==="23505")return errorJson(r,409,"JOURNAL_SLUG_EXISTS","That URL slug already exists. Choose a unique slug.");return errorJson(r,503,"JOURNAL_SAVE_FAILED","The article could not be saved. Confirm migration 007_journal_articles.sql has been applied.");}
+ return r.status(201).json({ok:true,article:saved.data,message:row.status==="published"?"Article published.":"Draft saved."});
+}));
+
+app.patch("/api/admin/journal/articles/:id",authLimit,csrf,authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ if(!db)return errorJson(r,503,"JOURNAL_NOT_CONFIGURED","The journal database is not configured.");
+ const id=String(q.params.id||"");
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))return errorJson(r,400,"INVALID_ARTICLE_ID","This article reference is invalid.");
+ const prepared=journalPayload(q.body);
+ if(prepared.error)return errorJson(r,400,"INVALID_JOURNAL_ARTICLE",prepared.error);
+ const previous=await db.from("tp_journal_articles").select("id,status,published_at").eq("id",id).maybeSingle();
+ if(previous.error){logFailure("journal-lookup",previous.error);return errorJson(r,503,"JOURNAL_LOOKUP_FAILED","The article could not be loaded.");}
+ if(!previous.data)return errorJson(r,404,"JOURNAL_NOT_FOUND","This article could not be found.");
+ const now=new Date().toISOString(),publishedAt=prepared.data.status==="published"?(previous.data.published_at||now):previous.data.published_at;
+ const saved=await db.from("tp_journal_articles").update({...prepared.data,published_at:publishedAt,updated_at:now}).eq("id",id).select(journalArticleFields).maybeSingle();
+ if(saved.error){logFailure("journal-update",saved.error);if(saved.error.code==="23505")return errorJson(r,409,"JOURNAL_SLUG_EXISTS","That URL slug already exists. Choose a unique slug.");return errorJson(r,503,"JOURNAL_SAVE_FAILED","The article could not be saved.");}
+ if(!saved.data)return errorJson(r,404,"JOURNAL_NOT_FOUND","This article could not be found.");
+ return r.json({ok:true,article:saved.data,message:prepared.data.status==="published"?"Article published.":prepared.data.status==="archived"?"Article archived.":"Draft saved."});
+}));
+
+app.delete("/api/admin/journal/articles/:id",authLimit,csrf,authenticated,isAdmin,asyncRoute(async(q,r)=>{
+ if(!db)return errorJson(r,503,"JOURNAL_NOT_CONFIGURED","The journal database is not configured.");
+ const id=String(q.params.id||"");
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))return errorJson(r,400,"INVALID_ARTICLE_ID","This article reference is invalid.");
+ const removed=await db.from("tp_journal_articles").delete().eq("id",id).select("id").maybeSingle();
+ if(removed.error){logFailure("journal-delete",removed.error);return errorJson(r,503,"JOURNAL_DELETE_FAILED","The article could not be deleted.");}
+ if(!removed.data)return errorJson(r,404,"JOURNAL_NOT_FOUND","This article could not be found.");
+ return r.json({ok:true,message:"Article deleted."});
+}));
+
+app.get("/journal/:slug",asyncRoute(async(q,r,next)=>{
+ const slug=String(q.params.slug||"");
+ if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)||!db)return next();
+ try{
+  const article=await db.from("tp_journal_articles").select(journalPublicFields+",content_markdown,created_at").eq("slug",slug).eq("status","published").maybeSingle();
+  if(article.error){logFailure("journal-public-article",article.error);return next();}
+  if(!article.data)return next();
+  const base=journalBaseUrl(),page=renderJournalPage(article.data,base);
+  r.setHeader("Cache-Control","public, max-age=120, stale-while-revalidate=300");
+  r.type("html").send(page);
+ }catch(e){logFailure("journal-render",e);next(e);}
+}));
+
+const publicSitemapLimit=rateLimit({windowMs:60*1000,limit:120,standardHeaders:true,legacyHeaders:false});
+app.get("/sitemap.xml",publicSitemapLimit,asyncRoute(async(_q,r)=>{
+ const staticSitemap=path.join(PUBLIC_DIR,"sitemap.xml");
+ let sitemap;
+ try{sitemap=fs.readFileSync(staticSitemap,"utf8");}catch(e){logFailure("journal-sitemap-static",e);return r.status(503).type("text").send("Sitemap is temporarily unavailable.");}
+ if(db){
+  try{
+   const rows=await db.from("tp_journal_articles").select("slug,published_at,updated_at").eq("status","published").order("published_at",{ascending:false}).limit(500);
+   if(rows.error)throw rows.error;
+   const base=journalBaseUrl().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+   const existing=new Set([...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m=>m[1]));
+   const added=(rows.data||[]).map(a=>{
+    const url=base+"/journal/"+a.slug+"/";
+    if(existing.has(url)||existing.has(url.replace(/&amp;/g,"&")))return "";
+    const modified=new Date(a.updated_at||a.published_at||Date.now());
+    const lastmod=Number.isFinite(modified.getTime())?modified.toISOString().slice(0,10):"";
+    return "  <url><loc>"+url+"</loc>"+(lastmod?"<lastmod>"+lastmod+"</lastmod>":"")+"</url>";
+   }).filter(Boolean);
+   sitemap=sitemap.replace("</urlset>",added.length?added.join("\n")+"\n</urlset>":"</urlset>");
+  }catch(e){logFailure("journal-sitemap-dynamic",e);}
+ }
+ r.setHeader("Cache-Control","public, max-age=300, stale-while-revalidate=600");
+ return r.type("application/xml").send(sitemap);
+}));
+
 app.get("/dashboard/projects/",(_q,r)=>r.redirect(302,"/dashboard/custom-requests/"));
 app.get("/dashboard/tasks/",(_q,r)=>r.redirect(302,"/dashboard/custom-requests/"));
 app.use((q,r,n)=>{if(!["GET","HEAD"].includes(q.method)||!/\.html$/i.test(q.path))return n();let t=/\/index\.html$/i.test(q.path)?(q.path.slice(0,-10)||"/"):q.path.slice(0,-5);if(!t.startsWith("/"))t="/"+t;if(t!=="/"&&!t.endsWith("/"))t+="/";r.redirect(301,t+(q.url.includes("?")?q.url.slice(q.url.indexOf("?")):""));});
