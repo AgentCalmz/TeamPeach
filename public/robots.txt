@@ -1,5 +1,8 @@
 User-agent: *
 Allow: /
+Allow: /journal/
+Allow: /products/
+Allow: /tools/
 Disallow: /api/
 Disallow: /admin/
 Disallow: /dashboard/
@@ -12,6 +15,9 @@ Disallow: /unsubscribe/
 
 User-agent: Bingbot
 Allow: /
+Allow: /journal/
+Allow: /products/
+Allow: /tools/
 Disallow: /api/
 Disallow: /admin/
 Disallow: /dashboard/
@@ -24,6 +30,9 @@ Disallow: /unsubscribe/
 
 User-agent: OAI-SearchBot
 Allow: /
+Allow: /journal/
+Allow: /products/
+Allow: /tools/
 Disallow: /api/
 Disallow: /admin/
 Disallow: /dashboard/
