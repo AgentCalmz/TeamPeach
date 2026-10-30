@@ -72,6 +72,23 @@ test("journal editor is administrator-only and keeps drafts out of the public AP
  assert.doesNotMatch(client,/textContent=match\[/);
 });
 
+
+test("robots.txt explicitly allows Bingbot to crawl public pages and blocks private routes",()=>{
+ const fs=require("node:fs");
+ const path=require("node:path");
+ const root=path.join(__dirname,"..");
+ const files=["robots.txt",path.join("public","robots.txt")];
+ for(const relative of files){
+  const robots=fs.readFileSync(path.join(root,relative),"utf8");
+  const group=robots.split(/\\n(?=User-agent:)/i).find(section=>/^User-agent:\\s*Bingbot\\s*$/im.test(section));
+  assert.ok(group,"Bingbot-specific group must exist in "+relative);
+  assert.match(group,/^Allow:\\s*\\/$/im);
+  for(const route of ["/api/","/admin/","/dashboard/","/account/","/login/","/register/","/verify-email/","/forgot-password/","/unsubscribe/"]) {
+   assert.ok(group.includes("Disallow: "+route),"Bingbot group must block "+route);
+  }
+ }
+});
+
 test("homepage mobile layout explicitly prevents horizontal page panning",()=>{
  const fs=require("node:fs");
  const path=require("node:path");
