@@ -87,7 +87,7 @@ test("robots and sitemap explicitly expose public journal, tools and product pag
  for(const relative of robotsFiles){
   const robots=fs.readFileSync(path.join(root,relative),"utf8");
   for(const agent of ["*","Bingbot","OAI-SearchBot"]){
-   const group=robots.split(/\n(?=User-agent:)/i).find(section=>new RegExp("^User-agent:\\s*"+agent.replace(/[.*+?^${}()|[\\]\\\\]/g,"\\$&")+"\\s*$","im").test(section));
+   const group=robots.split(/\n(?=User-agent:)/i).find(section=>section.split("\n",1)[0]==="User-agent: "+agent);
    assert.ok(group,"Missing robots group for "+agent+" in "+relative);
    for(const route of ["/journal/","/products/","/tools/"])assert.ok(group.includes("Allow: "+route),agent+" must allow "+route);
    for(const route of ["/api/","/admin/","/dashboard/","/account/","/login/","/register/","/verify-email/","/forgot-password/","/unsubscribe/"])assert.ok(group.includes("Disallow: "+route),agent+" must block "+route);
