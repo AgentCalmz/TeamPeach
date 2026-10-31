@@ -48,14 +48,25 @@
   $("#close-project-dialog")?.addEventListener("click",closeProjectDialog);
   $("#cancel-project-dialog")?.addEventListener("click",closeProjectDialog);
   projectDialog?.addEventListener("click",event=>{if(event.target===projectDialog)closeProjectDialog();});
-  $("#mobile-sidebar-toggle")?.addEventListener("click",()=>{
+  const mobileToggle=$("#mobile-sidebar-toggle");
+  const closeMobileNavigation=()=>{
+    shell?.classList.remove("mobile-nav-open");
+    mobileToggle?.setAttribute("aria-expanded","false");
+    mobileToggle?.setAttribute("aria-label","Open navigation");
+  };
+  mobileToggle?.addEventListener("click",()=>{
     const isOpen=shell.classList.toggle("mobile-nav-open");
-    $("#mobile-sidebar-toggle").setAttribute("aria-expanded",String(isOpen));
-    $("#mobile-sidebar-toggle").setAttribute("aria-label",isOpen?"Close navigation":"Open navigation");
+    mobileToggle.setAttribute("aria-expanded",String(isOpen));
+    mobileToggle.setAttribute("aria-label",isOpen?"Close navigation":"Open navigation");
   });
+  shell?.addEventListener("click",event=>{
+    if(event.target===shell)closeMobileNavigation();
+  });
+  document.addEventListener("keydown",event=>{
+    if(event.key==="Escape")closeMobileNavigation();
+  });
+  document.querySelectorAll(".workspace-nav-link").forEach(link=>link.addEventListener("click",closeMobileNavigation));
   document.querySelectorAll(".workspace-nav-link[href^='#']").forEach(link=>link.addEventListener("click",()=>{
-    shell.classList.remove("mobile-nav-open");
-    $("#mobile-sidebar-toggle")?.setAttribute("aria-expanded","false");
     document.querySelectorAll(".workspace-nav-link[href^='#']").forEach(item=>item.classList.toggle("active",item===link));
   }));
 
