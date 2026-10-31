@@ -790,7 +790,7 @@ async function verifyGatewayPayment(payment,transactionId){
   if(transactionStatus==="pending"||transactionStatus==="processing"||transactionStatus==="created")throw new Error("PAYMENT_PROCESSING");
   if(!data||transactionStatus!=="successful"||String(data.tx_ref||"")!==payment.reference)throw new Error("PAYMENT_NOT_SUCCESSFUL");
   const paidAmount=Number(data.amount);
-  if(!Number.isFinite(paidAmount)||currencyMajor(payment.amount_minor)>paidAmount+0.01||String(data.currency||"").toUpperCase()!==payment.currency)throw new Error("PAYMENT_AMOUNT_MISMATCH");
+  if(!Number.isFinite(paidAmount)||currencyMajor(payment.amount_minor)>paidAmount+0.01||String(data.currency||"").toUpperCase()!==String(payment.currency||"").toUpperCase())throw new Error("PAYMENT_AMOUNT_MISMATCH");
  }
  // The locally generated transaction reference is unique and the payment row is already
  // scoped to the authenticated user. Flutterwave may normalize or substitute test-mode
@@ -1044,7 +1044,7 @@ app.post("/api/commerce/verify-payment",csrf,authLimit,authenticated,asyncRoute(
  }catch(e){
   logFailure("payment-verify",{code:e.code||e.message||e.name,responseCode:e.responseCode,providerCode:e.providerCode});
   if(e.message==="PAYMENT_PROCESSING")return errorJson(r,409,"PAYMENT_PROCESSING","Flutterwave has not finished publishing the final transaction status yet. Your payment is not being charged again. Refresh this page shortly to retry verification.");
-  if(["PAYMENT_NOT_SUCCESSFUL","PAYMENT_AMOUNT_MISMATCH","PAYMENT_CUSTOMER_MISMATCH","FLUTTERWAVE_TRANSACTION_ID_REQUIRED"].includes(e.message))
+  if(["PAYMENT_NOT_SUCCESSFUL","PAYMENT_AMOUNT_MISMATCH"].includes(e.message))
    return errorJson(r,400,e.message,"Flutterwave could not confirm a matching successful payment. Your account has not been credited. Contact support with the payment reference before attempting another payment.");
   if(e.message==="PAYMENT_GATEWAY_NOT_CONFIGURED")return errorJson(r,503,e.message,"Payment verification is not configured in the server environment.");
   errorJson(r,503,"PAYMENT_VERIFICATION_UNAVAILABLE","We could not verify this payment right now. Refresh and try again; no credits or licence will be granted until verification succeeds.");
