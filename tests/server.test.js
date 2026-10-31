@@ -311,13 +311,13 @@ test("commerce schema, checkout verification, credit expiry, and dashboard UI ar
  assert.ok(dashboard.includes('href="/dashboard/billing/"'));
  assert.ok(billingPage.includes('id="billing"'));
  assert.ok(billingPage.includes('id="commerce-runs"'));
- assert.ok(billingPage.includes("commerce.js?v=3"));
+ assert.ok(billingPage.includes("commerce.js?v=4"));
  assert.ok(supportPage.includes('id="support-chat"'));
  assert.ok(supportPage.includes("support-chat.js?v=2"));
  assert.ok(admin.includes('href="/admin/support/"'));
  assert.ok(admin.includes('href="/admin/products/"'));
  assert.ok(adminSupport.includes('id="support-admin-list"'));
- assert.ok(adminProducts.includes("admin-commerce.js?v=3"));
+ assert.ok(adminProducts.includes("admin-commerce.js?v=4"));
  assert.ok(catalog.includes('id="catalog-products"'));
  assert.ok(client.includes('api("/api/commerce/checkout","POST"'));
  assert.ok(adminClient.includes('api("/api/admin/commerce/plans","POST"'));
@@ -339,9 +339,9 @@ test("commerce schema, checkout verification, credit expiry, and dashboard UI ar
  assert.ok(usdMigration.includes("v_ngn_per_usd numeric := 1341.62"));
  assert.ok(usdMigration.includes("currency in"));
  assert.ok(usdMigration.includes("tp_subscriptions"));
- assert.ok(billingPage.includes("commerce.js?v=3"));
+ assert.ok(billingPage.includes("commerce.js?v=4"));
  assert.ok(catalog.includes("catalog.js?v=2"));
- assert.ok(adminProducts.includes("admin-commerce.js?v=3"));
+ assert.ok(adminProducts.includes("admin-commerce.js?v=4"));
  const dashboardClient=fs.readFileSync(path.join(root,"public","js","dashboard.js"),"utf8");
  const adminShell=fs.readFileSync(path.join(root,"public","js","admin-shell.js"),"utf8");
  const supportClient=fs.readFileSync(path.join(root,"public","js","support-chat.js"),"utf8");
