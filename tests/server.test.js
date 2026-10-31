@@ -301,6 +301,10 @@ test("commerce schema, checkout verification, credit expiry, and dashboard UI ar
  assert.ok(server.includes("x-paystack-signature"));
  assert.ok(server.includes("flutterwave-signature"));
  assert.ok(server.includes("PAYMENT_MODE"));
+ assert.ok(server.includes("verify_by_reference"));
+ assert.ok(server.includes("PAYMENT_PROCESSING"));
+ assert.ok(client.includes("Your payment reference has been kept"));
+ assert.ok(!client.includes("window.confirm"));
  assert.ok(sql.includes("create table if not exists public.tp_credit_ledger"));
  assert.ok(sql.includes("create table if not exists public.tp_credit_buckets"));
  assert.ok(sql.includes("create table if not exists public.tp_credit_consumptions"));
@@ -311,7 +315,7 @@ test("commerce schema, checkout verification, credit expiry, and dashboard UI ar
  assert.ok(dashboard.includes('href="/dashboard/billing/"'));
  assert.ok(billingPage.includes('id="billing"'));
  assert.ok(billingPage.includes('id="commerce-runs"'));
- assert.ok(billingPage.includes("commerce.js?v=4"));
+ assert.ok(billingPage.includes("commerce.js?v=5"));
  assert.ok(supportPage.includes('id="support-chat"'));
  assert.ok(supportPage.includes("support-chat.js?v=2"));
  assert.ok(admin.includes('href="/admin/support/"'));
@@ -339,7 +343,7 @@ test("commerce schema, checkout verification, credit expiry, and dashboard UI ar
  assert.ok(usdMigration.includes("v_ngn_per_usd numeric := 1341.62"));
  assert.ok(usdMigration.includes("currency in"));
  assert.ok(usdMigration.includes("tp_subscriptions"));
- assert.ok(billingPage.includes("commerce.js?v=4"));
+ assert.ok(billingPage.includes("commerce.js?v=5"));
  assert.ok(catalog.includes("catalog.js?v=2"));
  assert.ok(adminProducts.includes("admin-commerce.js?v=3"));
  const dashboardClient=fs.readFileSync(path.join(root,"public","js","dashboard.js"),"utf8");

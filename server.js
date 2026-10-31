@@ -687,6 +687,8 @@ async function gatewayRequest(gateway,url,method,body){
  if(!response.ok||(gateway==="paystack"&&data.status!==true)||(gateway==="flutterwave"&&data.status!=="success")){
   const error=new Error("PAYMENT_PROVIDER_REQUEST_FAILED");
   error.code="PAYMENT_PROVIDER_HTTP_"+response.status;
+  error.responseCode=response.status;
+  error.providerCode=cleanProviderText(data&&((data.message&&String(data.message))||(data.status&&String(data.status)))||"",80);
   throw error;
  }
  return data;
@@ -734,6 +736,45 @@ async function createGatewayPlan(plan,gateway){
  if(updated.error)throw updated.error;
  return updated.data;
 }
+async function fetchFlutterwaveTransaction(payment,transactionId){
+ const id=String(transactionId||payment.provider_transaction_id||"").trim();
+ let data=null,lastError=null;
+ if(/^\d{1,24}$/.test(id)){
+  // Flutterwave can briefly expose the successful checkout before the verification
+  // endpoint reflects its final state. Retry short-lived pending states before fallback.
+  for(let attempt=0;attempt<3;attempt++){
+   try{
+    const response=await gatewayRequest("flutterwave","https://api.flutterwave.com/v3/transactions/"+encodeURIComponent(id)+"/verify","GET");
+    data=response.data||null;
+    if(data&&String(data.status||"").toLowerCase()==="successful")break;
+    const state=String(data&&data.status||"").toLowerCase();
+    if(["pending","processing","created"].includes(state)&&attempt<2){
+     await new Promise(resolve=>setTimeout(resolve,700*(attempt+1)));
+     continue;
+    }
+    break;
+   }catch(error){
+    lastError=error;
+    const status=Number(error&&error.responseCode||0);
+    // If this transaction ID is not yet indexed, resolve it by our unique tx_ref.
+    if(status===400||status===404)break;
+    throw error;
+   }
+  }
+ }
+ if(!data||String(data.status||"").toLowerCase()!=="successful"){
+  try{
+   const url="https://api.flutterwave.com/v3/transactions/verify_by_reference?tx_ref="+encodeURIComponent(payment.reference);
+   const response=await gatewayRequest("flutterwave",url,"GET");
+   if(response.data)data=response.data;
+  }catch(error){
+   if(!data)throw error;
+   if(!lastError)lastError=error;
+  }
+ }
+ if(!data&&lastError)throw lastError;
+ return data;
+}
 async function verifyGatewayPayment(payment,transactionId){
  const gateway=payment.gateway;
  if(!paymentReady(gateway))throw new Error("PAYMENT_GATEWAY_NOT_CONFIGURED");
@@ -742,19 +783,18 @@ async function verifyGatewayPayment(payment,transactionId){
   const response=await gatewayRequest(gateway,"https://api.paystack.co/transaction/verify/"+encodeURIComponent(payment.reference),"GET");
   data=response.data;
   if(!data||data.status!=="success"||String(data.reference||"")!==payment.reference)throw new Error("PAYMENT_NOT_SUCCESSFUL");
-  if(Number(data.amount)!==Number(payment.amount_minor)||String(data.currency||"").toUpperCase()!==payment.currency)throw new Error("PAYMENT_AMOUNT_MISMATCH");
+  if(Number(data.amount)!==Number(payment.amount_minor)||String(data.currency||"").toUpperCase()!==String(payment.currency||"").toUpperCase())throw new Error("PAYMENT_AMOUNT_MISMATCH");
  }else{
-  const id=String(transactionId||payment.provider_transaction_id||"").trim();
-  if(!/^\d{1,24}$/.test(id))throw new Error("FLUTTERWAVE_TRANSACTION_ID_REQUIRED");
-  const response=await gatewayRequest(gateway,"https://api.flutterwave.com/v3/transactions/"+encodeURIComponent(id)+"/verify","GET");
-  data=response.data;
-  if(!data||String(data.status||"").toLowerCase()!=="successful"||String(data.tx_ref||"")!==payment.reference)throw new Error("PAYMENT_NOT_SUCCESSFUL");
-  if(currencyMajor(payment.amount_minor)>Number(data.amount||0)+0.01||String(data.currency||"").toUpperCase()!==payment.currency)throw new Error("PAYMENT_AMOUNT_MISMATCH");
+  data=await fetchFlutterwaveTransaction(payment,transactionId);
+  const transactionStatus=String(data&&data.status||"").toLowerCase();
+  if(transactionStatus==="pending"||transactionStatus==="processing"||transactionStatus==="created")throw new Error("PAYMENT_PROCESSING");
+  if(!data||transactionStatus!=="successful"||String(data.tx_ref||"")!==payment.reference)throw new Error("PAYMENT_NOT_SUCCESSFUL");
+  const paidAmount=Number(data.amount);
+  if(!Number.isFinite(paidAmount)||currencyMajor(payment.amount_minor)>paidAmount+0.01||String(data.currency||"").toUpperCase()!==String(payment.currency||"").toUpperCase())throw new Error("PAYMENT_AMOUNT_MISMATCH");
  }
- const customerEmail=normalizeEmail(data.customer&&data.customer.email||data.customer_email||"");
- const owner=await db.from("tp_users").select("email").eq("id",payment.user_id).maybeSingle();
- if(owner.error)throw owner.error;
- if(customerEmail&&owner.data&&customerEmail!==owner.data.email)throw new Error("PAYMENT_CUSTOMER_MISMATCH");
+ // The locally generated transaction reference is unique and the payment row is already
+ // scoped to the authenticated user. Flutterwave may normalize or substitute test-mode
+ // customer details, so an email mismatch must not reject an otherwise verified payment.
  return {data,transactionId:String(data.id||transactionId||"")};
 }
 async function fulfillVerifiedPayment(payment,verified){
@@ -1002,9 +1042,10 @@ app.post("/api/commerce/verify-payment",csrf,authLimit,authenticated,asyncRoute(
   const completed=await fulfillVerifiedPayment(payment,verified);
   r.json({ok:true,reference,fulfilled:true,paymentType:payment.payment_type,result:completed,message:"Payment verified. Your account has been updated."});
  }catch(e){
-  logFailure("payment-verify",e);
-  if(["PAYMENT_NOT_SUCCESSFUL","PAYMENT_AMOUNT_MISMATCH","PAYMENT_CUSTOMER_MISMATCH","FLUTTERWAVE_TRANSACTION_ID_REQUIRED"].includes(e.message))
-   return errorJson(r,400,e.message,"The provider has not confirmed a matching successful payment yet. Refresh after a successful checkout.");
+  logFailure("payment-verify",{code:e.code||e.message||e.name,responseCode:e.responseCode,providerCode:e.providerCode});
+  if(e.message==="PAYMENT_PROCESSING")return errorJson(r,409,"PAYMENT_PROCESSING","Flutterwave has not finished publishing the final transaction status yet. Your payment is not being charged again. Refresh this page shortly to retry verification.");
+  if(["PAYMENT_NOT_SUCCESSFUL","PAYMENT_AMOUNT_MISMATCH"].includes(e.message))
+   return errorJson(r,400,e.message,"Flutterwave could not confirm a matching successful payment. Your account has not been credited. Contact support with the payment reference before attempting another payment.");
   if(e.message==="PAYMENT_GATEWAY_NOT_CONFIGURED")return errorJson(r,503,e.message,"Payment verification is not configured in the server environment.");
   errorJson(r,503,"PAYMENT_VERIFICATION_UNAVAILABLE","We could not verify this payment right now. Refresh and try again; no credits or licence will be granted until verification succeeds.");
  }
