@@ -39,7 +39,8 @@ test("cancelled hosted checkout returns to billing and produces an accessible to
  assert.match(commerce,/function notifyPayment\(message,state\)/);
  assert.match(commerce,/Payment was cancelled or not completed/);
  assert.match(commerce,/params\.get\("status"\)/);
- assert.match(commerce,/finally\{\s*cleanReturnUrl\(\)/);
+ assert.match(commerce,/Your payment reference has been kept/);
+ assert.match(commerce,/if\(!retryable\)cleanReturnUrl\(\)/);
  assert.match(billing,/id="workspace-toast"[^>]*role="status"/);
  assert.doesNotThrow(()=>new Function(commerce));
 });
