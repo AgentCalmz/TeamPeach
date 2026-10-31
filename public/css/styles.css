@@ -101,10 +101,10 @@ body{max-width:100%;overflow-x:clip}
 
 
 /* Hard stop for mobile horizontal page panning. Earlier clipping alone can still leave transformed artwork contributing to scroll width on some browsers. */
-html,body{width:100%;max-width:100%;overflow-x:hidden!important}
+html,body{width:100%;max-width:100%;overflow-x:clip!important}
 body{position:relative}
 @media(max-width:760px){
- html,body{width:100%;max-width:100vw;overflow-x:hidden!important;overscroll-behavior-x:none}
+ html,body{width:100%;max-width:100vw;overflow-x:clip!important;overscroll-behavior-x:none}
  #main,.site-header,.site-footer,.announcement,.discipline-strip,.page-wrap,.nav-wrap,.hero,.hero-copy,.hero-visual,.tools-section,.dark-section,.custom-section,.insights-section,.share-section,.footer-main,.footer-bottom{min-width:0;max-width:100%}
  .site-header,.announcement,.discipline-strip,.hero,.tools-section,.dark-section,.custom-section,.insights-section,.share-section,.site-footer{overflow-x:clip}
  .nav-wrap{width:calc(100% - 36px)}

@@ -2,13 +2,21 @@
 (function(){
  const $=s=>document.querySelector(s), shell=$("#admin-app"), fallback=$("#admin-access-fallback");
  const path=location.pathname+location.search;
- $("#mobile-sidebar-toggle")?.addEventListener("click",()=>{
-  const wrap=$(".workspace-shell"),button=$("#mobile-sidebar-toggle");
+ const wrap=$(".workspace-shell"),button=$("#mobile-sidebar-toggle");
+ const closeMenu=()=>{
+  wrap?.classList.remove("mobile-nav-open");
+  button?.setAttribute("aria-expanded","false");
+  button?.setAttribute("aria-label","Open navigation");
+ };
+ button?.addEventListener("click",()=>{
+  if(!wrap)return;
   const open=wrap.classList.toggle("mobile-nav-open");
   button.setAttribute("aria-expanded",String(open));
   button.setAttribute("aria-label",open?"Close navigation":"Open navigation");
  });
- document.querySelectorAll(".workspace-nav-link").forEach(link=>link.addEventListener("click",()=>$(".workspace-shell")?.classList.remove("mobile-nav-open")));
+ wrap?.addEventListener("click",event=>{if(event.target===wrap)closeMenu();});
+ document.addEventListener("keydown",event=>{if(event.key==="Escape")closeMenu();});
+ document.querySelectorAll(".workspace-nav-link").forEach(link=>link.addEventListener("click",closeMenu));
  $("#admin-logout")?.addEventListener("click",async()=>{
   const button=$("#admin-logout");button.disabled=true;
   try{const r=await fetch("/api/csrf",{credentials:"same-origin",cache:"no-store"}),d=await r.json().catch(()=>({}));if(!r.ok||!d.token)throw new Error("Could not prepare secure sign-out.");

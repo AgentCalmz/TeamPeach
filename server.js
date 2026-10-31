@@ -962,14 +962,14 @@ app.post("/api/commerce/checkout",csrf,authLimit,authenticated,asyncRoute(async(
   try{
    const base=baseUrl().replace(/\/+$/,"");
    if(gateway==="paystack"){
-    const payload={email:q.user.email,amount:amountMinor,currency,reference,callback_url:base+"/dashboard/?gateway=paystack",metadata:{
+    const payload={email:q.user.email,amount:amountMinor,currency,reference,callback_url:base+"/dashboard/billing/?gateway=paystack",metadata:{
      payment_id:inserted.data.id,payment_type:type,teampeach_reference:reference
     }};
     if(type==="membership")payload.plan=planRow.paystack_plan_code;
     const response=await gatewayRequest(gateway,"https://api.paystack.co/transaction/initialize","POST",payload);
     checkoutUrl=String(response.data&&response.data.authorization_url||"");
    }else{
-    const payload={tx_ref:reference,amount:currencyMajor(amountMinor),currency,redirect_url:base+"/dashboard/?gateway=flutterwave",
+    const payload={tx_ref:reference,amount:currencyMajor(amountMinor),currency,redirect_url:base+"/dashboard/billing/?gateway=flutterwave",
      customer:{email:q.user.email,name:q.user.full_name},
      customizations:{title:"TeamPeach",description:type==="membership"?"Monthly membership":type==="credit_topup"?"Usage credits":"Tool licence"},
      meta:{payment_id:inserted.data.id,payment_type:type,teampeach_reference:reference}};

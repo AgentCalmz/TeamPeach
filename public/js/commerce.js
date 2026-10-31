@@ -10,6 +10,16 @@
  const nowDate=v=>{if(!v)return"—";const d=new Date(v);return Number.isNaN(d.getTime())?"—":d.toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});};
  const empty=m=>'<div class="commerce-empty">'+esc(m)+'</div>';
  function say(m,state){const n=$("#commerce-feedback");if(n){n.textContent=m||"";n.dataset.state=state||"";}}
+ let paymentToastTimer=null;
+ function notifyPayment(message,state){
+  const node=$("#workspace-toast");
+  if(!node){say(message,state);return;}
+  node.textContent=message||"";
+  node.dataset.state=state||"";
+  node.classList.add("visible");
+  clearTimeout(paymentToastTimer);
+  paymentToastTimer=setTimeout(()=>node.classList.remove("visible"),4200);
+ }
  async function token(){if(csrf)return csrf;const r=await fetch("/api/csrf",{credentials:"same-origin",cache:"no-store"}),d=await r.json().catch(()=>({}));if(!r.ok||!d.token)throw new Error("Secure request setup failed. Refresh and retry.");csrf=d.token;return csrf;}
  async function api(url,method="GET",body){const options={method,credentials:"same-origin",cache:"no-store",headers:{}};if(["POST","PATCH","DELETE"].includes(method))options.headers["X-CSRF-Token"]=await token();if(body!==undefined){options.headers["Content-Type"]="application/json";options.body=JSON.stringify(body);}const r=await fetch(url,options),d=await r.json().catch(()=>({}));if(r.status===401||d.error==="NOT_AUTHENTICATED"){location.href="/login/?next=%2Fdashboard%2F%23billing";throw new Error("Please sign in again.");}if(!r.ok){const e=new Error(d.message||"Request failed.");e.code=d.error||"REQUEST_FAILED";throw e;}return d;}
  async function checkout(type,slug,gateway,button){if(button)button.disabled=true;say("Preparing secure "+gateway+" checkout…","");try{const body={type,gateway};if(type==="membership")body.planSlug=slug;if(type==="credit_topup")body.packSlug=slug;if(type==="tool_license")body.productSlug=slug;const out=await api("/api/commerce/checkout","POST",body);if(!/^https:\/\//i.test(out.checkoutUrl))throw new Error("Invalid checkout address returned by provider.");location.assign(out.checkoutUrl);}catch(e){say(e.message,"error");if(button)button.disabled=false;}}
@@ -24,7 +34,38 @@
  function renderPayments(d){const n=$("#commerce-payments");if(!n)return;n.replaceChildren();if(!d.payments||!d.payments.length){n.innerHTML=empty("Payment receipts and checkout history will appear here.");return;}d.payments.forEach(x=>{const row=document.createElement("div");row.className="commerce-row";const main=document.createElement("div");main.className="commerce-row-main";const title=document.createElement("strong");title.textContent=x.payment_type.replaceAll("_"," ")+" · "+x.gateway;const meta=document.createElement("small");meta.textContent=x.reference+" · "+nowDate(x.created_at);main.append(title,meta);const side=document.createElement("div");const amount=document.createElement("strong");amount.className="commerce-amount";amount.textContent=money(x.amount_minor,x.currency);const status=document.createElement("small");status.className="commerce-status-pill "+(x.status==="paid"?"good":x.status==="failed"?"bad":"warning");status.textContent=x.status;side.append(amount,document.createElement("br"),status);row.append(main,side);n.append(row);});}
  function renderLicenses(d){const n=$("#commerce-licenses");if(!n)return;n.replaceChildren();if(!d.licenses||!d.licenses.length){n.innerHTML=empty("Purchased licences and deployment details will appear here.");return;}d.licenses.forEach(l=>{const c=cardBase(l.product&&l.product.name||"Tool licence",l.delivery_notes||"Your licence is recorded. Staff may need to prepare the source package and hosting.");const status=document.createElement("span");status.className="commerce-status-pill "+(l.status==="active"?"good":"bad");status.textContent=l.status+" · "+String(l.delivery_status).replaceAll("_"," ");const key=document.createElement("code");key.className="commerce-license-key";key.textContent=l.license_key||"";c.append(status,key);if(l.source_code_url){const a=document.createElement("a");a.className="commerce-btn";a.href=l.source_code_url;a.target="_blank";a.rel="noopener noreferrer";a.textContent="Open source delivery ↗";c.append(a);}const deployment=(d.deployments||[]).find(x=>x.license_id===l.id);const form=document.createElement("form");form.className="commerce-settings-form";const addField=(label,name,value,placeholder)=>{const wrap=document.createElement("label");wrap.textContent=label;const input=document.createElement("input");input.name=name;input.value=value||"";input.placeholder=placeholder||"";input.maxLength=name==="deploymentUrl"?1000:300;wrap.append(input);return wrap;};const host=addField("Hosting provider","hostingProvider",deployment&&deployment.hosting_provider,"Your Render account");const url=addField("Deployment URL","deploymentUrl",deployment&&deployment.deployment_url,"https://…");const notesWrap=document.createElement("label");notesWrap.className="full";notesWrap.textContent="Deployment notes";const notes=document.createElement("textarea");notes.name="notes";notes.rows=2;notes.maxLength=3000;notes.value=deployment&&deployment.notes||"";notesWrap.append(notes);const actions=document.createElement("div");actions.className="full";const save=document.createElement("button");save.className="commerce-btn primary";save.type="submit";save.textContent="Save deployment details";actions.append(save);form.append(host,url,notesWrap,actions);form.addEventListener("submit",async e=>{e.preventDefault();save.disabled=true;try{await api("/api/commerce/licenses/"+encodeURIComponent(l.id)+"/deployments","POST",{hostingProvider:host.querySelector("input").value.trim(),deploymentUrl:url.querySelector("input").value.trim(),notes:notes.value.trim()});say("Deployment details saved.","success");await load();}catch(err){say(err.message,"error");}finally{save.disabled=false;}});c.append(form);n.append(c);});}
  function renderRuns(d){const n=$("#commerce-runs");if(!n)return;n.replaceChildren();const runs=d.runs||[];if(!runs.length){n.innerHTML=empty("Your hosted run history will appear here after you run a tool.");return;}runs.forEach(run=>{const row=document.createElement("div");row.className="commerce-row";const main=document.createElement("div");main.className="commerce-row-main";const title=document.createElement("strong");title.textContent=run.product&&run.product.name||"Hosted tool";const meta=document.createElement("small");meta.textContent=nowDate(run.created_at)+" · "+run.status+" · "+run.reference;main.append(title,meta);const amount=document.createElement("span");amount.className="commerce-amount commerce-negative";amount.textContent="−"+Number(run.credits_charged||0).toLocaleString()+" credits";row.append(main,amount);n.append(row);});}
- async function verifyPaymentCallback(){const params=new URLSearchParams(location.search),gateway=params.get("gateway");if(!gateway)return;if(!["paystack","flutterwave"].includes(gateway))return;const reference=gateway==="paystack"?(params.get("reference")||params.get("trxref")||""):(params.get("tx_ref")||"");const transactionId=gateway==="flutterwave"?(params.get("transaction_id")||""):"";if(!reference){say("Payment return detected, but the reference is missing. Nothing was credited; check payment history or contact support.","error");return;}say("Verifying payment directly with "+gateway+"…","");try{const d=await api("/api/commerce/verify-payment","POST",{reference,transactionId});say(d.message||"Payment verified.","success");}catch(e){say(e.message,"error");}finally{history.replaceState({}, "",location.pathname+"#billing");}}
+ async function verifyPaymentCallback(){
+  const params=new URLSearchParams(location.search);
+  const gateway=params.get("gateway");
+  const status=(params.get("status")||params.get("payment_status")||"").trim().toLowerCase();
+  const cancelFlag=[params.get("cancelled"),params.get("canceled"),params.get("cancel")].some(value=>["1","true","yes"].includes(String(value||"").toLowerCase()));
+  const cancelled=cancelFlag||["cancelled","canceled","failed","abandoned","error"].includes(status);
+  if(!gateway&&!cancelled)return;
+  if(gateway&&!["paystack","flutterwave"].includes(gateway))return;
+  const cleanReturnUrl=()=>history.replaceState({}, "",location.pathname+"#billing");
+  if(cancelled){
+   notifyPayment("Payment was cancelled or not completed. No credits or membership access were added.", "error");
+   cleanReturnUrl();
+   return;
+  }
+  if(!gateway)return;
+  const reference=gateway==="paystack"?(params.get("reference")||params.get("trxref")||""):(params.get("tx_ref")||"");
+  const transactionId=gateway==="flutterwave"?(params.get("transaction_id")||""):"";
+  if(!reference){
+   notifyPayment("Payment was not completed. No credits or membership access were added. You can try again from Billing & plans.","error");
+   cleanReturnUrl();
+   return;
+  }
+  notifyPayment("Verifying your payment securely…","");
+  try{
+   const result=await api("/api/commerce/verify-payment","POST",{reference,transactionId});
+   notifyPayment(result.message||"Payment verified.","success");
+  }catch(error){
+   notifyPayment(error.message||"Payment could not be verified. Check your payment history before trying again.","error");
+  }finally{
+   cleanReturnUrl();
+  }
+ }
  async function load(){if(loading)return;loading=true;try{const results=await Promise.all([api("/api/commerce/overview"),api("/api/commerce/catalog")]);view=results[0];cat=results[1];renderMembership(view);renderCredits(view);renderPlans();renderPacks();renderProducts(view);renderLedger(view);renderPayments(view);renderLicenses(view);renderRuns(view);text($("#commerce-run-access-note"),view.membershipActive?"Hosted tools are available while your membership is current and your credit balance covers each run.":"A paid membership is required before hosted tools can run. You can still review product details and sample outputs.");}catch(e){const n=$("#commerce-membership");if(n)n.innerHTML=empty("Billing is not ready yet. Apply migration 004_commerce.sql in Supabase and configure payment gateway keys in Render.");say(e.message,"error");}finally{loading=false;}}
  $("#commerce-refresh")?.addEventListener("click",load);
  verifyPaymentCallback().finally(load);

@@ -52,6 +52,7 @@
   mobileToggle.addEventListener("click",()=>{const open=accountShell.classList.toggle("mobile-nav-open");mobileToggle.setAttribute("aria-expanded",String(open));mobileToggle.setAttribute("aria-label",open?"Close navigation":"Open navigation");});
   document.querySelectorAll("#workspace-sidebar .workspace-nav-link").forEach(link=>link.addEventListener("click",closeMenu));
   accountShell.addEventListener("click",event=>{if(event.target===accountShell&&accountShell.classList.contains("mobile-nav-open"))closeMenu();});
+  document.addEventListener("keydown",event=>{if(event.key==="Escape")closeMenu();});
  }
  loadAccount();
  $("#preferences-form")?.addEventListener("submit",async e=>{e.preventDefault();const b=e.currentTarget.querySelector('button[type="submit"]');b.disabled=true;try{const d=await api("/api/account/preferences","PATCH",{marketingOptIn:$("#marketing-opt-in").checked});say($("#account-feedback"),d.marketingOptIn?"Email preference saved.":"You have opted out of product/news email.","success");}catch(err){say($("#account-feedback"),err.message,"error");}finally{b.disabled=false;}});
