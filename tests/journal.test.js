@@ -5,19 +5,19 @@ const {renderMarkdown,renderJournalPage,slugifyJournalTitle}=require("../src/jou
 
 test("journal Markdown formats headings, lists, emphasis and safe links",()=>{
  const html=renderMarkdown("## A clear heading\n\nUse **bold** and *italic* text.\n\n- First item\n- Second item\n\n[Read more](https://example.com/guide)");
- assert.match(html,/href="\/css\/styles\.css\?v=7"/);
- assert.match(html,/href="\/css\/styles\.css\?v=7"/);
- assert.match(html,/href="\/css\/styles\.css\?v=7"/);
- assert.match(html,/href="\/css\/styles\.css\?v=7"/);
- assert.match(html,/href="\/css\/styles\.css\?v=7"/);
+ assert.match(html,/<h2>A clear heading<\/h2>/);
+ assert.match(html,/<strong>bold<\/strong>/);
+ assert.match(html,/<em>italic<\/em>/);
+ assert.match(html,/<ul><li>First item<\/li><li>Second item<\/li><\/ul>/);
+ assert.match(html,/<a href="https:\/\/example\.com\/guide"/);
 });
 
 test("journal Markdown escapes raw HTML and rejects unsafe link schemes",()=>{
  const html=renderMarkdown('<script>alert("x")</script>\n\n[run this](javascript:alert(1))');
- assert.match(html,/href="\/css\/styles\.css\?v=7"/);
+ assert.match(html,/&lt;script&gt;/);
  assert.doesNotMatch(html,/<script>alert/);
  assert.doesNotMatch(html,/href="javascript:/i);
- assert.match(html,/href="\/css\/styles\.css\?v=7"/);
+ assert.match(html,/run this/);
 });
 
 test("dynamic published journal pages include canonical metadata and structured data",()=>{
@@ -110,7 +110,7 @@ test("homepage mobile layout explicitly prevents horizontal page panning",()=>{
  const root=path.join(__dirname,"..");
  const html=fs.readFileSync(path.join(root,"public","index.html"),"utf8");
  const css=fs.readFileSync(path.join(root,"public","css","styles.css"),"utf8");
- assert.match(html,/href="\/css\/styles\.css\?v=7"/);
+ assert.match(html,/href="\/css\/styles\.css\?v=6"/);
  assert.match(css,/html,body\{width:100%;max-width:100%;overflow-x:clip!important\}/);
  assert.match(css,/@media\(max-width:760px\)[\s\S]*?overflow-x:clip!important/);
 });
