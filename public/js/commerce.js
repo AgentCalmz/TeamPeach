@@ -60,10 +60,17 @@
   try{
    const result=await api("/api/commerce/verify-payment","POST",{reference,transactionId});
    notifyPayment(result.message||"Payment verified.","success");
-  }catch(error){
-   notifyPayment(error.message||"Payment could not be verified. Check your payment history before trying again.","error");
-  }finally{
    cleanReturnUrl();
+  }catch(error){
+   const retryable=error.code==="PAYMENT_PROCESSING"||error.code==="PAYMENT_VERIFICATION_UNAVAILABLE"||!error.code;
+   if(error.code==="PAYMENT_PROCESSING"){
+    notifyPayment("Flutterwave has received the checkout, but its final verification is still processing. Your payment reference has been kept. Refresh this page shortly; do not pay again.","error");
+   }else if(error.code==="PAYMENT_VERIFICATION_UNAVAILABLE"||!error.code){
+    notifyPayment("We could not complete verification just now. Your payment reference has been kept so you can safely retry by refreshing this page. Do not pay again while it is being checked.","error");
+   }else{
+    notifyPayment(error.message||"Flutterwave could not confirm this payment. Contact support with your payment reference before trying again.","error");
+   }
+   if(!retryable)cleanReturnUrl();
   }
  }
  async function load(){if(loading)return;loading=true;try{const results=await Promise.all([api("/api/commerce/overview"),api("/api/commerce/catalog")]);view=results[0];cat=results[1];renderMembership(view);renderCredits(view);renderPlans();renderPacks();renderProducts(view);renderLedger(view);renderPayments(view);renderLicenses(view);renderRuns(view);text($("#commerce-run-access-note"),view.membershipActive?"Hosted tools are available while your membership is current and your credit balance covers each run.":"A paid membership is required before hosted tools can run. You can still review product details and sample outputs.");}catch(e){const n=$("#commerce-membership");if(n)n.innerHTML=empty("Billing is not ready yet. Apply migration 004_commerce.sql in Supabase and configure payment gateway keys in Render.");say(e.message,"error");}finally{loading=false;}}
