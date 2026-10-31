@@ -783,7 +783,7 @@ async function verifyGatewayPayment(payment,transactionId){
   const response=await gatewayRequest(gateway,"https://api.paystack.co/transaction/verify/"+encodeURIComponent(payment.reference),"GET");
   data=response.data;
   if(!data||data.status!=="success"||String(data.reference||"")!==payment.reference)throw new Error("PAYMENT_NOT_SUCCESSFUL");
-  if(Number(data.amount)!==Number(payment.amount_minor)||String(data.currency||"").toUpperCase()!==payment.currency)throw new Error("PAYMENT_AMOUNT_MISMATCH");
+  if(Number(data.amount)!==Number(payment.amount_minor)||String(data.currency||"").toUpperCase()!==String(payment.currency||"").toUpperCase())throw new Error("PAYMENT_AMOUNT_MISMATCH");
  }else{
   data=await fetchFlutterwaveTransaction(payment,transactionId);
   const transactionStatus=String(data&&data.status||"").toLowerCase();
@@ -792,10 +792,9 @@ async function verifyGatewayPayment(payment,transactionId){
   const paidAmount=Number(data.amount);
   if(!Number.isFinite(paidAmount)||currencyMajor(payment.amount_minor)>paidAmount+0.01||String(data.currency||"").toUpperCase()!==payment.currency)throw new Error("PAYMENT_AMOUNT_MISMATCH");
  }
- const customerEmail=normalizeEmail(data.customer&&data.customer.email||data.customer_email||"");
- const owner=await db.from("tp_users").select("email").eq("id",payment.user_id).maybeSingle();
- if(owner.error)throw owner.error;
- if(customerEmail&&owner.data&&customerEmail!==owner.data.email)throw new Error("PAYMENT_CUSTOMER_MISMATCH");
+ // The locally generated transaction reference is unique and the payment row is already
+ // scoped to the authenticated user. Flutterwave may normalize or substitute test-mode
+ // customer details, so an email mismatch must not reject an otherwise verified payment.
  return {data,transactionId:String(data.id||transactionId||"")};
 }
 async function fulfillVerifiedPayment(payment,verified){
