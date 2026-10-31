@@ -110,7 +110,7 @@ test("homepage mobile layout explicitly prevents horizontal page panning",()=>{
  const root=path.join(__dirname,"..");
  const html=fs.readFileSync(path.join(root,"public","index.html"),"utf8");
  const css=fs.readFileSync(path.join(root,"public","css","styles.css"),"utf8");
- assert.match(html,/href="\/css\/styles\.css\?v=6"/);
+ assert.match(html,/href="\/css\/styles\.css\?v=7"/);
  assert.match(css,/html,body\{width:100%;max-width:100%;overflow-x:clip!important\}/);
  assert.match(css,/@media\(max-width:760px\)[\s\S]*?overflow-x:clip!important/);
 });
