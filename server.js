@@ -687,6 +687,8 @@ async function gatewayRequest(gateway,url,method,body){
  if(!response.ok||(gateway==="paystack"&&data.status!==true)||(gateway==="flutterwave"&&data.status!=="success")){
   const error=new Error("PAYMENT_PROVIDER_REQUEST_FAILED");
   error.code="PAYMENT_PROVIDER_HTTP_"+response.status;
+  error.responseCode=response.status;
+  error.providerCode=cleanProviderText(data&&((data.message&&String(data.message))||(data.status&&String(data.status)))||"",80);
   throw error;
  }
  return data;
