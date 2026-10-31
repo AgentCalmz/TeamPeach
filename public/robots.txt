@@ -1,11 +1,38 @@
-# TeamPeach public-site crawling policy
 User-agent: *
 Allow: /
 Allow: /journal/
 Allow: /products/
 Allow: /tools/
+Disallow: /api/
+Disallow: /admin/
+Disallow: /dashboard/
+Disallow: /account/
+Disallow: /login/
+Disallow: /register/
+Disallow: /verify-email/
+Disallow: /forgot-password/
+Disallow: /unsubscribe/
 
-# Keep private account, workspace, administration and API routes out of search.
+User-agent: Bingbot
+Allow: /
+Allow: /journal/
+Allow: /products/
+Allow: /tools/
+Disallow: /api/
+Disallow: /admin/
+Disallow: /dashboard/
+Disallow: /account/
+Disallow: /login/
+Disallow: /register/
+Disallow: /verify-email/
+Disallow: /forgot-password/
+Disallow: /unsubscribe/
+
+User-agent: OAI-SearchBot
+Allow: /
+Allow: /journal/
+Allow: /products/
+Allow: /tools/
 Disallow: /api/
 Disallow: /admin/
 Disallow: /dashboard/
