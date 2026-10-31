@@ -145,7 +145,7 @@ function renderJournalPage(article, baseUrl) {
     '<meta name="description" content="' + escapeHtml(description) + '"><meta name="robots" content="index,follow,max-image-preview:large">',
     '<link rel="canonical" href="' + escapeHtml(canonical) + '"><link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">',
     '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
-    '<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="/css/styles.css?v=6">',
+    '<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="/css/styles.css?v=7">',
     "<title>" + escapeHtml(title) + "</title>",
     '<meta property="og:type" content="article"><meta property="og:site_name" content="TeamPeach"><meta property="og:title" content="' + escapeHtml(title) + '"><meta property="og:description" content="' + escapeHtml(description) + '"><meta property="og:url" content="' + escapeHtml(canonical) + '">',
     cover ? '<meta property="og:image" content="' + escapeHtml(cover) + '">' : "",

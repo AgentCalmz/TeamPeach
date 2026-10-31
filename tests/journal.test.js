@@ -21,6 +21,7 @@ test("journal Markdown escapes raw HTML and rejects unsafe link schemes",()=>{
 });
 
 test("dynamic published journal pages include canonical metadata and structured data",()=>{
+ assert.match(renderJournalPage({slug:"cache-version-check",title:"Cache version check",excerpt:"A clear excerpt for the cache test.",content_markdown:"## Content",category:"Test",status:"published",published_at:"2026-10-31T00:00:00.000Z"},"https://teampeach.org"),/styles\\.css\\?v=7/);
  const page=renderJournalPage({
   slug:"sample-journal-guide",title:"A Safe Journal Title",
   excerpt:"A clear and direct summary that answers the reader's main question in useful language.",
