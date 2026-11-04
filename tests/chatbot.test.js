@@ -90,7 +90,7 @@ test("builder form requires only business name and description; premium switches
  assert.match(html,/id="chatbot-remove-branding" type="checkbox"/);
  assert.doesNotMatch(html,/id="chatbot-save-chats"[^>]*checked/);
  assert.doesNotMatch(html,/id="chatbot-remove-branding"[^>]*checked/);
- assert.match(html,/chatbot-preview/);
+ assert.match(html,/id="chatbot-test"/);
 });
 test("public chatbot marketing page provides SEO, AEO and GEO answer content",()=>{
  const html=read("public/tools/ai-chatbot/index.html");
