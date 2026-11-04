@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="description" content="Ask this business a question using its TeamPeach AI assistant.">
+<title>Business Assistant | TeamPeach</title>
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:#f7f4ef;color:#273246;font:15px/1.6 system-ui,sans-serif;display:grid;place-items:center;padding:24px}
+main{width:min(680px,100%);padding:38px;border:1px solid #e7dfd5;border-radius:20px;background:#fffdfa;box-shadow:0 20px 70px #23304410;text-align:center}
+.mark{display:grid;place-items:center;width:54px;height:54px;margin:0 auto 16px;border-radius:16px;background:#fae8dd;color:#a96144;font-size:25px}
+h1{margin:0;font-size:clamp(26px,5vw,38px);letter-spacing:-1.2px}p{max-width:520px;margin:10px auto 0;color:#79818d;font-size:13px}
+.small{margin-top:27px!important;font-size:11px!important}
+a{color:#ad664a;font-weight:700;text-decoration:none}
+</style>
+</head>
+<body>
+<main><div class="mark" aria-hidden="true">✳</div><h1>Ask this business a question</h1><p>Use the chat assistant in the bottom corner to ask about the business, its products or its services.</p><p class="small">This assistant uses information provided by the business owner. For details it does not have, contact the business directly.</p><p class="small"><a href="https://teampeach.org/tools/ai-chatbot/">Create your own business assistant with TeamPeach ↗</a></p></main>
+<script>
+(function(){
+ const id=new URLSearchParams(location.search).get("id")||"";
+ if(!/^[0-9a-f-]{36}$/i.test(id)){document.querySelector("h1").textContent="This assistant link is incomplete.";document.querySelector("main>p").textContent="Ask the business owner for a new assistant link.";return;}
+ const script=document.createElement("script");script.src="https://teampeach.org/js/chatbot-widget.js";script.dataset.assistantId=id;script.dataset.openOnLoad="1";script.defer=true;document.body.appendChild(script);
+})();
+</script>
+</body></html>

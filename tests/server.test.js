@@ -9,12 +9,12 @@ test("web service exposes clean public URLs and hides .html extensions",async t=
  await once(server,"listening");
  t.after(()=>new Promise(resolve=>server.close(resolve)));
  const base="http://127.0.0.1:"+server.address().port;
- for(const route of ["/","/journal/","/journal/what-is-an-ai-agent/","/tools/seo-content-brief/","/register/","/verify-email/","/login/","/forgot-password/","/dashboard/","/dashboard/custom-requests/","/dashboard/tools/","/dashboard/billing/","/dashboard/support/","/account/","/admin/","/admin/login/","/admin/custom-requests/","/admin/support/","/admin/products/","/admin/memberships/","/admin/credits/","/admin/customers/","/admin/fulfilment/","/admin/payments/","/admin/communications/","/unsubscribe/","/products/"]){
+ for(const route of ["/","/journal/","/journal/what-is-an-ai-agent/","/tools/seo-content-brief/","/tools/ai-chatbot/","/assistant/","/chatbot-preview/","/register/","/verify-email/","/login/","/forgot-password/","/dashboard/","/dashboard/custom-requests/","/dashboard/tools/","/dashboard/chatbot/","/dashboard/billing/","/dashboard/support/","/account/","/admin/","/admin/login/","/admin/custom-requests/","/admin/support/","/admin/products/","/admin/memberships/","/admin/credits/","/admin/customers/","/admin/fulfilment/","/admin/payments/","/admin/communications/","/unsubscribe/","/products/"]){
   const response=await fetch(base+route);
   assert.equal(response.status,200,"expected 200 for "+route);
   assert.match(response.headers.get("content-type")||"",/text\/html/);
   const html=await response.text();
-  if(route==="/account/"||route.startsWith("/admin/")||route.startsWith("/dashboard/"))assert.match(html,/noindex,nofollow/);
+  if(route==="/account/"||route.startsWith("/admin/")||route.startsWith("/dashboard/")||route==="/assistant/"||route==="/chatbot-preview/")assert.match(html,/noindex,nofollow/);
  }
  const legacyProjects=await fetch(base+"/dashboard/projects/",{redirect:"manual"});
  assert.equal(legacyProjects.status,302);
@@ -32,6 +32,9 @@ test("web service exposes clean public URLs and hides .html extensions",async t=
  assert.ok(["ready","degraded"].includes(body.status));
  assert.equal(Object.hasOwn(body,"SUPABASE_SERVICE_ROLE_KEY"),false);
  assert.equal(Object.hasOwn(body,"emailTransport"),true);
+ assert.equal(Object.hasOwn(body,"chatbotSchemaReady"),true);
+ assert.equal(Object.hasOwn(body,"chatbotAIConfigured"),true);
+ assert.equal(Object.hasOwn(body,"chatbotSchemaReady"),true);
  const missing=await fetch(base+"/does-not-exist/");
  assert.equal(missing.status,404);
 });

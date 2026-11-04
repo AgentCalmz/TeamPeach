@@ -112,3 +112,22 @@ After migrations 001–005 have been applied, run `supabase/migrations/006_custo
 The public catalogue at `/products/` checks the signed-in session and exposes the appropriate checkout/workspace actions. Signed-in customers can start a supported USD checkout directly from the catalogue without being asked to sign in again. Monthly plans still need to be synced with each payment gateway from Admin → Memberships before that gateway can sell the plan. Verify international/USD payment acceptance, provider account settings, and test-mode checkout before publishing real prices.
 
 The editorial journal has its own landing page at `/journal/`, separate from the product catalogue. The sitemap generator automatically includes this page and published journal articles.
+
+
+## AI chatbot builder
+
+The AI Chatbot Builder lets a signed-in user create a business assistant using a required business name and description. Products, services, FAQs, policies and response instructions are optional. Owners can test a saved draft in a private TeamPeach playground, then publish it and install one universal HTML widget snippet on one or many websites. Website restrictions are optional and are enforced by the public API using the browser origin; the TeamPeach share and preview pages remain available.
+
+Apply `supabase/migrations/008_chatbot_builder.sql` once after migrations 001–007. The migration creates assistant configuration, daily aggregate usage and opt-in conversation tables. It enables RLS and grants table access only to the server service role. The health endpoint reports `chatbotSchemaReady` separately; apply the migration before using the chatbot builder.
+
+Set these variables in **Render → TeamPeach → Environment** and redeploy:
+
+- `DEEPSEEK_API_KEY`: your DeepSeek API key (server-side only; never put it in a widget or HTML snippet).
+- `DEEPSEEK_MODEL=deepseek-flash`: model used for normal business replies.
+- `CHATBOT_CREDITS_PER_1000_TOKENS=1`: adjustable number of TeamPeach credits charged per 1,000 combined input/output tokens. The first implementation charges at least one credit per successful reply. Review the rate against your credit-pack and membership economics before making the product widely available.
+
+The chatbot charges the owner's existing TeamPeach wallet through the credit ledger. It does not create a second wallet. Free accounts do not store visitor transcripts in TeamPeach; a short conversation context is kept in page memory only. Visitor transcripts are not written to browser storage or TeamPeach unless the owner explicitly enables Premium conversation saving. Premium membership unlocks the conversation-saving and branding-removal switches, but **both switches are off by default and remain off until the owner enables them**. Conversation history is available in the dashboard only while membership is active and saving is enabled. Branding returns if membership is inactive, even if the owner's saved preference was previously enabled.
+
+A new assistant is created as an unpublished draft. The owner tests it at `/chatbot-preview/`, then explicitly publishes it. Published assistants have a share page at `/assistant/?id=PUBLIC_ID` and an HTML snippet that loads `/js/chatbot-widget.js`. The standard self-service product does not crawl a website, manage staff, hand conversations to staff, read orders, create bookings or modify carts. Independently hosted software, staff workflows and custom commerce integrations are separate full-purchase/support work.
+
+The public product page is `/tools/ai-chatbot/`. It includes a descriptive canonical URL, Open Graph metadata, visible question-and-answer content, and structured WebApplication, FAQPage and BreadcrumbList data. The private workspace and per-assistant pages are marked noindex. Visitor messages remain in page memory by default; only the anonymous visitor key is stored in the browser when the owner enables server-side conversation saving. Run `npm run build` to regenerate both sitemap copies after adding public pages.

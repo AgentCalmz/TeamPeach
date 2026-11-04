@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="description" content="Private chatbot testing playground for TeamPeach assistant owners.">
+<title>Test your assistant | TeamPeach</title>
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:#f7f4ef;color:#273246;font:15px/1.6 system-ui,sans-serif;display:grid;place-items:center;padding:24px}
+main{width:min(720px,100%);padding:38px;border:1px solid #e7dfd5;border-radius:20px;background:#fffdfa;box-shadow:0 20px 70px #23304410}
+.kicker{color:#ac6b50;font-size:10px;font-weight:800;letter-spacing:.13em;text-transform:uppercase}
+h1{margin:7px 0;font-size:clamp(27px,5vw,40px);letter-spacing:-1.2px}p{max-width:580px;color:#79818d;font-size:13px}
+.note{margin-top:22px;padding:13px;border-radius:11px;background:#f6f0e8;color:#737b85;font-size:11px}
+a{color:#ad664a;font-weight:700;text-decoration:none}
+</style>
+</head>
+<body>
+<main><p class="kicker">TEAMPEACH ASSISTANT PLAYGROUND</p><h1>Test your assistant before publishing.</h1><p>Open the chat button in the bottom-right corner. Ask questions, check the answers and update the business information or instructions from your dashboard when needed.</p><div class="note">This is a private owner testing page. Messages sent here use your TeamPeach account credits and are not saved as customer conversations.</div><p><a href="/dashboard/chatbot/">Return to your chatbot dashboard ↗</a></p></main>
+<script>
+(function(){
+ const id=new URLSearchParams(location.search).get("assistant")||"";
+ if(!/^[0-9a-f-]{36}$/i.test(id)){document.querySelector("h1").textContent="Choose an assistant from your dashboard.";return;}
+ const script=document.createElement("script");script.src="/js/chatbot-widget.js";script.dataset.assistantId=id;script.dataset.mode="preview";script.defer=true;document.body.appendChild(script);
+})();
+</script>
+</body></html>

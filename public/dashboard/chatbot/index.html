@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f8f4ee">
+<meta name="robots" content="noindex,nofollow">
+<meta name="description" content="Create, test and manage your TeamPeach AI business assistant.">
+<link rel="canonical" href="https://teampeach.org/dashboard/chatbot/">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/styles.css?v=7">
+<link rel="stylesheet" href="/css/dashboard.css?v=5">
+<link rel="stylesheet" href="/css/dashboard-pages.css?v=1">
+<link rel="stylesheet" href="/css/chatbot-builder.css?v=1">
+<title>AI Chatbot Builder | TeamPeach Workspace</title>
+</head>
+<body class="workspace-body">
+<a class="skip-link" href="#workspace-main">Skip to workspace</a>
+<div class="workspace-shell">
+<aside class="workspace-sidebar" id="workspace-sidebar">
+<a class="brand workspace-brand" href="/" aria-label="TeamPeach home"><span class="brand-mark"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M7 11h20c6 0 9 4 9 9s-3 9-9 9h-8v9M21 38V17h10c7 0 11 4 11 10s-4 10-11 10H21" fill="none" stroke="currentColor" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="31" cy="8" r="4" fill="#ff936f"/></svg></span><span class="brand-name">Team<span>Peach</span></span></a>
+<div class="workspace-label">YOUR WORKSPACE</div>
+<nav class="workspace-nav" aria-label="Workspace navigation">
+<a class="workspace-nav-link" href="/dashboard/"><span class="nav-glyph">⌂</span>Overview</a>
+<a class="workspace-nav-link" href="/dashboard/custom-requests/"><span class="nav-glyph">✳</span>Custom requests</a>
+<a class="workspace-nav-link active" href="/dashboard/chatbot/" aria-current="page"><span class="nav-glyph">◉</span>AI Chatbot</a>
+<a class="workspace-nav-link" href="/dashboard/tools/"><span class="nav-glyph">✳</span>Tools & services</a>
+<a class="workspace-nav-link" href="/dashboard/billing/"><span class="nav-glyph">＄</span>Billing & plans</a>
+<a class="workspace-nav-link" href="/dashboard/support/"><span class="nav-glyph">✉</span>Support inbox<span class="nav-count" id="support-unread-count">0</span></a>
+</nav>
+<div class="workspace-label workspace-label-tools">ADMINISTRATION</div>
+<nav class="workspace-nav" aria-label="Administration">
+<a class="workspace-nav-link" id="workspace-journal-link" href="/dashboard/journal/" hidden><span class="nav-glyph">✎</span>Journal editor</a>
+<a class="workspace-nav-link admin-nav-link" id="workspace-admin-link" href="/admin/" hidden><span class="nav-glyph">⚙</span>Admin console</a>
+</nav>
+<div class="sidebar-bottom">
+<div class="sidebar-help"><span class="sidebar-help-mark">✳</span><strong>Need a hand?</strong><p>Questions and replies stay together in your inbox.</p><a href="/dashboard/support/">Open support <span>↗</span></a></div>
+<a class="workspace-nav-link" href="/account/"><span class="nav-glyph">⚙</span>Account settings</a>
+<button class="workspace-nav-link workspace-logout" id="dashboard-logout" type="button"><span class="nav-glyph">↪</span>Sign out</button>
+<div class="sidebar-version"><span class="sidebar-avatar" id="sidebar-avatar">T</span><span class="sidebar-user-copy"><strong id="sidebar-name">Your account</strong><small id="sidebar-email">Loading workspace…</small></span><a class="sidebar-settings" href="/account/" aria-label="Account settings">•••</a></div>
+</div>
+</aside>
+<div class="workspace-main-wrap">
+<header class="workspace-topbar">
+<button class="mobile-sidebar-toggle" id="mobile-sidebar-toggle" type="button" aria-label="Open navigation" aria-expanded="false">☰</button>
+<div class="workspace-breadcrumb"><span>Workspace</span><span class="breadcrumb-divider">/</span><strong>AI Chatbot</strong></div>
+<div class="workspace-topbar-actions"><span class="workspace-secure"><span></span>Private workspace</span><a class="topbar-avatar" href="/account/" id="topbar-avatar">T</a></div>
+</header>
+<main id="workspace-main" class="workspace-main chatbot-workspace">
+<section class="workspace-page-intro chatbot-page-intro">
+<div><p class="eyebrow"><span></span> TEAMPEACH AI CHATBOT</p><h1>Create an assistant that knows your business.</h1><p>Enter your business profile, add any optional guidance, test the assistant and publish one small HTML snippet on your website.</p></div>
+<button class="button button-dark" type="button" id="chatbot-new">＋ New assistant</button>
+</section>
+
+<section class="chatbot-usage-grid" aria-label="Chatbot usage">
+<article class="chatbot-usage-card"><span class="chatbot-card-kicker">ACCOUNT CREDITS</span><strong id="chatbot-credit-balance">—</strong><small>Shared TeamPeach wallet</small></article>
+<article class="chatbot-usage-card"><span class="chatbot-card-kicker">AI REPLIES · LAST 30 DAYS</span><strong id="chatbot-replies-total">—</strong><small>Across your assistants</small></article>
+<article class="chatbot-usage-card"><span class="chatbot-card-kicker">TOKENS · LAST 30 DAYS</span><strong id="chatbot-tokens-total">—</strong><small>Input and output tokens</small></article>
+<article class="chatbot-usage-card"><span class="chatbot-card-kicker">CREDITS USED · LAST 30 DAYS</span><strong id="chatbot-credits-used">—</strong><small>Debited from your account wallet</small></article>
+</section>
+
+<div class="chatbot-layout">
+<aside class="chatbot-list-column">
+<div class="chatbot-panel-heading"><div><h2>Your assistants</h2><p id="chatbot-plan-limit">Loading your access…</p></div></div>
+<div id="chatbot-assistant-list" class="chatbot-assistant-list"><div class="chatbot-empty">Loading assistants…</div></div>
+<div class="chatbot-tip"><strong>One installation method.</strong><p>Copy the HTML snippet and add it to the pages where your assistant should appear. It works across common website platforms.</p></div>
+</aside>
+
+<section class="chatbot-editor-column">
+<div id="chatbot-empty-state" class="chatbot-empty-state">
+<div class="chatbot-empty-mark">✳</div><h2>Your business assistant starts here.</h2><p>Create an assistant with just a business name and a short description. Everything else is optional, so you can experiment before adding more detail.</p>
+<button type="button" class="button button-dark" id="chatbot-empty-create">Create my first assistant ↗</button>
+</div>
+
+<div id="chatbot-editor" hidden>
+<div class="chatbot-editor-top">
+<div><p class="eyebrow"><span></span> ASSISTANT SETUP</p><h2 id="chatbot-editor-title">Create your assistant</h2><p id="chatbot-editor-caption">Start with the required business profile. Add more information whenever you're ready.</p></div>
+<span class="chatbot-status" id="chatbot-status">Draft</span>
+</div>
+<form id="chatbot-form" class="chatbot-form">
+<input type="hidden" id="chatbot-id">
+<section class="chatbot-form-section">
+<div class="chatbot-form-section-title"><span>01</span><div><h3>Business profile</h3><p>Only these two fields are required.</p></div></div>
+<label for="chatbot-assistant-name">Assistant name <small>Optional</small></label><input id="chatbot-assistant-name" name="assistantName" maxlength="100" placeholder="e.g. ABC Hotel Assistant">
+<label for="chatbot-business-name">Business name <em>Required</em></label>
+<input id="chatbot-business-name" name="businessName" maxlength="160" required placeholder="e.g. ABC Hotel">
+<label for="chatbot-business-description">What does the business do? <em>Required</em></label>
+<textarea id="chatbot-business-description" name="businessDescription" rows="3" maxlength="4000" required placeholder="Describe your business or what this assistant represents."></textarea>
+<div class="chatbot-field-grid">
+<div><label for="chatbot-category">Business category <small>Optional</small></label><input id="chatbot-category" name="category" maxlength="80" placeholder="e.g. Hospitality"></div>
+<div><label for="chatbot-location">Location <small>Optional</small></label><input id="chatbot-location" name="businessLocation" maxlength="180" placeholder="City, country"></div>
+</div>
+<label for="chatbot-contact">Public contact details <small>Optional</small></label>
+<input id="chatbot-contact" name="businessContact" maxlength="300" placeholder="Email, phone number or contact page">
+</section>
+
+<details class="chatbot-optional-section">
+<summary><span><b>02</b> Products, FAQs and policies <small>Optional knowledge</small></span><i>＋</i></summary>
+<div class="chatbot-details-body">
+<label for="chatbot-products">Products and services</label><textarea id="chatbot-products" name="productsServices" rows="4" maxlength="7000" placeholder="Describe products, services, prices, options and important details."></textarea>
+<label for="chatbot-faqs">Frequently asked questions</label><textarea id="chatbot-faqs" name="faqs" rows="4" maxlength="8000" placeholder="Add common questions with their approved answers."></textarea>
+<label for="chatbot-policies">Business policies and guidelines</label><textarea id="chatbot-policies" name="policies" rows="4" maxlength="7000" placeholder="Opening hours, delivery, refunds, cancellation, bookings and other policies."></textarea>
+</div>
+</details>
+
+<details class="chatbot-optional-section">
+<summary><span><b>03</b> Assistant behaviour <small>Optional instructions</small></span><i>＋</i></summary>
+<div class="chatbot-details-body">
+<label for="chatbot-instructions">Instructions for the assistant</label><textarea id="chatbot-instructions" name="instructions" rows="4" maxlength="6000" placeholder="Explain how the assistant should respond, what it should prioritise and how it should guide customers."></textarea>
+<label for="chatbot-restrictions">What should the assistant never do?</label><textarea id="chatbot-restrictions" name="restrictions" rows="3" maxlength="4000" placeholder="For example, never invent prices or confirm a booking without approval."></textarea>
+<label for="chatbot-welcome">Welcome message</label><input id="chatbot-welcome" name="welcomeMessage" maxlength="500" placeholder="Hello! How can I help you today?">
+<div class="chatbot-field-grid">
+<div><label for="chatbot-tone">Tone</label><select id="chatbot-tone" name="tone"><option value="friendly">Friendly</option><option value="professional">Professional</option><option value="concise">Concise</option><option value="warm">Warm</option></select></div>
+<div><label for="chatbot-widget-icon">Widget icon <small>Premium</small></label><select id="chatbot-widget-icon" name="widgetIcon"><option value="message">Chat bubble</option><option value="sparkles">Sparkles</option><option value="help">Help</option></select></div>
+</div>
+<label for="chatbot-widget-color">Widget colour <small>Premium</small></label><input id="chatbot-widget-color" name="widgetColor" type="color" value="#253047">
+</div>
+</details>
+
+<section class="chatbot-form-section chatbot-access-section">
+<div class="chatbot-form-section-title"><span>04</span><div><h3>Website access</h3><p>Optional domain restriction. By default, the assistant can work on any website.</p></div></div>
+<label class="chatbot-switch-row"><span><strong>Restrict allowed domains</strong><small>When enabled, only the domains below and the TeamPeach test page can use this assistant.</small></span><input id="chatbot-domains-enabled" type="checkbox"><i></i></label>
+<div id="chatbot-domains-box" hidden><label for="chatbot-domains">Allowed domains <small>One domain per line, up to 50</small></label><textarea id="chatbot-domains" rows="3" placeholder="example.com&#10;shop.example.com"></textarea><p class="chatbot-field-note">Enter hostnames, not full page URLs. A listed domain also permits its subdomains.</p></div>
+</section>
+
+<section class="chatbot-form-section chatbot-premium-section">
+<div class="chatbot-form-section-title"><span>05</span><div><h3>Premium options</h3><p>Both options are off by default, including for members.</p></div></div>
+<div id="chatbot-premium-note" class="chatbot-premium-note">An active TeamPeach membership unlocks these optional settings. You can keep them off and use the assistant normally.</div>
+<label class="chatbot-switch-row"><span><strong>Save customer conversations</strong><small>When enabled, customer messages and replies are saved in your TeamPeach dashboard. This is off by default.</small></span><input id="chatbot-save-chats" type="checkbox"><i></i></label>
+<label class="chatbot-switch-row"><span><strong>Remove TeamPeach branding</strong><small>When enabled, the small “Powered by TeamPeach” footer is hidden. This is off by default.</small></span><input id="chatbot-remove-branding" type="checkbox"><i></i></label>
+</section>
+
+<div class="chatbot-form-actions">
+<button class="button button-dark" type="submit" id="chatbot-save">Save assistant</button>
+<button class="button button-outline" type="button" id="chatbot-test" disabled>Test assistant</button>
+<button class="button button-outline" type="button" id="chatbot-publish" disabled>Publish</button>
+<button class="button button-outline" type="button" id="chatbot-unpublish" hidden>Unpublish</button>
+</div>
+<p id="chatbot-feedback" class="chatbot-feedback" role="status" aria-live="polite"></p>
+</form>
+
+<section id="chatbot-installation" class="chatbot-installation" hidden>
+<div class="chatbot-install-top"><div><p class="eyebrow"><span></span> LIVE ASSISTANT</p><h3>Your assistant is published.</h3><p>Copy this universal HTML snippet and place it immediately before the closing <code>&lt;/body&gt;</code> tag on the pages where it should appear.</p></div><span class="chatbot-live-dot">Live</span></div>
+<label for="chatbot-embed-code">Universal HTML installation</label>
+<div class="chatbot-code-wrap"><pre><code id="chatbot-embed-code"></code></pre><button type="button" id="chatbot-copy-code" class="button button-outline">Copy code</button></div>
+<div class="chatbot-share-row"><div><strong>Shareable assistant page</strong><small id="chatbot-share-url"></small></div><button type="button" id="chatbot-copy-share" class="button button-outline">Copy link</button></div>
+<div class="chatbot-share-row"><div><strong>Test your assistant</strong><small>Open the private playground to check answers before and after publishing changes.</small></div><a class="button button-outline" id="chatbot-open-preview" href="#">Open test page</a></div>
+</section>
+
+<section id="chatbot-history-section" class="chatbot-history-section" hidden>
+<div class="chatbot-panel-heading"><div><h3>Customer conversations</h3><p>Saved conversations from visitors who used this assistant.</p></div><button type="button" class="button button-outline" id="chatbot-delete-all-chats" hidden>Delete saved chats</button><button type="button" class="button button-outline" id="chatbot-refresh-chats">Refresh</button></div>
+<div class="chatbot-history-layout"><div id="chatbot-conversation-list" class="chatbot-conversation-list"></div><div id="chatbot-conversation-detail" class="chatbot-conversation-detail"><div class="chatbot-empty">Choose a conversation to read it.</div></div></div>
+</section>
+</div>
+</section>
+</div>
+<p id="workspace-load-feedback" class="page-inline-feedback" role="status" aria-live="polite"></p>
+<footer class="workspace-footer"><span>TeamPeach · Practical AI, human judgement.</span><a href="/dashboard/billing/">Manage credits</a><a href="/dashboard/support/">Help ↗</a></footer>
+</main>
+</div>
+</div>
+<div class="workspace-toast" id="workspace-toast" role="status" aria-live="polite"></div>
+<script src="/js/dashboard.js?v=5" defer></script>
+<script src="/js/chatbot-builder.js?v=1" defer></script>
+</body>
+</html>
