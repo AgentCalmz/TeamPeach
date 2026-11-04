@@ -4,6 +4,7 @@ const path=require("node:path"),fs=require("node:fs"),crypto=require("node:crypt
 const{createClient}=require("@supabase/supabase-js");
 const nodemailer=require("nodemailer");
 const{normalizeEmail,isValidEmail,cleanText,otpHash,hashPassword,verifyPassword,generateOtp,hashSessionToken,adminEmailsFromEnv,normalizePersonName,safeStringEqual}=require("./src/security");
+const{normalizeChatbotDomains,chatbotOriginMatches,sanitizeChatbotHistory,buildChatbotSystemPrompt,estimateChatbotTokens,isHexColor,isUuid}=require("./src/chatbot");
 const{otpEmail,plainNotificationEmail}=require("./src/email-templates");
 const{renderJournalPage,slugifyJournalTitle}=require("./src/journal");
 const app=express(),PUBLIC_DIR=path.join(__dirname,"public"),isProd=process.env.NODE_ENV==="production";
@@ -18,6 +19,7 @@ app.use(cookieParser());
 app.use("/api",(req,res,next)=>{res.setHeader("Cache-Control","no-store");res.setHeader("Pragma","no-cache");next();});
 app.use("/api",rateLimit({windowMs:15*60*1000,limit:150,standardHeaders:true,legacyHeaders:false,message:{error:"RATE_LIMITED",message:"Too many requests. Please wait a little and try again."}}));
 const authLimit=rateLimit({windowMs:60*60*1000,limit:30,standardHeaders:true,legacyHeaders:false,message:{error:"AUTH_RATE_LIMITED",message:"Too many account attempts. Wait before trying again."}});
+const chatbotPublicLimit=rateLimit({windowMs:60*1000,limit:60,standardHeaders:true,legacyHeaders:false,message:{error:"CHATBOT_RATE_LIMITED",message:"This assistant is receiving too many requests. Please wait a moment and try again."}});
 function errorJson(res,status,error,message){return res.status(status).json({error,message});}
 function asyncRoute(fn){return(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(next);}
 
@@ -72,7 +74,7 @@ function logFailure(area,e){const code=String(e&&(e.code||e.status||e.name)||"un
 function trusted(req){const o=req.get("origin");if(!o)return true;try{return origins.has(new URL(o).origin);}catch(_){return false;}}
 function csrf(req,res,next){
  if(!["POST","PUT","PATCH","DELETE"].includes(req.method))return next();
- if(req.path.startsWith("/api/payments/webhooks/"))return next();
+ if(req.path.startsWith("/api/payments/webhooks/")||req.path.startsWith("/chatbot/public/"))return next();
  const c=Buffer.from(String(req.cookies.tp_csrf||"")),h=Buffer.from(String(req.get("x-csrf-token")||""));
  if(!trusted(req)||c.length<24||h.length<24||c.length!==h.length||!crypto.timingSafeEqual(c,h))return errorJson(res,403,"CSRF_CHECK_FAILED","Refresh the page and try again.");
  next();
@@ -82,7 +84,7 @@ function csrf(req,res,next){
 app.use("/api",lusca.csrf({
  header:"x-csrf-token",
  cookie:{name:"tp_csrf",options:{httpOnly:true,secure:isProd,sameSite:"lax",path:"/",maxAge:7200000}},
- blocklist:["/payments/webhooks/","/api/payments/webhooks/"],
+ blocklist:["/payments/webhooks/","/api/payments/webhooks/","/chatbot/public/","/api/chatbot/public/"],
  impl:{
   create(req){
    const existing=String(req.cookies&&req.cookies.tp_csrf||"");
@@ -243,7 +245,7 @@ async function runEmailQueue(){if(emailCoordinatorBusy)return;emailCoordinatorBu
 async function cleanup(){if(!db)return;try{await db.from("tp_pending_registrations").delete().lt("expires_at",new Date(Date.now()-86400000).toISOString());await db.from("tp_password_resets").delete().lt("expires_at",new Date(Date.now()-86400000).toISOString());await db.from("tp_sessions").delete().lt("expires_at",new Date().toISOString());await db.from("tp_sessions").delete().lt("revoked_at",new Date(Date.now()-30*86400000).toISOString());}catch(e){logFailure("cleanup",e);}}
 
 app.get("/api/health",asyncRoute(async(_q,r)=>{
- let schemaReady=false,commerceSchemaReady=false;
+ let schemaReady=false,commerceSchemaReady=false,chatbotSchemaReady=false;
  if(db){
   const checks=await Promise.all([
    db.from("tp_users").select("id",{head:true,count:"exact"}),
@@ -263,16 +265,21 @@ app.get("/api/health",asyncRoute(async(_q,r)=>{
    db.from("tp_credit_consumptions").select("id",{head:true,count:"exact"}),
    db.from("tp_tool_licenses").select("id",{head:true,count:"exact"}),
    db.from("tp_deployments").select("id",{head:true,count:"exact"}),
-   db.from("tp_tool_runs").select("id",{head:true,count:"exact"})
+   db.from("tp_tool_runs").select("id",{head:true,count:"exact"}),
+   db.from("tp_chatbots").select("id",{head:true,count:"exact"}),
+   db.from("tp_chatbot_usage_daily").select("assistant_id",{head:true,count:"exact"}),
+   db.from("tp_chatbot_conversations").select("id",{head:true,count:"exact"}),
+   db.from("tp_chatbot_messages").select("id",{head:true,count:"exact"})
   ]);
   schemaReady=checks.slice(0,7).every(x=>!x.error);
-  commerceSchemaReady=checks.slice(7).every(x=>!x.error);
+  commerceSchemaReady=checks.slice(7,18).every(x=>!x.error);
+  chatbotSchemaReady=checks.slice(18).every(x=>!x.error);
   const failure=checks.find(x=>x.error);
   if(failure)logFailure("health-schema",failure.error);
  }
  const ready=authReady()&&schemaReady&&emailReady();
  r.status(ready?200:503).json({status:ready?"ready":"degraded",service:"teampeach",accountServicesConfigured:authReady(),
-  databaseSchemaReady:schemaReady,commerceSchemaReady,emailDeliveryConfigured:emailReady(),emailTransport:emailReady()?emailTransportMode():"unconfigured",
+  databaseSchemaReady:schemaReady,commerceSchemaReady,chatbotSchemaReady,chatbotAIConfigured:Boolean(String(process.env.DEEPSEEK_API_KEY||"").trim()),emailDeliveryConfigured:emailReady(),emailTransport:emailReady()?emailTransportMode():"unconfigured",
   paymentMode:paymentMode(),paystackConfigured:paymentReady("paystack"),flutterwaveConfigured:paymentReady("flutterwave")});
 }));
 app.get("/api/csrf",(q,r)=>r.json({token:q.csrfToken()}));
@@ -1085,6 +1092,410 @@ app.post("/api/commerce/tool-runs",csrf,authLimit,authenticated,asyncRoute(async
 }));
 
 
+
+/* TeamPeach AI chatbot builder. Public messages are metered against the owner's
+   existing credit wallet. Conversation persistence and branding removal are
+   Premium-only owner opt-ins; both database defaults are false. */
+function chatbotHttpError(status,code,message){
+ const error=new Error(message);error.httpStatus=status;error.publicCode=code;return error;
+}
+function chatbotSendError(res,error,area){
+ if(error&&error.publicCode)return errorJson(res,error.httpStatus||400,error.publicCode,error.message);
+ logFailure(area||"chatbot",error);
+ return errorJson(res,503,"CHATBOT_UNAVAILABLE","The assistant is temporarily unavailable. Please try again shortly.");
+}
+async function chatbotMemberActive(userId){
+ const sub=await currentSubscription(userId);
+ return Boolean(sub&&new Date(sub.current_period_end).getTime()>Date.now()&&["active","cancelled","past_due"].includes(sub.status));
+}
+async function chatbotOwned(id,userId){
+ const result=await db.from("tp_chatbots").select("*").eq("id",id).eq("user_id",userId).maybeSingle();
+ if(result.error)throw result.error;
+ return result.data;
+}
+function chatbotPublicBaseOrigin(){
+ try{return new URL(baseUrl()).origin;}catch(_){return "https://teampeach.org";}
+}
+function chatbotRequestOrigin(req){
+ const raw=String(req.get("origin")||req.get("referer")||"").trim();
+ try{
+  const url=new URL(raw);
+  if(!["https:","http:"].includes(url.protocol))return "";
+  if(url.protocol==="http:"&&!["localhost","127.0.0.1"].includes(url.hostname))return "";
+  return url.origin;
+ }catch(_){return "";}
+}
+function chatbotOriginPermitted(req,assistant){
+ const origin=chatbotRequestOrigin(req);
+ if(!origin)return assistant.allowed_domains_enabled!==true;
+ if(origin===chatbotPublicBaseOrigin()||origins.has(origin))return true;
+ if(!assistant.allowed_domains_enabled)return true;
+ return chatbotOriginMatches(origin,assistant.allowed_domains||[]);
+}
+function chatbotPublicCors(req,res,next){
+ const origin=String(req.get("origin")||"").trim();
+ if(origin){
+  try{
+   const url=new URL(origin);
+   if(["https:","http:"].includes(url.protocol)&&(url.protocol!=="http:"||["localhost","127.0.0.1"].includes(url.hostname))){
+    res.setHeader("Access-Control-Allow-Origin",url.origin);
+    res.setHeader("Vary","Origin");
+    res.setHeader("Access-Control-Allow-Methods","GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers","Content-Type");
+    res.setHeader("Access-Control-Max-Age","600");
+   }
+  }catch(_){}
+ }
+ if(req.method==="OPTIONS")return res.status(204).end();
+ next();
+}
+app.use("/api/chatbot/public",chatbotPublicCors);
+
+function chatbotPublicConfig(assistant,memberActive){
+ return {
+  publicId:assistant.public_id,
+  assistantName:assistant.assistant_name||assistant.business_name+" Assistant",
+  businessName:assistant.business_name,
+  welcomeMessage:assistant.welcome_message||"Hello! How can I help you today?",
+  tone:assistant.tone||"friendly",
+  widgetColor:assistant.widget_color||"#253047",
+  widgetIcon:assistant.widget_icon||"message",
+  showBranding:!(memberActive&&assistant.remove_branding===true),
+  saveConversations:Boolean(memberActive&&assistant.save_conversations===true)
+ };
+}
+function chatbotCreditsForTokens(totalTokens){
+ const rate=Math.max(1,Math.min(1000,Math.floor(Number(process.env.CHATBOT_CREDITS_PER_1000_TOKENS)||1)));
+ return Math.max(1,Math.ceil(Math.max(1,totalTokens)/1000))*rate;
+}
+async function chatbotDeepSeekReply(assistant,message,history){
+ const apiKey=String(process.env.DEEPSEEK_API_KEY||"").trim();
+ if(!apiKey)throw chatbotHttpError(503,"CHATBOT_AI_NOT_CONFIGURED","The AI service is not configured yet. Please contact TeamPeach.");
+ const model=cleanText(process.env.DEEPSEEK_MODEL||"deepseek-flash",80);
+ const messages=[
+  {role:"system",content:buildChatbotSystemPrompt(assistant)},
+  ...sanitizeChatbotHistory(history,8,7000),
+  {role:"user",content:message}
+ ];
+ let response;
+ try{
+  response=await fetch("https://api.deepseek.com/chat/completions",{
+   method:"POST",
+   headers:{Authorization:"Bearer "+apiKey,"Content-Type":"application/json"},
+   body:JSON.stringify({model,messages,temperature:0.2,max_tokens:512,stream:false,thinking:{type:"disabled"}}),
+   signal:AbortSignal.timeout(35000)
+  });
+ }catch(error){
+  const wrapped=new Error("DeepSeek request failed.");wrapped.code=String(error&&error.name||"NETWORK_ERROR");throw wrapped;
+ }
+ const data=await response.json().catch(()=>({}));
+ if(!response.ok){
+  const error=new Error("DeepSeek returned HTTP "+response.status+".");
+  error.code="DEEPSEEK_HTTP_"+response.status;
+  error.providerCode=cleanText(data&&data.error&&data.error.code||"",70);
+  logFailure("chatbot-deepseek",error);
+  if(response.status===401||response.status===403)throw chatbotHttpError(503,"CHATBOT_AI_CONFIGURATION_ERROR","The AI provider configuration needs attention. Please contact TeamPeach.");
+  if(response.status===429)throw chatbotHttpError(503,"CHATBOT_AI_BUSY","The AI service is busy. Please try again shortly.");
+  throw chatbotHttpError(502,"CHATBOT_AI_FAILED","The assistant could not generate a reply. No chatbot credits were deducted.");
+ }
+ const choice=data&&Array.isArray(data.choices)?data.choices[0]:null;
+ const answer=String(choice&&choice.message&&choice.message.content||"").trim();
+ if(!answer)throw chatbotHttpError(502,"CHATBOT_EMPTY_REPLY","The assistant did not return a usable reply. No chatbot credits were deducted.");
+ const usage=data&&data.usage||{};
+ const inputTokens=Math.max(0,Number(usage.prompt_tokens)||estimateChatbotTokens(messages.map(item=>item.content).join("\n")));
+ const outputTokens=Math.max(0,Number(usage.completion_tokens)||estimateChatbotTokens(answer));
+ const totalTokens=Math.max(1,Number(usage.total_tokens)||inputTokens+outputTokens);
+ return {answer,inputTokens,outputTokens,totalTokens,model};
+}
+async function chatbotPersistedHistory(assistantId,visitorKey){
+ const conversation=await db.from("tp_chatbot_conversations").select("id").eq("assistant_id",assistantId).eq("visitor_key",visitorKey).maybeSingle();
+ if(conversation.error)throw conversation.error;
+ if(!conversation.data)return {conversation:null,history:[]};
+ const messages=await db.from("tp_chatbot_messages").select("role,content,request_id,created_at")
+  .eq("conversation_id",conversation.data.id).order("created_at",{ascending:false}).limit(8);
+ if(messages.error)throw messages.error;
+ return {conversation:conversation.data,history:(messages.data||[]).reverse().map(item=>({role:item.role,content:item.content}))};
+}
+async function chatbotGenerateForOwner(assistant,ownerId,input){
+ const message=String(input.message||"").trim();
+ if(!message||message.length>2000)throw chatbotHttpError(400,"INVALID_CHATBOT_MESSAGE","Enter a message between 1 and 2,000 characters.");
+ const requestId=isUuid(input.requestId)?input.requestId:crypto.randomUUID();
+ const memberActive=await chatbotMemberActive(ownerId);
+ const persist=Boolean(input.persist&&memberActive&&assistant.save_conversations===true&&isUuid(input.visitorKey));
+ let history=sanitizeChatbotHistory(input.history,8,7000);
+ let visitorKey=persist?input.visitorKey:null;
+ if(persist){
+  const prior=await chatbotPersistedHistory(assistant.id,visitorKey);
+  history=prior.history;
+  if(prior.conversation){
+   const duplicate=await db.from("tp_chatbot_messages").select("content").eq("conversation_id",prior.conversation.id).eq("request_id",requestId).eq("role","assistant").maybeSingle();
+   if(duplicate.error)throw duplicate.error;
+   if(duplicate.data)return {answer:duplicate.data.content,duplicate:true,creditsCharged:0,creditsRemaining:(await db.rpc("tp_credit_balance",{p_user_id:ownerId})).data||0};
+  }
+ }
+ const balanceResult=await db.rpc("tp_credit_balance",{p_user_id:ownerId});
+ if(balanceResult.error)throw balanceResult.error;
+ const estimatedPrompt=buildChatbotSystemPrompt(assistant)+"\\n"+history.map(item=>item.content).join("\\n")+"\\n"+message;
+ const estimatedCredits=chatbotCreditsForTokens(estimateChatbotTokens(estimatedPrompt)+512);
+ if(Number(balanceResult.data||0)<estimatedCredits)throw chatbotHttpError(402,"INSUFFICIENT_CREDITS","Your available credits are too low for an estimated reply. Add credits and try again.");
+ const generated=await chatbotDeepSeekReply(assistant,message,history);
+ const credits=chatbotCreditsForTokens(generated.totalTokens);
+ const charge=await db.rpc("tp_credit_apply",{
+  p_user_id:ownerId,p_amount:-credits,p_entry_type:"tool_run",
+  p_description:"AI chatbot usage — "+generated.totalTokens+" tokens",
+  p_idempotency_key:"chatbot:"+assistant.id+":"+crypto.randomUUID(),
+  p_payment_id:null,p_created_by:null
+ });
+ if(charge.error)throw charge.error;
+ const charged=charge.data||{};
+ if(charged.status==="insufficient_credits")throw chatbotHttpError(402,"INSUFFICIENT_CREDITS","Your remaining credits were not enough for this reply. Add credits and try again.");
+ if(charged.status!=="applied"&&charged.status!=="duplicate")throw new Error("CHATBOT_CREDIT_CHARGE_FAILED");
+ const creditsRemaining=Number(charged.balance||0);
+ const usage=await db.rpc("tp_chatbot_record_usage",{
+  p_assistant_id:assistant.id,p_user_id:ownerId,p_usage_date:new Date().toISOString().slice(0,10),
+  p_requests:1,p_input_tokens:generated.inputTokens,p_output_tokens:generated.outputTokens,p_credits_charged:credits
+ });
+ if(usage.error)logFailure("chatbot-usage-record",usage.error);
+ if(persist){
+  const saved=await db.rpc("tp_chatbot_save_messages",{
+   p_assistant_id:assistant.id,p_user_id:ownerId,p_visitor_key:visitorKey,p_request_id:requestId,
+   p_user_content:message,p_assistant_content:generated.answer
+  });
+  if(saved.error||!saved.data||saved.data.status!=="ok")logFailure("chatbot-conversation-save",saved.error||new Error("CONVERSATION_NOT_SAVED"));
+ }
+ return {answer:generated.answer,duplicate:false,inputTokens:generated.inputTokens,outputTokens:generated.outputTokens,totalTokens:generated.totalTokens,creditsCharged:credits,creditsRemaining,model:generated.model};
+}
+
+function chatbotAssistantPayload(row){
+ return {
+  id:row.id,publicId:row.public_id,assistantName:row.assistant_name,businessName:row.business_name,
+  businessDescription:row.business_description,category:row.category,businessLocation:row.business_location,
+  businessContact:row.business_contact,productsServices:row.products_services,faqs:row.faqs,policies:row.policies,
+  instructions:row.instructions,restrictions:row.restrictions,welcomeMessage:row.welcome_message,tone:row.tone,
+  widgetColor:row.widget_color,widgetIcon:row.widget_icon,allowedDomainsEnabled:row.allowed_domains_enabled,
+  allowedDomains:row.allowed_domains||[],saveConversations:row.save_conversations===true,
+  removeBranding:row.remove_branding===true,isActive:row.is_active,createdAt:row.created_at,updatedAt:row.updated_at
+ };
+}
+app.get("/api/chatbots",authenticated,asyncRoute(async(q,r)=>{
+ if(!db)return errorJson(r,503,"CHATBOT_NOT_CONFIGURED","Chatbot storage is not configured.");
+ try{
+  const [memberActive,balance,assistants]=await Promise.all([
+   chatbotMemberActive(q.user.id),db.rpc("tp_credit_balance",{p_user_id:q.user.id}),
+   db.from("tp_chatbots").select("*").eq("user_id",q.user.id).order("created_at",{ascending:false}).limit(10)
+  ]);
+  if(balance.error||assistants.error)throw balance.error||assistants.error;
+  const rows=assistants.data||[],ids=rows.map(item=>item.id);
+  let usage=[];
+  if(ids.length){
+   const since=new Date(Date.now()-29*86400000).toISOString().slice(0,10);
+   const result=await db.from("tp_chatbot_usage_daily").select("assistant_id,usage_date,request_count,input_tokens,output_tokens,credits_charged")
+    .eq("user_id",q.user.id).in("assistant_id",ids).gte("usage_date",since).order("usage_date",{ascending:false}).limit(300);
+   if(result.error)throw result.error;
+   usage=result.data||[];
+  }
+  r.json({ok:true,membershipActive:memberActive,assistantLimit:memberActive?5:1,credits:Number(balance.data||0),
+   assistants:rows.map(row=>chatbotAssistantPayload(row)),
+   usage,sharingBaseUrl:baseUrl()+"/assistant/?id="});
+ }catch(error){logFailure("chatbot-list",error);errorJson(r,503,"CHATBOT_DASHBOARD_UNAVAILABLE","Your chatbot dashboard could not be loaded.");}
+}));
+app.post("/api/chatbots",csrf,authLimit,authenticated,asyncRoute(async(q,r)=>{
+ if(!db)return errorJson(r,503,"CHATBOT_NOT_CONFIGURED","Chatbot storage is not configured.");
+ try{
+  const body=q.body||{},businessName=cleanText(body.businessName,160),businessDescription=cleanText(body.businessDescription,4000);
+  if(businessName.length<2||businessDescription.length<3)return errorJson(r,400,"CHATBOT_PROFILE_REQUIRED","Enter a business name and a short description. Other information is optional.");
+  const memberActive=await chatbotMemberActive(q.user.id);
+  const count=await db.from("tp_chatbots").select("id",{head:true,count:"exact"}).eq("user_id",q.user.id);
+  if(count.error)throw count.error;
+  const limit=memberActive?5:1;
+  if((count.count||0)>=limit)return errorJson(r,403,"CHATBOT_ASSISTANT_LIMIT",memberActive?"Your current membership allows up to five assistants.":"Free accounts can create one assistant. Membership unlocks additional assistants.");
+  const domainInput=Array.isArray(body.allowedDomains)?body.allowedDomains:[];
+  const domains=normalizeChatbotDomains(domainInput);
+  if(domainInput.some(v=>String(v||"").trim()&&!normalizeChatbotDomains([v]).length))return errorJson(r,400,"INVALID_ALLOWED_DOMAIN","One or more domains are invalid. Enter domains such as example.com.");
+  const assistantName=cleanText(body.assistantName||businessName+" Assistant",100);
+  const tone=["friendly","professional","concise","warm"].includes(body.tone)?body.tone:"friendly";
+  const widgetColor=isHexColor(body.widgetColor)?body.widgetColor:"#253047";
+  const widgetIcon=["message","sparkles","help"].includes(body.widgetIcon)?body.widgetIcon:"message";
+  const saved=await db.from("tp_chatbots").insert({
+   user_id:q.user.id,assistant_name:assistantName,business_name:businessName,business_description:businessDescription,
+   category:cleanText(body.category,80),business_location:cleanText(body.businessLocation,180),business_contact:cleanText(body.businessContact,300),
+   products_services:cleanText(body.productsServices,7000),faqs:cleanText(body.faqs,8000),policies:cleanText(body.policies,7000),
+   instructions:cleanText(body.instructions,6000),restrictions:cleanText(body.restrictions,4000),
+   welcome_message:cleanText(body.welcomeMessage,500),tone,widget_color:widgetColor,widget_icon:widgetIcon,
+   allowed_domains_enabled:body.allowedDomainsEnabled===true,allowed_domains:domains,
+   save_conversations:false,remove_branding:false,is_active:false
+  }).select("*").single();
+  if(saved.error)throw saved.error;
+  r.status(201).json({ok:true,assistant:chatbotAssistantPayload(saved.data),membershipActive:memberActive});
+ }catch(error){logFailure("chatbot-create",error);errorJson(r,503,"CHATBOT_CREATE_FAILED","The assistant could not be created. Please try again.");}
+}));
+app.get("/api/chatbots/:id",authenticated,asyncRoute(async(q,r)=>{
+ if(!isUuid(q.params.id))return errorJson(r,400,"INVALID_ASSISTANT_ID","This assistant link is invalid.");
+ try{
+  const [assistant,memberActive,balance]=await Promise.all([
+   chatbotOwned(q.params.id,q.user.id),chatbotMemberActive(q.user.id),db.rpc("tp_credit_balance",{p_user_id:q.user.id})
+  ]);
+  if(!assistant)return errorJson(r,404,"CHATBOT_NOT_FOUND","The assistant was not found.");
+  if(balance.error)throw balance.error;
+  const since=new Date(Date.now()-29*86400000).toISOString().slice(0,10);
+  const usage=await db.from("tp_chatbot_usage_daily").select("usage_date,request_count,input_tokens,output_tokens,credits_charged")
+   .eq("assistant_id",assistant.id).gte("usage_date",since).order("usage_date",{ascending:false}).limit(30);
+  if(usage.error)throw usage.error;
+  r.json({ok:true,assistant:chatbotAssistantPayload(assistant),membershipActive:memberActive,credits:Number(balance.data||0),usage:usage.data||[],
+   publicUrl:baseUrl()+"/assistant/?id="+assistant.public_id,
+   embedCode:'<script src="'+baseUrl()+'/js/chatbot-widget.js" data-assistant-id="'+assistant.public_id+'" defer></script>'});
+ }catch(error){logFailure("chatbot-detail",error);errorJson(r,503,"CHATBOT_LOAD_FAILED","This assistant could not be loaded.");}
+}));
+app.put("/api/chatbots/:id",csrf,authLimit,authenticated,asyncRoute(async(q,r)=>{
+ if(!isUuid(q.params.id))return errorJson(r,400,"INVALID_ASSISTANT_ID","This assistant link is invalid.");
+ try{
+  const assistant=await chatbotOwned(q.params.id,q.user.id);
+  if(!assistant)return errorJson(r,404,"CHATBOT_NOT_FOUND","The assistant was not found.");
+  const body=q.body||{},memberActive=await chatbotMemberActive(q.user.id),patch={updated_at:new Date().toISOString()};
+  const textFields={assistantName:["assistant_name",100],businessName:["business_name",160],businessDescription:["business_description",4000],
+   category:["category",80],businessLocation:["business_location",180],businessContact:["business_contact",300],
+   productsServices:["products_services",7000],faqs:["faqs",8000],policies:["policies",7000],instructions:["instructions",6000],
+   restrictions:["restrictions",4000],welcomeMessage:["welcome_message",500]};
+  for(const [key,rule] of Object.entries(textFields)){
+   if(body[key]!==undefined){
+    const value=cleanText(body[key],rule[1]);
+    if(key==="businessName"&&value.length<2)return errorJson(r,400,"INVALID_BUSINESS_NAME","Business name must contain at least two characters.");
+    if(key==="businessDescription"&&value.length<3)return errorJson(r,400,"INVALID_BUSINESS_DESCRIPTION","Business description must contain at least three characters.");
+    patch[rule[0]]=value;
+   }
+  }
+  if(body.tone!==undefined){if(!["friendly","professional","concise","warm"].includes(body.tone))return errorJson(r,400,"INVALID_CHATBOT_TONE","Choose a supported assistant tone.");patch.tone=body.tone;}
+  if(body.widgetColor!==undefined||body.widgetIcon!==undefined){
+   if(!memberActive)return errorJson(r,403,"MEMBERSHIP_REQUIRED","Assistant appearance controls are available with an active membership.");
+   if(body.widgetColor!==undefined){if(!isHexColor(body.widgetColor))return errorJson(r,400,"INVALID_WIDGET_COLOR","Choose a valid six-digit colour.");patch.widget_color=body.widgetColor;}
+   if(body.widgetIcon!==undefined){if(!["message","sparkles","help"].includes(body.widgetIcon))return errorJson(r,400,"INVALID_WIDGET_ICON","Choose a supported chatbot icon.");patch.widget_icon=body.widgetIcon;}
+  }
+  if(body.allowedDomainsEnabled!==undefined){if(typeof body.allowedDomainsEnabled!=="boolean")return errorJson(r,400,"INVALID_DOMAIN_SETTING","Choose whether domain restrictions are enabled.");patch.allowed_domains_enabled=body.allowedDomainsEnabled;}
+  if(body.allowedDomains!==undefined){
+   const input=Array.isArray(body.allowedDomains)?body.allowedDomains:[];
+   const domains=normalizeChatbotDomains(input);
+   const invalid=input.some(v=>String(v||"").trim()&&!normalizeChatbotDomains([v]).length);
+   if(invalid)return errorJson(r,400,"INVALID_ALLOWED_DOMAIN","One or more domains are invalid. Enter domains such as example.com.");
+   patch.allowed_domains=domains;
+  }
+  if(body.saveConversations!==undefined){
+   if(typeof body.saveConversations!=="boolean")return errorJson(r,400,"INVALID_CHAT_STORAGE_SETTING","Choose whether customer conversations should be saved.");
+   if(body.saveConversations&&!memberActive)return errorJson(r,403,"MEMBERSHIP_REQUIRED","Saving customer conversations is an optional Premium membership feature.");
+   patch.save_conversations=body.saveConversations;
+  }
+  if(body.removeBranding!==undefined){
+   if(typeof body.removeBranding!=="boolean")return errorJson(r,400,"INVALID_BRANDING_SETTING","Choose whether TeamPeach branding should be displayed.");
+   if(body.removeBranding&&!memberActive)return errorJson(r,403,"MEMBERSHIP_REQUIRED","Removing TeamPeach branding is an optional Premium membership feature.");
+   patch.remove_branding=body.removeBranding;
+  }
+  if(body.isActive!==undefined){if(typeof body.isActive!=="boolean")return errorJson(r,400,"INVALID_ASSISTANT_STATUS","Invalid assistant status.");patch.is_active=body.isActive;}
+  const updated=await db.from("tp_chatbots").update(patch).eq("id",assistant.id).eq("user_id",q.user.id).select("*").single();
+  if(updated.error)throw updated.error;
+  r.json({ok:true,assistant:chatbotAssistantPayload(updated.data),membershipActive:memberActive});
+ }catch(error){logFailure("chatbot-update",error);errorJson(r,503,"CHATBOT_UPDATE_FAILED","The assistant settings could not be saved.");}
+}));
+app.delete("/api/chatbots/:id",csrf,authLimit,authenticated,asyncRoute(async(q,r)=>{
+ if(!isUuid(q.params.id))return errorJson(r,400,"INVALID_ASSISTANT_ID","This assistant link is invalid.");
+ const deleted=await db.from("tp_chatbots").delete().eq("id",q.params.id).eq("user_id",q.user.id).select("id").maybeSingle();
+ if(deleted.error){logFailure("chatbot-delete",deleted.error);return errorJson(r,503,"CHATBOT_DELETE_FAILED","The assistant could not be deleted.");}
+ if(!deleted.data)return errorJson(r,404,"CHATBOT_NOT_FOUND","The assistant was not found.");
+ r.json({ok:true});
+}));
+app.get("/api/chatbots/:id/conversations",authenticated,asyncRoute(async(q,r)=>{
+ if(!isUuid(q.params.id))return errorJson(r,400,"INVALID_ASSISTANT_ID","This assistant link is invalid.");
+ try{
+  const assistant=await chatbotOwned(q.params.id,q.user.id);
+  if(!assistant)return errorJson(r,404,"CHATBOT_NOT_FOUND","The assistant was not found.");
+  const memberActive=await chatbotMemberActive(q.user.id);
+  const count=await db.from("tp_chatbot_conversations").select("id",{head:true,count:"exact"}).eq("assistant_id",assistant.id);
+  if(count.error)throw count.error;
+  if(!memberActive)return r.json({ok:true,membershipActive:false,savingEnabled:false,savedConversationCount:count.count||0,conversations:[]});
+  const rows=await db.from("tp_chatbot_conversations").select("id,visitor_key,message_count,created_at,updated_at,last_message_at")
+   .eq("assistant_id",assistant.id).order("last_message_at",{ascending:false}).limit(50);
+  if(rows.error)throw rows.error;
+  r.json({ok:true,membershipActive:true,savingEnabled:assistant.save_conversations===true,savedConversationCount:count.count||0,conversations:rows.data||[]});
+ }catch(error){logFailure("chatbot-conversations",error);errorJson(r,503,"CHAT_HISTORY_UNAVAILABLE","Customer conversations could not be loaded.");}
+}));
+app.get("/api/chatbots/:id/conversations/:conversationId",authenticated,asyncRoute(async(q,r)=>{
+ if(!isUuid(q.params.id)||!isUuid(q.params.conversationId))return errorJson(r,400,"INVALID_CONVERSATION_ID","This conversation link is invalid.");
+ try{
+  const assistant=await chatbotOwned(q.params.id,q.user.id);
+  if(!assistant)return errorJson(r,404,"CHATBOT_NOT_FOUND","The assistant was not found.");
+  const memberActive=await chatbotMemberActive(q.user.id);
+  if(!memberActive)return errorJson(r,403,"CHAT_HISTORY_MEMBERSHIP_REQUIRED","An active Premium membership is required to view saved customer conversations.");
+  const conversation=await db.from("tp_chatbot_conversations").select("id,visitor_key,message_count,created_at,last_message_at")
+   .eq("id",q.params.conversationId).eq("assistant_id",assistant.id).maybeSingle();
+  if(conversation.error)throw conversation.error;
+  if(!conversation.data)return errorJson(r,404,"CONVERSATION_NOT_FOUND","This conversation was not found.");
+  const messages=await db.from("tp_chatbot_messages").select("id,role,content,created_at")
+   .eq("conversation_id",conversation.data.id).order("created_at",{ascending:true}).limit(200);
+  if(messages.error)throw messages.error;
+  r.json({ok:true,conversation:conversation.data,messages:messages.data||[]});
+ }catch(error){logFailure("chatbot-conversation-detail",error);errorJson(r,503,"CONVERSATION_UNAVAILABLE","This conversation could not be loaded.");}
+}));
+app.delete("/api/chatbots/:id/conversations",csrf,authenticated,asyncRoute(async(q,r)=>{
+ if(!isUuid(q.params.id))return errorJson(r,400,"INVALID_ASSISTANT_ID","This assistant link is invalid.");
+ const assistant=await chatbotOwned(q.params.id,q.user.id);
+ if(!assistant)return errorJson(r,404,"CHATBOT_NOT_FOUND","The assistant was not found.");
+ const deleted=await db.from("tp_chatbot_conversations").delete().eq("assistant_id",assistant.id).select("id");
+ if(deleted.error){logFailure("chatbot-conversation-delete-all",deleted.error);return errorJson(r,503,"CONVERSATION_DELETE_FAILED","Saved conversations could not be deleted.");}
+ r.json({ok:true,deletedCount:(deleted.data||[]).length});
+}));
+app.delete("/api/chatbots/:id/conversations/:conversationId",csrf,authenticated,asyncRoute(async(q,r)=>{
+ if(!isUuid(q.params.id)||!isUuid(q.params.conversationId))return errorJson(r,400,"INVALID_CONVERSATION_ID","This conversation link is invalid.");
+ const assistant=await chatbotOwned(q.params.id,q.user.id);
+ if(!assistant)return errorJson(r,404,"CHATBOT_NOT_FOUND","The assistant was not found.");
+ const deleted=await db.from("tp_chatbot_conversations").delete().eq("id",q.params.conversationId).eq("assistant_id",assistant.id).select("id").maybeSingle();
+ if(deleted.error){logFailure("chatbot-conversation-delete",deleted.error);return errorJson(r,503,"CONVERSATION_DELETE_FAILED","The conversation could not be deleted.");}
+ if(!deleted.data)return errorJson(r,404,"CONVERSATION_NOT_FOUND","This conversation was not found.");
+ r.json({ok:true});
+}));
+app.get("/api/chatbots/:id/preview-config",authenticated,asyncRoute(async(q,r)=>{
+ if(!isUuid(q.params.id))return errorJson(r,400,"INVALID_ASSISTANT_ID","This assistant link is invalid.");
+ const assistant=await chatbotOwned(q.params.id,q.user.id);
+ if(!assistant)return errorJson(r,404,"CHATBOT_NOT_FOUND","The assistant was not found.");
+ const memberActive=await chatbotMemberActive(q.user.id);
+ r.json({ok:true,config:chatbotPublicConfig(assistant,memberActive),preview:true});
+}));
+app.post("/api/chatbots/:id/preview-message",csrf,authLimit,authenticated,asyncRoute(async(q,r)=>{
+ if(!isUuid(q.params.id))return errorJson(r,400,"INVALID_ASSISTANT_ID","This assistant link is invalid.");
+ const assistant=await chatbotOwned(q.params.id,q.user.id);
+ if(!assistant)return errorJson(r,404,"CHATBOT_NOT_FOUND","The assistant was not found.");
+ try{
+  const result=await chatbotGenerateForOwner(assistant,q.user.id,{message:q.body&&q.body.message,history:q.body&&q.body.history,requestId:q.body&&q.body.requestId,persist:false});
+  r.json({ok:true,...result});
+ }catch(error){return chatbotSendError(r,error,"chatbot-preview");}
+}));
+
+app.get("/api/chatbot/public/:publicId",chatbotPublicLimit,asyncRoute(async(q,r)=>{
+ if(!isUuid(q.params.publicId))return errorJson(r,404,"CHATBOT_NOT_FOUND","This assistant is unavailable.");
+ try{
+  const found=await db.from("tp_chatbots").select("id,user_id,public_id,assistant_name,business_name,welcome_message,tone,widget_color,widget_icon,allowed_domains_enabled,allowed_domains,remove_branding,save_conversations,is_active")
+   .eq("public_id",q.params.publicId).eq("is_active",true).maybeSingle();
+  if(found.error)throw found.error;
+  if(!found.data)return errorJson(r,404,"CHATBOT_NOT_FOUND","This assistant is unavailable.");
+  if(!chatbotOriginPermitted(q,found.data))return errorJson(r,403,"CHATBOT_DOMAIN_NOT_ALLOWED","This assistant is not authorised to run on this website. Please visit TeamPeach or contact the business owner.");
+  const memberActive=await chatbotMemberActive(found.data.user_id);
+  r.json({ok:true,assistant:chatbotPublicConfig(found.data,memberActive)});
+ }catch(error){return chatbotSendError(r,error,"chatbot-public-config");}
+}));
+app.post("/api/chatbot/public/:publicId/messages",chatbotPublicLimit,asyncRoute(async(q,r)=>{
+ if(!isUuid(q.params.publicId))return errorJson(r,404,"CHATBOT_NOT_FOUND","This assistant is unavailable.");
+ try{
+  const found=await db.from("tp_chatbots").select("*").eq("public_id",q.params.publicId).eq("is_active",true).maybeSingle();
+  if(found.error)throw found.error;
+  if(!found.data)return errorJson(r,404,"CHATBOT_NOT_FOUND","This assistant is unavailable.");
+  if(!chatbotOriginPermitted(q,found.data))return errorJson(r,403,"CHATBOT_DOMAIN_NOT_ALLOWED","This assistant is not authorised to run on this website. Please visit TeamPeach or contact the business owner.");
+  const memberActive=await chatbotMemberActive(found.data.user_id);
+  const result=await chatbotGenerateForOwner(found.data,found.data.user_id,{
+   message:q.body&&q.body.message,history:q.body&&q.body.history,
+   visitorKey:q.body&&q.body.visitorKey,requestId:q.body&&q.body.requestId,
+   persist:memberActive&&found.data.save_conversations===true
+  });
+  r.json({ok:true,reply:result.answer});
+ }catch(error){return chatbotSendError(r,error,"chatbot-public-message");}
+}));
+
 app.post("/api/commerce/subscription/cancel",csrf,authLimit,authenticated,asyncRoute(async(q,r)=>{
  if(!db)return errorJson(r,503,"COMMERCE_NOT_CONFIGURED","Subscription management is not configured.");
  try{
@@ -1492,7 +1903,7 @@ app.get("/sitemap.xml",publicSitemapLimit,asyncRoute(async(_q,r)=>{
 app.get("/dashboard/projects/",(_q,r)=>r.redirect(302,"/dashboard/custom-requests/"));
 app.get("/dashboard/tasks/",(_q,r)=>r.redirect(302,"/dashboard/custom-requests/"));
 app.use((q,r,n)=>{if(!["GET","HEAD"].includes(q.method)||!/\.html$/i.test(q.path))return n();let t=/\/index\.html$/i.test(q.path)?(q.path.slice(0,-10)||"/"):q.path.slice(0,-5);if(!t.startsWith("/"))t="/"+t;if(t!=="/"&&!t.endsWith("/"))t+="/";r.redirect(301,t+(q.url.includes("?")?q.url.slice(q.url.indexOf("?")):""));});
-app.use(express.static(PUBLIC_DIR,{index:"index.html",extensions:["html"],setHeaders(res,file){res.setHeader("Cache-Control",/\.html$/i.test(file)?"no-cache":"public, max-age=3600");}}));
+app.use(express.static(PUBLIC_DIR,{index:"index.html",extensions:["html"],setHeaders(res,file){res.setHeader("Cache-Control",/\.html$/i.test(file)?"no-cache":"public, max-age=3600");if(path.basename(file)==="chatbot-widget.js")res.setHeader("Cross-Origin-Resource-Policy","cross-origin");}}));
 app.use((q,r,n)=>q.path.startsWith("/api/")?errorJson(r,404,"API_ROUTE_NOT_FOUND","This API route does not exist."):n());
 app.use((_q,r)=>r.status(404).sendFile(path.join(PUBLIC_DIR,"404.html")));
 app.use((e,q,r,_n)=>{const s=e&&e.status===413?413:500;logFailure("request",e);if(q.path.startsWith("/api/"))return errorJson(r,s,s===413?"REQUEST_TOO_LARGE":"INTERNAL_ERROR",s===413?"That request is too large.":"Something went wrong.");r.status(s).sendFile(path.join(PUBLIC_DIR,"404.html"));});
