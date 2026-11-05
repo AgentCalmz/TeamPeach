@@ -6,6 +6,7 @@ const path=require("node:path");
 const root=path.join(__dirname,"..");
 const chatbot=require("../src/chatbot");
 const read=rel=>fs.readFileSync(path.join(root,rel),"utf8");
+const sitemapUrls=xml=>Array.from(xml.matchAll(/<loc>([^<]+)<\\/loc>/g),match=>match[1]);
 
 test("allowed domains are normalised and deduplicated",()=>{
  assert.deepEqual(chatbot.normalizeChatbotDomains(["https://www.example.com/shop","example.com","shop.example.net","*.other.org"]),["example.com","shop.example.net","other.org"]);
@@ -245,9 +246,9 @@ test("PeachChat canonical route is published and the previous URL permanently re
  assert.ok(old.includes('name="robots" content="noindex,follow"'));
  assert.ok(old.includes('rel="canonical" href="https://teampeach.org/tools/peachchat/"'));
  assert.ok(server.includes('app.get(/^\\/tools\\/ai-chatbot\\/?$/,(_q,r)=>r.redirect(301,"/tools/peachchat/"));'));
- const sitemap=read("public/sitemap.xml");
- assert.ok(sitemap.includes("https://teampeach.org/tools/peachchat/"));
- assert.ok(!sitemap.includes("https://teampeach.org/tools/ai-chatbot/"));
+ const urls=sitemapUrls(read("public/sitemap.xml"));
+ assert.ok(urls.some(value=>value==="https://teampeach.org/tools/peachchat/"));
+ assert.ok(urls.every(value=>value!=="https://teampeach.org/tools/ai-chatbot/"));
 });
 test("public chatbot API reports failed optional conversation persistence without hiding the assistant reply",()=>{
  const server=read("server.js"),widget=read("public/js/chatbot-widget.js");
