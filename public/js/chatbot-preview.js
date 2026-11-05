@@ -33,7 +33,7 @@
  }).then(()=>{
   window.clearTimeout(configTimer);
   const script=document.createElement("script");
-  script.src="/js/chatbot-widget.js?v=3";
+  script.src="/js/chatbot-widget.js?v=4";
   script.dataset.assistantId=assistantId;
   script.dataset.mode="preview";
   script.dataset.openOnLoad="1";
