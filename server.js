@@ -1266,14 +1266,18 @@ async function chatbotGenerateForOwner(assistant,ownerId,input){
   p_requests:1,p_input_tokens:generated.inputTokens,p_output_tokens:generated.outputTokens,p_credits_charged:credits
  });
  if(usage.error)logFailure("chatbot-usage-record",usage.error);
+ let conversationSaved=null;
  if(persist){
-  const saved=await db.rpc("tp_chatbot_save_messages",{
-   p_assistant_id:assistant.id,p_user_id:ownerId,p_visitor_key:visitorKey,p_request_id:requestId,
-   p_user_content:message,p_assistant_content:generated.answer
-  });
-  if(saved.error||!saved.data||saved.data.status!=="ok")logFailure("chatbot-conversation-save",saved.error||new Error("CONVERSATION_NOT_SAVED"));
+  try{
+   const saved=await db.rpc("tp_chatbot_save_messages",{
+    p_assistant_id:assistant.id,p_user_id:ownerId,p_visitor_key:visitorKey,p_request_id:requestId,
+    p_user_content:message,p_assistant_content:generated.answer
+   });
+   conversationSaved=Boolean(!saved.error&&saved.data&&saved.data.status==="ok");
+   if(!conversationSaved)logFailure("chatbot-conversation-save",saved.error||new Error("CONVERSATION_NOT_SAVED"));
+  }catch(error){conversationSaved=false;logFailure("chatbot-conversation-save",error);}
  }
- return {answer:generated.answer,duplicate:false,inputTokens:generated.inputTokens,outputTokens:generated.outputTokens,totalTokens:generated.totalTokens,creditsCharged:credits,creditsRemaining,model:generated.model};
+ return {answer:generated.answer,duplicate:false,inputTokens:generated.inputTokens,outputTokens:generated.outputTokens,totalTokens:generated.totalTokens,creditsCharged:credits,creditsRemaining,model,conversationSaved};
 }
 
 function chatbotAssistantPayload(row){
@@ -1502,7 +1506,7 @@ app.post("/api/chatbot/public/:publicId/messages",chatbotPublicLimit,asyncRoute(
    visitorKey:q.body&&q.body.visitorKey,requestId:q.body&&q.body.requestId,
    persist:memberActive&&found.data.save_conversations===true
   });
-  r.json({ok:true,reply:result.answer});
+  r.json({ok:true,reply:result.answer,conversationSaved:result.conversationSaved!==false});
  }catch(error){return chatbotSendError(r,error,"chatbot-public-message");}
 }));
 
@@ -1517,7 +1521,7 @@ app.post("/api/tools/seo-content-brief/generate",csrf,authLimit,authenticated,as
  if(!["informational","commercial","transactional","navigational"].includes(intent))return errorJson(r,400,"INVALID_INTENT","Choose a valid search intent.");
  if(!["guide","listicle","comparison","tutorial","landing-page"].includes(format))return errorJson(r,400,"INVALID_FORMAT","Choose a valid content format.");
  const apiKey=String(process.env.DEEPSEEK_API_KEY||"").trim();
- if(!apiKey)return errorJson(r,503,"AI_NOT_CONFIGURED","AI generation is not configured. Please contact TeamPeach support.");
+ if(!apiKey)return errorJson(r,503,"AI_NOT_CONFIGURED","PeachBrief is not enabled on this deployment yet. Ask the TeamPeach administrator to set DEEPSEEK_API_KEY in Render and redeploy. No credits were deducted.");
  try{
   if(!(await chatbotMemberActive(q.user.id)))return errorJson(r,402,"MEMBERSHIP_REQUIRED","An active TeamPeach membership is required to run PeachBrief.");
   const prompt=[
@@ -2018,6 +2022,7 @@ app.get("/sitemap.xml",publicSitemapLimit,asyncRoute(async(_q,r)=>{
  return r.type("application/xml").send(sitemap);
 }));
 
+app.get(/^\/tools\/ai-chatbot\/?$/,(_q,r)=>r.redirect(301,"/tools/peachchat/"));
 app.get(/^\/tool\/?$/ ,(_q,r)=>r.redirect(301,"/tools/"));
 app.get("/dashboard/projects/",(_q,r)=>r.redirect(302,"/dashboard/custom-requests/"));
 app.get("/dashboard/tasks/",(_q,r)=>r.redirect(302,"/dashboard/custom-requests/"));
