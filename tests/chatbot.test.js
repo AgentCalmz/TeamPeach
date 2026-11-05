@@ -181,9 +181,9 @@ test("chatbot hero includes visible external photography with alternative text",
  assert.match(css,/\.cb-hero-art\{position:relative/);
  const dashboard=read("public/dashboard/chatbot/index.html");
  assert.ok(dashboard.includes('src="/assets/peachchat-hero.webp"'));
- assert.ok(dashboard.includes("1 TeamPeach credit per started 1,000 combined DeepSeek input and output tokens"));
- assert.ok(dashboard.includes("$0.15 for uncached input")&&dashboard.includes("$0.60 for output"));
- assert.ok(dashboard.includes("https://api-docs.deepseek.com/quick_start/pricing/"));
+ assert.doesNotMatch(dashboard,/peachchat-credit-guide|How do TeamPeach credits compare with DeepSeek tokens|DeepSeek.s off-peak price/);
+ assert.ok(dashboard.includes('id="chatbot-credits-used"'));
+ assert.ok(dashboard.includes("CREDITS USED · LAST 30 DAYS"));
 });
 
 test("public tools catalogue lists only the two currently published tools with capability notes",()=>{
