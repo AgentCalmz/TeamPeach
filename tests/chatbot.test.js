@@ -94,7 +94,7 @@ test("builder form requires only business name and description; premium switches
 });
 test("public chatbot marketing page provides SEO, AEO and GEO answer content",()=>{
  const html=read("public/tools/ai-chatbot/index.html");
- assert.match(html,/<title>PeachChat AI Customer Assistant for Small Businesses \\| TeamPeach<\\/title>/);
+ assert.match(html,/<title>PeachChat AI Customer Assistant for Small Businesses \| TeamPeach<\/title>/);
  assert.match(html,/name="description"/);
  assert.match(html,/rel="canonical" href="https:\/\/teampeach\.org\/tools\/ai-chatbot\//);
  assert.match(html,/@type":"WebApplication/);
