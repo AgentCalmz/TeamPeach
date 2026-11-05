@@ -133,7 +133,7 @@ async function sendMessage(message){
   const body=await response.json().catch(()=>({}));typing.remove();if(!response.ok){const error=new Error(body.message||"We could not send your message.");error.status=response.status;throw error;}
   const answer=mode==="preview"?body.answer:body.reply;if(typeof answer!=="string"||!answer.trim())throw new Error("The assistant returned an empty response.");
   if(mode==="preview"&&Number.isFinite(Number(body.creditsRemaining)))subtitle.textContent="Preview · "+Number(body.creditsRemaining).toLocaleString()+" credits remaining";
-  addBubble("assistant",answer);history.push({role:"user",content:value},{role:"assistant",content:answer});history=history.slice(-8);saveStored();
+  addBubble("assistant",answer);if(mode==="public"&&body.conversationSaved===false)addError("Your reply was delivered, but this conversation could not be saved. Please let the business owner know.");history.push({role:"user",content:value},{role:"assistant",content:answer});history=history.slice(-8);saveStored();
  }catch(error){typing.remove();if(error.status===402)addError(error.message+" The business owner needs to add credits to this TeamPeach account.");else addError(networkErrorMessage(error));}
  finally{loading=false;send.disabled=false;input.disabled=false;input.focus();}
 }
