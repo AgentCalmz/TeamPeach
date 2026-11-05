@@ -104,6 +104,22 @@ test("public chatbot marketing page provides SEO, AEO and GEO answer content",()
  assert.match(html,/Can I use one assistant on more than one website/);
  assert.doesNotMatch(html,/noindex,nofollow/);
 });
+test("PeachChat dashboard has a compact premium layout without the removed checklist, steps or token-price explainer",()=>{
+ const html=read("public/dashboard/chatbot/index.html");
+ const css=read("public/css/chatbot-builder.css");
+ assert.ok(html.includes('/css/chatbot-builder.css?v=2'));
+ assert.doesNotMatch(html,/peachchat-trust-row|peachchat-steps|peachchat-credit-guide|How do TeamPeach credits compare with DeepSeek tokens/);
+ assert.doesNotMatch(css,/\\.peachchat-trust-row|\\.peachchat-steps|\\.peachchat-credit-guide/);
+ assert.match(css,/\\.chatbot-usage-grid\\{margin:0 0 18px\\}/);
+});
+test("dashboard overview shows the PeachChat hero artwork instead of a placeholder glyph",()=>{
+ const html=read("public/dashboard/index.html");
+ const css=read("public/css/dashboard-pages.css");
+ assert.ok(html.includes('/css/dashboard-pages.css?v=2'));
+ assert.ok(html.includes('<span class="workspace-action-image"><img src="/assets/peachchat-hero.webp"'));
+ assert.ok(read("public/assets/peachchat-hero.webp").length>1000);
+ assert.match(css,/\\.workspace-action-image img\\{display:block;width:100%;height:100%;object-fit:cover;object-position:center\\}/);
+});
 test("assistant replies render safe Markdown formatting instead of raw markers",()=>{
  const widget=read("public/js/chatbot-widget.js");
  assert.ok(widget.includes("function appendInlineMarkdown"));
