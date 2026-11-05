@@ -136,6 +136,7 @@ test("chatbot hero includes visible external photography with alternative text",
  const html=read("public/tools/ai-chatbot/index.html");
  const css=read("public/css/chatbot-public.css");
  assert.match(html,/class="cb-hero-photo"/);
+ assert.match(html,/chatbot-public\.css\?v=2/);
  assert.match(html,/images\.unsplash\.com/);
  assert.match(html,/alt="A small business team working together in a bright office"/);
  assert.match(css,/\.cb-hero-photo/);
