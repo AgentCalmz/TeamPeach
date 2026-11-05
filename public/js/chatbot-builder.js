@@ -64,12 +64,13 @@
   $("chatbot-editor-title").textContent=a.assistantName||a.businessName+" Assistant";
   $("chatbot-editor-caption").textContent=a.isActive?"Your assistant is live. Changes are saved as soon as you choose Save assistant.":"This assistant is a draft. Test it, then publish when you are ready.";
   setButton("chatbot-test",false);setButton("chatbot-publish",!a.id||a.isActive);setHidden("chatbot-unpublish",!a.isActive);
+  $("chatbot-save").textContent=a.isActive?"Update assistant":"Save draft";
   setHidden("chatbot-installation",!a.isActive);
   setHidden("chatbot-history-section",false);
   setMembershipControls();
  }
  function newAssistant(){
-  selected=null;showEditor(true);form.reset();setValue("chatbot-id","");
+  selected=null;showEditor(true);form.reset();setValue("chatbot-id","");$("chatbot-save").textContent="Create assistant";
   setValue("chatbot-tone","friendly");setValue("chatbot-widget-icon","message");setValue("chatbot-widget-color","#253047");
   setCheck("chatbot-save-chats",false);setCheck("chatbot-remove-branding",false);setCheck("chatbot-domains-enabled",false);
   $("chatbot-domains-box").hidden=true;$("chatbot-status").textContent="Draft";$("chatbot-status").classList.remove("live");
@@ -78,6 +79,7 @@
   setMembershipControls();feedback("","");renderList();
  }
  async function loadAssistant(id){
+  showEditor(true);
   try{
    feedback("Loading assistant…");
    const body=await api("/api/chatbots/"+encodeURIComponent(id),"GET");
@@ -193,7 +195,9 @@
    if(selected.isActive){$("chatbot-embed-code").textContent=detail.embedCode||"";$("chatbot-share-url").textContent=detail.publicUrl||"";$("chatbot-open-preview").href="/chatbot-preview/?assistant="+encodeURIComponent(selected.id);}
    else setHidden("chatbot-installation",true);
    await loadConversations();
-   feedback("Your PeachChat draft has been saved. Next, test it and publish when it is ready.","success");
+   feedback(selected.isActive
+    ?(selected.saveConversations?"Your published assistant has been updated. New customer conversations will now be saved.":"Your published assistant has been updated.")
+    :(selected.saveConversations?"Your draft has been saved with conversation saving enabled.":"Your PeachChat draft has been saved. Test it before publishing."),"success");
   }catch(error){feedback(error.message,"error");}
   finally{busy=false;setButton("chatbot-save",false);}
  }
