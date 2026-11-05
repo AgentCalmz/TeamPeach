@@ -1137,7 +1137,7 @@ function chatbotPublicCors(req,res,next){
  if(origin){
   try{
    const url=new URL(origin);
-   if(["https:","http:"].includes(url.protocol)&&(url.protocol!=="http:"||["localhost","127.0.0.1"].includes(url.hostname))){
+   if(["https:","http:"].includes(url.protocol)){
     res.setHeader("Access-Control-Allow-Origin",url.origin);
     res.setHeader("Vary","Origin");
     res.setHeader("Access-Control-Allow-Methods","GET, POST, OPTIONS");
