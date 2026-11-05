@@ -96,7 +96,7 @@ test("public chatbot marketing page provides SEO, AEO and GEO answer content",()
  const html=read("public/tools/peachchat/index.html");
  assert.match(html,/<title>PeachChat AI Customer Assistant for Small Businesses \| TeamPeach<\/title>/);
  assert.match(html,/name="description"/);
- assert.match(html,/rel="canonical" href="https:\/\/teampeach\.org\/tools\/ai-chatbot\//);
+ assert.match(html,/rel="canonical" href="https:\/\/teampeach\.org\/tools\/peachchat\//);
  assert.match(html,/@type":"WebApplication/);
  assert.match(html,/@type":"FAQPage/);
  assert.match(html,/"areaServed":\{"@type":"Country","name":"Nigeria"\}/);
@@ -135,7 +135,7 @@ test("chatbot preview and per-assistant share pages are noindex and absent from 
   assert.match(read(page),/name="robots" content="noindex,nofollow"/);
  }
  const sitemap=read("public/sitemap.xml");
- assert.match(sitemap,/https:\/\/teampeach\.org\/tools\/ai-chatbot\//);
+ assert.match(sitemap,/https:\/\/teampeach\.org\/tools\/peachchat\//);
  assert.doesNotMatch(sitemap,/https:\/\/teampeach\.org\/(assistant|chatbot-preview)\//);
  const robots=read("public/robots.txt");
  assert.doesNotMatch(robots,/Disallow: \/chatbot-preview\//);
@@ -174,7 +174,7 @@ test("chatbot hero includes visible external photography with alternative text",
  const html=read("public/tools/peachchat/index.html");
  const css=read("public/css/chatbot-public.css");
  assert.match(html,/class="cb-hero-photo"/);
- assert.match(html,/chatbot-public\.css\?v=2/);
+ assert.match(html,/chatbot-public\.css\?v=3/);
  assert.ok(html.includes('src="/assets/peachchat-hero.svg"'));
  assert.match(html,/alt="A friendly peach-coloured AI chatbot with glowing digital chat symbols and a modern technology interface"/);
  assert.match(css,/\.cb-hero-photo/);
@@ -232,7 +232,7 @@ test("PeachChat canonical route redirects the former AI chatbot slug",()=>{
  assert.match(server,/tools\\\/ai-chatbot\\\/.+tools\\\/peachchat/);
  assert.match(html,/rel="canonical" href="https:\/\/teampeach\.org\/tools\/peachchat\//);
  assert.match(sitemap,/https:\/\/teampeach\.org\/tools\/peachchat\//);
- assert.doesNotMatch(sitemap,/https:\/\/teampeach\.org\/tools\/ai-chatbot\//);
+ assert.doesNotMatch(sitemap,/https:\/\/teampeach\.org\/tools\/peachchat\//);
 });
 test("PeachBrief is accessible from both dashboard entry points",()=>{
  const overview=read("public/dashboard/index.html"),tools=read("public/dashboard/tools/index.html");
@@ -243,7 +243,28 @@ test("PeachBrief is accessible from both dashboard entry points",()=>{
 });
 test("homepage sharing metadata uses the TeamPeach branded share image",()=>{
  const html=read("public/index.html");
- assert.match(html,/og:image" content="https:\/\/teampeach\.org\/assets\/teampeach-social\.webp"/);
- assert.match(html,/twitter:image" content="https:\/\/teampeach\.org\/assets\/teampeach-social\.webp"/);
+ assert.match(html,/og:image" content="https:\/\/teampeach\.org\/assets\/teampeach-social\.svg"/);
+ assert.match(html,/twitter:image" content="https:\/\/teampeach\.org\/assets\/teampeach-social\.svg"/);
  assert.match(html,/og:image:alt/);
+});
+
+test("PeachBrief enablement migration activates the hosted catalogue entry without a second credit charge",()=>{
+ const migration=read("supabase/migrations/009_peachbrief_enablement.sql");
+ assert.match(migration,/hosted_enabled=true/);
+ assert.match(migration,/active=true/);
+ assert.match(migration,/credit_cost_per_run=0/);
+ assert.match(read("server.js"),/peachBriefEnabled/);
+});
+test("PeachChat marketing route uses page-specific SEO and branded artwork",()=>{
+ const html=read("public/tools/peachchat/index.html");
+ assert.match(html,/rel="canonical" href="https:\/\/teampeach\.org\/tools\/peachchat\//);
+ assert.match(html,/og:image" content="https:\/\/teampeach\.org\/assets\/peachchat-hero\.svg"/);
+ assert.match(html,/twitter:image/);
+ assert.match(html,/@type":"WebApplication/);
+});
+test("old PeachChat route redirects to the canonical new slug",()=>{
+ const server=read("server.js"),oldPage=read("public/tools/ai-chatbot/index.html");
+ assert.ok(server.includes('app.get(/^\\/tools\\/ai-chatbot\\/?$/ ,(_q,r)=>r.redirect(301,"/tools/peachchat/"));'));
+ assert.match(oldPage,/tools\/peachchat\//);
+ assert.match(oldPage,/noindex,follow/);
 });
