@@ -112,3 +112,26 @@
 .chatbot-delete-button{display:inline-flex;align-items:center;justify-content:center;min-height:30px;margin-top:13px;padding:7px 10px;border:1px solid #efcfc5;border-radius:8px;background:#fff7f4;color:#a24f3e;font-size:9px;font-weight:850;cursor:pointer}
 .chatbot-delete-button:hover{background:#fcece6}
 #chatbot-delete-all-chats{min-height:32px;padding:7px 10px;border-color:#efcfc5;color:#a24f3e;font-size:9px}
+
+.peachchat-hero{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(290px,.92fr);gap:24px;align-items:center;margin:0 0 17px;padding:25px;border:1px solid #e8dfd5;border-radius:19px;background:linear-gradient(118deg,#fffdfa 0%,#faf3ec 100%);overflow:hidden}
+.peachchat-hero-copy h1{max-width:620px;margin:6px 0 9px;color:#202a3b;font:800 clamp(28px,3vw,39px)/1.08 var(--display);letter-spacing:-1.4px}
+.peachchat-hero-copy>p:not(.eyebrow){max-width:590px;margin:0;color:#74808d;font-size:12px;line-height:1.8}
+.peachchat-hero-actions{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:17px}
+.peachchat-hero-actions>a{color:#a65f44;font-size:10px;font-weight:850;text-decoration:none}
+.peachchat-hero-actions>a:hover{text-decoration:underline}
+.peachchat-trust-row{display:flex;gap:9px 15px;flex-wrap:wrap;margin-top:17px;color:#78837e;font-size:8px;font-weight:800}
+.peachchat-hero-image{overflow:hidden;border-radius:14px;background:#202b46;box-shadow:0 12px 32px #17203325}
+.peachchat-hero-image img{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover}
+.peachchat-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0 0 19px}
+.peachchat-steps article{display:grid;grid-template-columns:30px 1fr;column-gap:10px;align-items:start;padding:12px 13px;border:1px solid var(--cb-line);border-radius:12px;background:#fffdfa}
+.peachchat-steps article>span{grid-row:span 2;display:grid;place-items:center;width:28px;height:28px;border-radius:9px;background:#f7e9e0;color:#a65f44;font-size:9px;font-weight:900}
+.peachchat-steps strong{color:#394354;font-size:10px}
+.peachchat-steps p{margin:3px 0 0;color:#89909a;font-size:9px;line-height:1.6}
+.peachchat-credit-guide{margin:0 0 22px;padding:0 15px;border:1px solid #e7dfd5;border-radius:12px;background:#fffdfa}
+.peachchat-credit-guide summary{padding:13px 0;color:#394354;font-size:10px;font-weight:850;cursor:pointer}
+.peachchat-credit-guide p{margin:0 0 9px;color:#737d8a;font-size:9px;line-height:1.75}
+.peachchat-credit-guide a{display:inline-block;margin:0 0 13px;color:#a75f43;font-size:9px;font-weight:850;text-decoration:none}
+.peachchat-credit-guide a:hover{text-decoration:underline}
+.chatbot-form-actions{position:sticky;bottom:10px;z-index:5;padding:11px;border:1px solid #e8e1d8;border-radius:12px;background:#fffdfaf2;box-shadow:0 8px 25px #17203313;backdrop-filter:blur(10px)}
+@media(max-width:1000px){.peachchat-hero{grid-template-columns:1fr}.peachchat-hero-image{max-width:560px}}
+@media(max-width:720px){.peachchat-hero{padding:18px;gap:15px}.peachchat-hero-copy h1{font-size:30px}.peachchat-trust-row{display:grid;gap:7px}.peachchat-steps{grid-template-columns:1fr}.peachchat-form-actions{position:static}.chatbot-usage-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
