@@ -39,6 +39,15 @@ function selectVisitorKey(){
 function saveStored(){}
 function addBubble(role,content){const node=document.createElement("div");node.className="tp-bubble "+(role==="user"?"tp-user":"tp-assistant");node.textContent=String(content||"");stream.appendChild(node);stream.scrollTop=stream.scrollHeight;return node;}
 function addError(message){const node=document.createElement("div");node.className="tp-error";node.textContent=String(message);stream.appendChild(node);stream.scrollTop=stream.scrollHeight;}
+function networkErrorMessage(error){
+ const message=String(error&&error.message||"");
+ if((error&&error.name==="TypeError")||/failed to fetch|networkerror/i.test(message)){
+  return mode==="public"
+   ?"We couldn't connect to the chat service from this website. Refresh the page and try again. If it continues, ask the website owner to contact TeamPeach support."
+   :"We couldn't connect to the preview service. Refresh this page and make sure you are signed in to the TeamPeach account that owns this assistant.";
+ }
+ return message||"Something went wrong. Please try again.";
+}
 function addTyping(){const node=document.createElement("div");node.className="tp-bubble tp-assistant tp-typing";for(let i=0;i<3;i++)node.appendChild(document.createElement("i"));stream.appendChild(node);stream.scrollTop=stream.scrollHeight;return node;}
 function paintConfig(value){
  config=value||{};title.textContent=config.assistantName||"Business Assistant";subtitle.textContent=config.businessName||"Ask us a question";
@@ -70,7 +79,7 @@ async function sendMessage(message){
   const answer=mode==="preview"?body.answer:body.reply;if(typeof answer!=="string"||!answer.trim())throw new Error("The assistant returned an empty response.");
   if(mode==="preview"&&Number.isFinite(Number(body.creditsRemaining)))subtitle.textContent="Preview · "+Number(body.creditsRemaining).toLocaleString()+" credits remaining";
   addBubble("assistant",answer);history.push({role:"user",content:value},{role:"assistant",content:answer});history=history.slice(-8);saveStored();
- }catch(error){typing.remove();if(error.status===402)addError(error.message+" The business owner needs to add credits to this TeamPeach account.");else addError(error.message||"Something went wrong. Please try again.");}
+ }catch(error){typing.remove();if(error.status===402)addError(error.message+" The business owner needs to add credits to this TeamPeach account.");else addError(networkErrorMessage(error));}
  finally{loading=false;send.disabled=false;input.disabled=false;input.focus();}
 }
 launch.addEventListener("click",async()=>{const isOpen=panel.classList.toggle("tp-open");launch.setAttribute("aria-expanded",String(isOpen));if(isOpen){loadStored();try{await loadConfig();}catch(error){addError(error.message||"The assistant could not be loaded.");}if(!history.length&&config&&!welcomeShown){addBubble("assistant",config.welcomeMessage||"Hello! How can I help you today?");welcomeShown=true;}input.focus();}});
