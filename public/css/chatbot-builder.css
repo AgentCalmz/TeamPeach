@@ -120,7 +120,8 @@
 .peachchat-hero-actions>a{color:#a65f44;font-size:10px;font-weight:850;text-decoration:none}
 .peachchat-hero-actions>a:hover{text-decoration:underline}
 .peachchat-hero-image{overflow:hidden;border:1px solid rgba(255,255,255,.7);border-radius:14px;background:#202b46;box-shadow:0 12px 32px #17203320}
-.peachchat-hero-image img{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover}
+.peachchat-hero-image{width:100%;min-width:0;min-height:0}
+.peachchat-hero-image img{display:block;width:100%;height:auto;max-height:300px;aspect-ratio:16/9;object-fit:cover;object-position:center}
 .chatbot-usage-grid{margin:0 0 18px}
 .chatbot-form-actions{position:sticky;bottom:10px;z-index:5;padding:11px;border:1px solid #e8e1d8;border-radius:12px;background:#fffdfaf2;box-shadow:0 8px 25px #17203313;backdrop-filter:blur(10px)}
 @media(max-width:1000px){.peachchat-hero{grid-template-columns:1fr}.peachchat-hero-image{max-width:560px}}
