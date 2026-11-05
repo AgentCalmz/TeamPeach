@@ -52,6 +52,7 @@
   ["chatbot-save-chats","chatbot-remove-branding","chatbot-widget-icon","chatbot-widget-color"].forEach(id=>{if($(id))$(id).disabled=!membershipActive;});
  }
  function fillForm(a){
+  showEditor(true);
   setValue("chatbot-id",a.id);setValue("chatbot-assistant-name",a.assistantName);setValue("chatbot-business-name",a.businessName);setValue("chatbot-business-description",a.businessDescription);
   setValue("chatbot-category",a.category);setValue("chatbot-location",a.businessLocation);setValue("chatbot-contact",a.businessContact);
   setValue("chatbot-products",a.productsServices);setValue("chatbot-faqs",a.faqs);setValue("chatbot-policies",a.policies);
@@ -62,6 +63,7 @@
   $("chatbot-domains-box").hidden=!a.allowedDomainsEnabled;
   $("chatbot-status").textContent=a.isActive?"Published":"Draft";$("chatbot-status").classList.toggle("live",a.isActive);
   $("chatbot-editor-title").textContent=a.assistantName||a.businessName+" Assistant";
+  $("chatbot-save").textContent=a.isActive?"Update assistant":"Save draft";
   $("chatbot-editor-caption").textContent=a.isActive?"Your assistant is live. Changes are saved as soon as you choose Save assistant.":"This assistant is a draft. Test it, then publish when you are ready.";
   setButton("chatbot-test",false);setButton("chatbot-publish",!a.id||a.isActive);setHidden("chatbot-unpublish",!a.isActive);
   setHidden("chatbot-installation",!a.isActive);
@@ -70,6 +72,7 @@
  }
  function newAssistant(){
   selected=null;showEditor(true);form.reset();setValue("chatbot-id","");
+  $("chatbot-save").textContent="Save draft";
   setValue("chatbot-tone","friendly");setValue("chatbot-widget-icon","message");setValue("chatbot-widget-color","#253047");
   setCheck("chatbot-save-chats",false);setCheck("chatbot-remove-branding",false);setCheck("chatbot-domains-enabled",false);
   $("chatbot-domains-box").hidden=true;$("chatbot-status").textContent="Draft";$("chatbot-status").classList.remove("live");
@@ -193,7 +196,7 @@
    if(selected.isActive){$("chatbot-embed-code").textContent=detail.embedCode||"";$("chatbot-share-url").textContent=detail.publicUrl||"";$("chatbot-open-preview").href="/chatbot-preview/?assistant="+encodeURIComponent(selected.id);}
    else setHidden("chatbot-installation",true);
    await loadConversations();
-   feedback("Your PeachChat draft has been saved. Next, test it and publish when it is ready.","success");
+   feedback(selected.isActive?"Your PeachChat assistant has been updated.":"Your PeachChat draft has been saved. Test it, then publish when it is ready.","success");
   }catch(error){feedback(error.message,"error");}
   finally{busy=false;setButton("chatbot-save",false);}
  }
