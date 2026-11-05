@@ -1277,7 +1277,7 @@ async function chatbotGenerateForOwner(assistant,ownerId,input){
    if(!conversationSaved)logFailure("chatbot-conversation-save",saved.error||new Error("CONVERSATION_NOT_SAVED"));
   }catch(error){conversationSaved=false;logFailure("chatbot-conversation-save",error);}
  }
- return {answer:generated.answer,duplicate:false,inputTokens:generated.inputTokens,outputTokens:generated.outputTokens,totalTokens:generated.totalTokens,creditsCharged:credits,creditsRemaining,model,conversationSaved};
+ return {answer:generated.answer,duplicate:false,inputTokens:generated.inputTokens,outputTokens:generated.outputTokens,totalTokens:generated.totalTokens,creditsCharged:credits,creditsRemaining,model:generated.model,conversationSaved};
 }
 
 function chatbotAssistantPayload(row){
