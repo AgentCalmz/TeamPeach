@@ -222,7 +222,8 @@ test("SEO content brief builder is interactive and states its current data limit
  assert.match(html,/id="brief-form"/);
  assert.match(html,/id="brief-output"/);
  assert.match(html,/PeachBrief uses DeepSeek/);
- assert.ok(builder.includes('api("/api/tools/seo-content-brief/generate","POST"'));\n assert.ok(builder.includes("PeachBrief is preparing your AI content brief with DeepSeek"));
+ assert.ok(builder.includes('api("/api/tools/seo-content-brief/generate","POST"'));
+ assert.ok(builder.includes("PeachBrief is preparing your AI content brief with DeepSeek"));
  assert.match(builder,/api\("\/api\/workspace\/projects","POST"/);
  assert.match(builder,/api\("\/api\/workspace\/projects\/"/);
  assert.match(html,/id="copy-brief"/);
