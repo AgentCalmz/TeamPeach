@@ -151,6 +151,8 @@ test("assistant preview uses a CSP-compatible external bootstrap and reports rea
  assert.match(bootstrap,/AbortController/);
  assert.match(bootstrap,/classList\.contains\("tp-open"\)/);
  assert.match(bootstrap,/did not finish loading/);
+ assert.ok(bootstrap.includes("/js/chatbot-widget.js?v=4"));
+ assert.ok(read("server.js").includes("/js/chatbot-widget.js?v=4"));
 });
 test("chatbot hero includes visible external photography with alternative text",()=>{
  const html=read("public/tools/ai-chatbot/index.html");
