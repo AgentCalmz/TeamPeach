@@ -216,39 +216,40 @@ test("public tools catalogue lists only the two currently published tools with c
 
 test("existing PeachChat assistants open the editor and published assistants use an update action",()=>{
  const builder=read("public/js/chatbot-builder.js");
- assert.match(builder,/function fillForm\\(a\\)\\{\\s*showEditor\\(true\\)/);
- assert.match(builder,/a\\.isActive\\?"Update assistant":"Save draft"/);
- assert.match(builder,/Conversation saving is enabled, but this assistant must be published before new visitor conversations can be stored/);
- assert.match(builder,/Your PeachChat assistant has been updated/);
+ assert.ok(builder.includes("function fillForm(a){\\n  showEditor(true);"));
+ assert.ok(builder.includes('a.isActive?"Update assistant":"Save draft"'));
+ assert.ok(builder.includes("Conversation saving is enabled, but this assistant must be published before new visitor conversations can be stored"));
+ assert.ok(builder.includes("Your PeachChat assistant has been updated"));
 });
 test("PeachBrief appears in the workspace and explains its deployment configuration requirement",()=>{
  const overview=read("public/dashboard/index.html"),tools=read("public/dashboard/tools/index.html");
- assert.match(overview,/href="\\/tools\\/seo-content-brief\\/"/);
- assert.match(tools,/href="\\/tools\\/seo-content-brief\\/"/);
+ assert.ok(overview.includes('href="/tools/seo-content-brief/"'));
+ assert.ok(tools.includes('href="/tools/seo-content-brief/"'));
  const server=read("server.js");
- assert.match(server,/AI_NOT_CONFIGURED","PeachBrief is not enabled on this deployment yet[\\s\\S]*DEEPSEEK_API_KEY/);
+ assert.ok(server.includes('AI_NOT_CONFIGURED","PeachBrief is not enabled on this deployment yet.'));
+ assert.ok(server.includes("DEEPSEEK_API_KEY in Render and redeploy"));
 });
 test("homepage share metadata uses TeamPeach's own brand mark, not stock photography",()=>{
  const home=read("public/index.html");
- assert.match(home,/property="og:image" content="https:\\/\\/teampeach\\.org\\/assets\\/favicon\\.svg"/);
- assert.match(home,/property="og:image:alt" content="TeamPeach brand mark"/);
- assert.match(home,/name="twitter:image" content="https:\\/\\/teampeach\\.org\\/assets\\/favicon\\.svg"/);
+ assert.ok(home.includes('property="og:image" content="https://teampeach.org/assets/favicon.svg"'));
+ assert.ok(home.includes('property="og:image:alt" content="TeamPeach brand mark"'));
+ assert.ok(home.includes('name="twitter:image" content="https://teampeach.org/assets/favicon.svg"'));
 });
 test("PeachChat canonical route is published and the previous URL permanently redirects",()=>{
  const page=read("public/tools/peachchat/index.html"),old=read("public/tools/ai-chatbot/index.html"),server=read("server.js");
- assert.match(page,/rel="canonical" href="https:\\/\\/teampeach\\.org\\/tools\\/peachchat\\/"/);
- assert.match(page,/property="og:url" content="https:\\/\\/teampeach\\.org\\/tools\\/peachchat\\/"/);
- assert.match(old,/name="robots" content="noindex,follow"/);
- assert.match(old,/rel="canonical" href="https:\\/\\/teampeach\\.org\\/tools\\/peachchat\\/"/);
- assert.match(server,/app\\.get\\(\\/\\^\\\\\\/tools\\\\\\/ai-chatbot/);
+ assert.ok(page.includes('rel="canonical" href="https://teampeach.org/tools/peachchat/"'));
+ assert.ok(page.includes('property="og:url" content="https://teampeach.org/tools/peachchat/"'));
+ assert.ok(old.includes('name="robots" content="noindex,follow"'));
+ assert.ok(old.includes('rel="canonical" href="https://teampeach.org/tools/peachchat/"'));
+ assert.ok(server.includes('app.get(/^\\/tools\\/ai-chatbot\\/?$/,(_q,r)=>r.redirect(301,"/tools/peachchat/"));'));
  const sitemap=read("public/sitemap.xml");
- assert.match(sitemap,/https:\\/\\/teampeach\\.org\\/tools\\/peachchat\\//);
- assert.doesNotMatch(sitemap,/https:\\/\\/teampeach\\.org\\/tools\\/ai-chatbot\\//);
+ assert.ok(sitemap.includes("https://teampeach.org/tools/peachchat/"));
+ assert.ok(!sitemap.includes("https://teampeach.org/tools/ai-chatbot/"));
 });
 test("public chatbot API reports failed optional conversation persistence without hiding the assistant reply",()=>{
  const server=read("server.js"),widget=read("public/js/chatbot-widget.js");
- assert.match(server,/conversationSaved=Boolean\\(!saved\\.error&&saved\\.data&&saved\\.data\\.status==="ok"\\)/);
- assert.match(server,/reply:result\\.answer,conversationSaved:result\\.conversationSaved!==false/);
- assert.match(widget,/body\\.conversationSaved===false/);
- assert.match(widget,/this conversation could not be saved/);
+ assert.ok(server.includes('conversationSaved=Boolean(!saved.error&&saved.data&&saved.data.status==="ok")'));
+ assert.ok(server.includes('reply:result.answer,conversationSaved:result.conversationSaved!==false'));
+ assert.ok(widget.includes("body.conversationSaved===false"));
+ assert.ok(widget.includes("this conversation could not be saved"));
 });
