@@ -221,8 +221,8 @@ test("SEO content brief builder is interactive and states its current data limit
  const builder=fs.readFileSync(path.join(__dirname,"..","public","js","brief-builder.js"),"utf8");
  assert.match(html,/id="brief-form"/);
  assert.match(html,/id="brief-output"/);
- assert.match(html,/does not call an AI model or fetch live Google results yet/);
- assert.match(builder,/function buildBrief\(values\)/);
+ assert.match(html,/PeachBrief uses DeepSeek/);
+ assert.ok(builder.includes('api("/api/tools/seo-content-brief/generate","POST"'));\n assert.ok(builder.includes("PeachBrief is preparing your AI content brief with DeepSeek"));
  assert.match(builder,/api\("\/api\/workspace\/projects","POST"/);
  assert.match(builder,/api\("\/api\/workspace\/projects\/"/);
  assert.match(html,/id="copy-brief"/);
@@ -329,7 +329,7 @@ test("commerce schema, checkout verification, credit expiry, and dashboard UI ar
  assert.ok(client.includes('api("/api/commerce/checkout","POST"'));
  assert.ok(adminClient.includes('api("/api/admin/commerce/plans","POST"'));
  assert.ok(productClient.includes('fetch("/api/commerce/catalog"'));
- assert.ok(briefClient.includes('api("/api/commerce/tool-runs","POST"'));
+ assert.ok(briefClient.includes('api("/api/tools/seo-content-brief/generate","POST"'));
  assert.ok(env.includes("PAYMENT_MODE=test"));
  assert.ok(env.includes("PAYSTACK_SECRET_KEY="));
  assert.ok(env.includes("FLW_SECRET_KEY="));
