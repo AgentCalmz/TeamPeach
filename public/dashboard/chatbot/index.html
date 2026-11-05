@@ -14,7 +14,7 @@
 <link rel="stylesheet" href="/css/styles.css?v=7">
 <link rel="stylesheet" href="/css/dashboard.css?v=5">
 <link rel="stylesheet" href="/css/dashboard-pages.css?v=1">
-<link rel="stylesheet" href="/css/chatbot-builder.css?v=1">
+<link rel="stylesheet" href="/css/chatbot-builder.css?v=2">
 <title>PeachChat | TeamPeach Workspace</title>
 </head>
 <body class="workspace-body">
@@ -56,30 +56,17 @@
   <h1>Give your website a helpful first response.</h1>
   <p>Create a friendly AI assistant for your business. Start with two details, test its answers, then publish it on your website.</p>
   <div class="peachchat-hero-actions"><button class="button button-dark" type="button" id="chatbot-new">＋ Create assistant</button><a href="/tools/ai-chatbot/">See how PeachChat works ↗</a></div>
-  <div class="peachchat-trust-row"><span>✓ You control its knowledge</span><span>✓ Test before publishing</span><span>✓ No coding required</span></div>
  </div>
  <div class="peachchat-hero-image"><img src="/assets/peachchat-hero.webp" alt="A friendly peach-coloured AI chatbot with glowing digital chat symbols and a modern technology interface" width="1200" height="675"></div>
-</section>
-<section class="peachchat-steps" aria-label="How to set up PeachChat">
- <article><span>01</span><strong>Describe your business</strong><p>Two required fields. You can add more detail later.</p></article>
- <article><span>02</span><strong>Teach and test</strong><p>Add FAQs, services and policies, then try real customer questions.</p></article>
- <article><span>03</span><strong>Publish and install</strong><p>Copy one script snippet into your website.</p></article>
 </section>
 
 <section class="chatbot-usage-grid" aria-label="Chatbot usage">
 <article class="chatbot-usage-card"><span class="chatbot-card-kicker">ACCOUNT CREDITS</span><strong id="chatbot-credit-balance">—</strong><small>Shared TeamPeach wallet</small></article>
 <article class="chatbot-usage-card"><span class="chatbot-card-kicker">ASSISTANT REPLIES · LAST 30 DAYS</span><strong id="chatbot-replies-total">—</strong><small>Across your assistants</small></article>
 <article class="chatbot-usage-card"><span class="chatbot-card-kicker">DEEPSEEK TOKENS · LAST 30 DAYS</span><strong id="chatbot-tokens-total">—</strong><small>Input and output tokens</small></article>
-<article class="chatbot-usage-card"><span class="chatbot-card-kicker">TEAMPEACH CREDITS · LAST 30 DAYS</span><strong id="chatbot-credits-used">—</strong><small>Debited from your account wallet</small></article>
+<article class="chatbot-usage-card"><span class="chatbot-card-kicker">CREDITS USED · LAST 30 DAYS</span><strong id="chatbot-credits-used">—</strong><small>From your TeamPeach balance</small></article>
 </section>
-<details class="peachchat-credit-guide">
- <summary>How do TeamPeach credits compare with DeepSeek tokens?</summary>
- <p>PeachChat charges <strong>1 TeamPeach credit per started 1,000 combined DeepSeek input and output tokens</strong> by default. For example, 1,001 combined tokens use 2 credits. DeepSeek bills input and output at different USD rates, so one TeamPeach credit is not equal to one DeepSeek token or a fixed dollar amount.</p>
- <p>With the current <strong>deepseek-flash</strong> model, DeepSeek's off-peak price per 1 million tokens is <strong>$0.15 for uncached input</strong>, <strong>$0.003 for cached input</strong> and <strong>$0.60 for output</strong>. Peak prices are double: $0.30, $0.006 and $1.20 respectively. These are TeamPeach's provider costs, not a fixed cash value for your credits.</p>
- <p>For a simple illustration, 1,000 tokens would cost DeepSeek about $0.00015 if they were all uncached input, or $0.00060 if they were all output, during off-peak hours. A real request mixes input and output and may include cached input. In Nigeria time (WAT), DeepSeek's weekday peak windows are 02:00–05:00 and 07:00–11:00; other times are off-peak.</p>
- <p>Your exact provider cost depends on prompt-cache hits and the input/output split. The usage cards above show the actual tokens and credits recorded for your assistants. One TeamPeach credit's selling value depends on the credit pack or membership price you purchased; it is not defined by DeepSeek.</p>
- <a href="https://api-docs.deepseek.com/quick_start/pricing/" target="_blank" rel="noopener noreferrer">See DeepSeek's current official API prices ↗</a>
-</details>
+
 <div class="chatbot-layout">
 <aside class="chatbot-list-column">
 <div class="chatbot-panel-heading"><div><h2>Your assistants</h2><p id="chatbot-plan-limit">Loading your access…</p></div></div>
