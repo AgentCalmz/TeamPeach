@@ -116,8 +116,8 @@ test("dashboard overview shows the PeachChat hero artwork instead of a placehold
  const html=read("public/dashboard/index.html");
  const css=read("public/css/dashboard-pages.css");
  assert.ok(html.includes('/css/dashboard-pages.css?v=3'));
- assert.ok(html.includes('<span class="workspace-action-image"><img src="/assets/peachchat-hero.webp"'));
- assert.ok(read("public/assets/peachchat-hero.webp").length>1000);
+ assert.ok(html.includes('<span class="workspace-action-image"><img src="/assets/peachchat-hero.svg"'));
+ assert.ok(read("public/assets/peachchat-hero.svg").includes("<svg"));
  assert.ok(css.includes(".workspace-action-image img{display:block;width:100%;height:100%;object-fit:cover;object-position:center}"));
 });
 test("assistant replies render safe Markdown formatting instead of raw markers",()=>{
@@ -175,12 +175,12 @@ test("chatbot hero includes visible external photography with alternative text",
  const css=read("public/css/chatbot-public.css");
  assert.match(html,/class="cb-hero-photo"/);
  assert.match(html,/chatbot-public\.css\?v=2/);
- assert.ok(html.includes('src="/assets/peachchat-hero.webp"'));
+ assert.ok(html.includes('src="/assets/peachchat-hero.svg"'));
  assert.match(html,/alt="A friendly peach-coloured AI chatbot with glowing digital chat symbols and a modern technology interface"/);
  assert.match(css,/\.cb-hero-photo/);
  assert.match(css,/\.cb-hero-art\{position:relative/);
  const dashboard=read("public/dashboard/chatbot/index.html");
- assert.ok(dashboard.includes('src="/assets/peachchat-hero.webp"'));
+ assert.ok(dashboard.includes('src="/assets/peachchat-hero.svg"'));
  assert.doesNotMatch(dashboard,/peachchat-credit-guide|How do TeamPeach credits compare with DeepSeek tokens|DeepSeek.s off-peak price/);
  assert.ok(dashboard.includes('id="chatbot-credits-used"'));
  assert.ok(dashboard.includes("CREDITS USED · LAST 30 DAYS"));
