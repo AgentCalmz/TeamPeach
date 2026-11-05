@@ -115,3 +115,28 @@ test("chatbot preview and per-assistant share pages are noindex and absent from 
  assert.doesNotMatch(robots,/Disallow: \/chatbot-preview\//);
  assert.doesNotMatch(robots,/Disallow: \/assistant\//);
 });
+
+
+test("public chatbot API explicitly overrides Helmet's same-origin policy for cross-site embeds",()=>{
+ const server=read("server.js");
+ const cors=server.match(/function chatbotPublicCors\(req,res,next\)\{[\s\S]*?\n \}/);
+ assert.ok(cors,"public chatbot CORS middleware should exist");
+ assert.match(cors[0],/Access-Control-Allow-Origin/);
+ assert.match(cors[0],/Cross-Origin-Resource-Policy","cross-origin"/);
+ assert.match(server,/app\.use\("\/api\/chatbot\/public",chatbotPublicCors\)/);
+});
+test("assistant test page auto-opens the widget and reports loading failures",()=>{
+ const html=read("public/chatbot-preview/index.html");
+ assert.match(html,/script\.dataset\.openOnLoad="1"/);
+ assert.match(html,/script\.addEventListener\("error"/);
+ assert.match(html,/id="preview-state"/);
+});
+test("chatbot hero includes visible external photography with alternative text",()=>{
+ const html=read("public/tools/ai-chatbot/index.html");
+ const css=read("public/css/chatbot-public.css");
+ assert.match(html,/class="cb-hero-photo"/);
+ assert.match(html,/images\.unsplash\.com/);
+ assert.match(html,/alt="A small business team working together in a bright office"/);
+ assert.match(css,/\.cb-hero-photo/);
+ assert.match(css,/\.cb-hero-art\{position:relative/);
+});
