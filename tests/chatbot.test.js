@@ -143,7 +143,7 @@ test("public chatbot API explicitly overrides Helmet's same-origin policy for cr
 test("assistant preview uses a CSP-compatible external bootstrap and reports real readiness",()=>{
  const html=read("public/chatbot-preview/index.html");
  const bootstrap=read("public/js/chatbot-preview.js");
- assert.ok(html.includes('src="/assets/peachchat-hero.webp"'));
+ assert.ok(html.includes('src="/js/chatbot-preview.js?v=1" defer'));
  assert.doesNotMatch(html,/<script>\s*\(function/);
  assert.match(bootstrap,/preview-config/);
  assert.match(bootstrap,/credentials:"same-origin"/);
@@ -164,7 +164,6 @@ test("chatbot hero includes visible external photography with alternative text",
  const dashboard=read("public/dashboard/chatbot/index.html");
  assert.ok(dashboard.includes('src="/assets/peachchat-hero.webp"'));
  assert.ok(dashboard.includes("1 TeamPeach credit per started 1,000 combined DeepSeek input and output tokens"));
- assert.ok(dashboard.includes("$0.15 for uncached input")&&dashboard.includes("$0.60 for output"));
  assert.ok(dashboard.includes("$0.15 for uncached input")&&dashboard.includes("$0.60 for output"));
  assert.ok(dashboard.includes("https://api-docs.deepseek.com/quick_start/pricing/"));
 });
