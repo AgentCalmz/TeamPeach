@@ -50,30 +50,5 @@ a:hover{text-decoration:underline}
  </section>
  <div class="note">The chat window should appear at the bottom-right of this page. Messages here use your TeamPeach credits. If the chat does not appear, refresh this page and make sure you are signed in to the same TeamPeach account that owns the assistant.</div>
 </main>
-<script>
-(function(){
- const state=document.getElementById("preview-state");
- const params=new URLSearchParams(location.search);
- const id=params.get("assistant")||"";
- if(!/^[0-9a-f-]{36}$/i.test(id)){
-  state.dataset.state="error";
-  state.textContent="No valid assistant was selected. Return to your dashboard and open Test assistant from an existing assistant.";
-  return;
- }
- const script=document.createElement("script");
- script.src=new URL("/js/chatbot-widget.js",location.origin).href;
- script.dataset.assistantId=id;
- script.dataset.mode="preview";
- script.dataset.openOnLoad="1";
- script.addEventListener("load",function(){
-  state.dataset.state="ready";
-  state.textContent="The chat widget has loaded. Its conversation window should now be open in the bottom-right corner.";
- });
- script.addEventListener("error",function(){
-  state.dataset.state="error";
-  state.textContent="The chat widget could not be loaded. Refresh this page; if the problem continues, contact TeamPeach support.";
- });
- document.body.appendChild(script);
-})();
-</script>
+<script src="/js/chatbot-preview.js?v=1" defer></script>
 </body></html>

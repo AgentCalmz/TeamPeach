@@ -125,12 +125,22 @@ test("public chatbot API explicitly overrides Helmet's same-origin policy for cr
  assert.match(cors[0],/Cross-Origin-Resource-Policy","cross-origin"/);
  assert.match(cors[0],/\["https:","http:"\]\.includes\(url\.protocol\)/);
  assert.match(server,/app\.use\("\/api\/chatbot\/public",chatbotPublicCors\)/);
+ assert.match(server,/req\.path\.startsWith\("\/api\/chatbot\/public\/"\)/);
+ const corsMount=server.indexOf('app.use("/api/chatbot/public",chatbotPublicCors)');
+ const globalLimit=server.indexOf('app.use("/api",rateLimit(');
+ assert.ok(corsMount>=0&&globalLimit>corsMount,"CORS must run before the global API limiter");
 });
-test("assistant test page auto-opens the widget and reports loading failures",()=>{
+test("assistant preview uses a CSP-compatible external bootstrap and reports real readiness",()=>{
  const html=read("public/chatbot-preview/index.html");
- assert.match(html,/script\.dataset\.openOnLoad="1"/);
- assert.match(html,/script\.addEventListener\("error"/);
- assert.match(html,/id="preview-state"/);
+ const bootstrap=read("public/js/chatbot-preview.js");
+ assert.match(html,/src="\/js\/chatbot-preview\.js\?v=1" defer/);
+ assert.doesNotMatch(html,/<script>\s*\(function/);
+ assert.match(bootstrap,/preview-config/);
+ assert.match(bootstrap,/credentials:"same-origin"/);
+ assert.match(bootstrap,/data\.openOnLoad|dataset\.openOnLoad/);
+ assert.match(bootstrap,/AbortController/);
+ assert.match(bootstrap,/classList\.contains\("tp-open"\)/);
+ assert.match(bootstrap,/did not finish loading/);
 });
 test("chatbot hero includes visible external photography with alternative text",()=>{
  const html=read("public/tools/ai-chatbot/index.html");
@@ -141,4 +151,30 @@ test("chatbot hero includes visible external photography with alternative text",
  assert.match(html,/alt="A small business team working together in a bright office"/);
  assert.match(css,/\.cb-hero-photo/);
  assert.match(css,/\.cb-hero-art\{position:relative/);
+});
+
+test("public tools catalogue lists only the two currently published tools with capability notes",()=>{
+ const html=read("public/tools/index.html");
+ assert.match(html,/<title>AI Tools and Business Tools \| TeamPeach Tools<\/title>/);
+ assert.match(html,/rel="canonical" href="https:\/\/teampeach\.org\/tools\//);
+ assert.match(html,/@type":"CollectionPage/);
+ assert.match(html,/@type":"ItemList/);
+ assert.match(html,/SEO Content Brief Builder/);
+ assert.match(html,/AI Chatbot Builder/);
+ assert.match(html,/does not call an AI model or fetch live Google search results/i);
+ assert.match(html,/does not automatically crawl your website/i);
+ assert.match(html,/images\.unsplash\.com/);
+ assert.doesNotMatch(html,/noindex,nofollow/);
+ const home=read("public/index.html");
+ assert.match(home,/href="\/tools\//);
+ assert.match(home,/class="home-tool-grid"/);
+ assert.match(home,/class="home-tool-image"/);
+ assert.match(home,/images\.unsplash\.com/);
+ const seoTool=read("public/tools/seo-content-brief/index.html");
+ assert.match(seoTool,/class="brief-cover-visual"/);
+ assert.match(seoTool,/images\.unsplash\.com/);
+ const sitemap=read("public/sitemap.xml");
+ assert.match(sitemap,/https:\/\/teampeach\.org\/tools\//);
+ const server=read("server.js");
+ assert.ok(server.includes('app.get(/^\\/tool\\/?$/'),"singular /tool alias should redirect to /tools/");
 });
