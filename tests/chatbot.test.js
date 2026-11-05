@@ -93,7 +93,7 @@ test("builder form requires only business name and description; premium switches
  assert.match(html,/id="chatbot-test"/);
 });
 test("public chatbot marketing page provides SEO, AEO and GEO answer content",()=>{
- const html=read("public/tools/ai-chatbot/index.html");
+ const html=read("public/tools/peachchat/index.html");
  assert.match(html,/<title>PeachChat AI Customer Assistant for Small Businesses \| TeamPeach<\/title>/);
  assert.match(html,/name="description"/);
  assert.match(html,/rel="canonical" href="https:\/\/teampeach\.org\/tools\/ai-chatbot\//);
@@ -107,7 +107,7 @@ test("public chatbot marketing page provides SEO, AEO and GEO answer content",()
 test("PeachChat dashboard has a compact premium layout without the removed checklist, steps or token-price explainer",()=>{
  const html=read("public/dashboard/chatbot/index.html");
  const css=read("public/css/chatbot-builder.css");
- assert.ok(html.includes('/css/chatbot-builder.css?v=2'));
+ assert.ok(html.includes('/css/chatbot-builder.css?v=3'));
  assert.doesNotMatch(html,/peachchat-trust-row|peachchat-steps|peachchat-credit-guide|How do TeamPeach credits compare with DeepSeek tokens/);
  assert.doesNotMatch(css,/\\.peachchat-trust-row|\\.peachchat-steps|\\.peachchat-credit-guide/);
  assert.ok(css.includes(".chatbot-usage-grid{margin:0 0 18px}"));
@@ -115,7 +115,7 @@ test("PeachChat dashboard has a compact premium layout without the removed check
 test("dashboard overview shows the PeachChat hero artwork instead of a placeholder glyph",()=>{
  const html=read("public/dashboard/index.html");
  const css=read("public/css/dashboard-pages.css");
- assert.ok(html.includes('/css/dashboard-pages.css?v=2'));
+ assert.ok(html.includes('/css/dashboard-pages.css?v=3'));
  assert.ok(html.includes('<span class="workspace-action-image"><img src="/assets/peachchat-hero.webp"'));
  assert.ok(read("public/assets/peachchat-hero.webp").length>1000);
  assert.ok(css.includes(".workspace-action-image img{display:block;width:100%;height:100%;object-fit:cover;object-position:center}"));
@@ -171,7 +171,7 @@ test("assistant preview uses a CSP-compatible external bootstrap and reports rea
  assert.ok(read("server.js").includes("/js/chatbot-widget.js?v=4"));
 });
 test("chatbot hero includes visible external photography with alternative text",()=>{
- const html=read("public/tools/ai-chatbot/index.html");
+ const html=read("public/tools/peachchat/index.html");
  const css=read("public/css/chatbot-public.css");
  assert.match(html,/class="cb-hero-photo"/);
  assert.match(html,/chatbot-public\.css\?v=2/);
@@ -211,4 +211,39 @@ test("public tools catalogue lists only the two currently published tools with c
  assert.match(sitemap,/https:\/\/teampeach\.org\/tools\//);
  const server=read("server.js");
  assert.ok(server.includes('app.get(/^\\/tool\\/?$/'),"singular /tool alias should redirect to /tools/");
+});
+
+
+test("PeachChat selection opens existing assistant settings and labels published updates clearly",()=>{
+ const js=read("public/js/chatbot-builder.js");
+ const load=js.slice(js.indexOf("async function loadAssistant"),js.indexOf("async function loadConversations"));
+ assert.match(load,/showEditor\(true\)/);
+ assert.match(js,/a\.isActive\?"Update assistant":"Save draft"/);
+ assert.match(js,/Your published assistant has been updated/);
+});
+test("conversation saving is verified by the API and failures are surfaced to visitors",()=>{
+ const server=read("server.js"),widget=read("public/js/chatbot-widget.js");
+ assert.match(server,/conversationSaved=!saved\.error&&Boolean\(saved\.data\)&&saved\.data\.status==="ok"/);
+ assert.match(server,/conversationSaved:result\.conversationSaved/);
+ assert.match(widget,/body\.conversationSaved===false/);
+});
+test("PeachChat canonical route redirects the former AI chatbot slug",()=>{
+ const server=read("server.js"),html=read("public/tools/peachchat/index.html"),sitemap=read("public/sitemap.xml");
+ assert.match(server,/tools\\\/ai-chatbot\\\/.+tools\\\/peachchat/);
+ assert.match(html,/rel="canonical" href="https:\/\/teampeach\.org\/tools\/peachchat\//);
+ assert.match(sitemap,/https:\/\/teampeach\.org\/tools\/peachchat\//);
+ assert.doesNotMatch(sitemap,/https:\/\/teampeach\.org\/tools\/ai-chatbot\//);
+});
+test("PeachBrief is accessible from both dashboard entry points",()=>{
+ const overview=read("public/dashboard/index.html"),tools=read("public/dashboard/tools/index.html");
+ assert.match(overview,/href="\/tools\/seo-content-brief\/"[^>]*>/);
+ assert.match(overview,/PeachBrief/);
+ assert.match(tools,/href="\/tools\/seo-content-brief\/"[^>]*>/);
+ assert.match(tools,/PeachBrief/);
+});
+test("homepage sharing metadata uses the TeamPeach branded share image",()=>{
+ const html=read("public/index.html");
+ assert.match(html,/og:image" content="https:\/\/teampeach\.org\/assets\/teampeach-social\.webp"/);
+ assert.match(html,/twitter:image" content="https:\/\/teampeach\.org\/assets\/teampeach-social\.webp"/);
+ assert.match(html,/og:image:alt/);
 });
