@@ -175,5 +175,6 @@ test("public tools catalogue lists only the two currently published tools with c
  assert.match(seoTool,/images\.unsplash\.com/);
  const sitemap=read("public/sitemap.xml");
  assert.match(sitemap,/https:\/\/teampeach\.org\/tools\//);
- assert.match(server,/app\.get\(\/\^\\\/tool/);
+ const server=read("server.js");
+ assert.ok(server.includes('app.get(/^\\/tool\\/?$/'),"singular /tool alias should redirect to /tools/");
 });
