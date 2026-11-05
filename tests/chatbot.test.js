@@ -6,7 +6,7 @@ const path=require("node:path");
 const root=path.join(__dirname,"..");
 const chatbot=require("../src/chatbot");
 const read=rel=>fs.readFileSync(path.join(root,rel),"utf8");
-const sitemapUrls=xml=>Array.from(xml.matchAll(/<loc>([^<]+)<\\/loc>/g),match=>match[1]);
+const sitemapUrls=xml=>xml.split("<loc>").slice(1).map(value=>value.split("</loc>")[0]);
 
 test("allowed domains are normalised and deduplicated",()=>{
  assert.deepEqual(chatbot.normalizeChatbotDomains(["https://www.example.com/shop","example.com","shop.example.net","*.other.org"]),["example.com","shop.example.net","other.org"]);
@@ -135,9 +135,9 @@ test("chatbot preview and per-assistant share pages are noindex and absent from 
  for(const page of ["public/assistant/index.html","public/chatbot-preview/index.html"]){
   assert.match(read(page),/name="robots" content="noindex,nofollow"/);
  }
- const sitemap=read("public/sitemap.xml");
- assert.match(sitemap,/https:\/\/teampeach\.org\/tools\/peachchat\//);
- assert.doesNotMatch(sitemap,/https:\/\/teampeach\.org\/(assistant|chatbot-preview)\//);
+ const urls=sitemapUrls(read("public/sitemap.xml"));
+ assert.ok(urls.some(value=>value==="https://teampeach.org/tools/peachchat/"));
+ assert.ok(urls.every(value=>{const parsed=new URL(value);return parsed.pathname!=="/assistant/"&&parsed.pathname!=="/chatbot-preview/";}));
  const robots=read("public/robots.txt");
  assert.doesNotMatch(robots,/Disallow: \/chatbot-preview\//);
  assert.doesNotMatch(robots,/Disallow: \/assistant\//);
@@ -208,8 +208,8 @@ test("public tools catalogue lists only the two currently published tools with c
  const seoTool=read("public/tools/seo-content-brief/index.html");
  assert.match(seoTool,/class="brief-cover-visual"/);
  assert.match(seoTool,/images\.unsplash\.com/);
- const sitemap=read("public/sitemap.xml");
- assert.match(sitemap,/https:\/\/teampeach\.org\/tools\//);
+ const sitemap=sitemapUrls(read("public/sitemap.xml"));
+ assert.ok(sitemap.some(value=>value.startsWith("https://teampeach.org/tools/")));
  const server=read("server.js");
  assert.ok(server.includes('app.get(/^\\/tool\\/?$/'),"singular /tool alias should redirect to /tools/");
 });
