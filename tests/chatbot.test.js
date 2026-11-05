@@ -104,6 +104,22 @@ test("public chatbot marketing page provides SEO, AEO and GEO answer content",()
  assert.match(html,/Can I use one assistant on more than one website/);
  assert.doesNotMatch(html,/noindex,nofollow/);
 });
+test("PeachChat dashboard has a compact premium layout without the removed checklist, steps or token-price explainer",()=>{
+ const html=read("public/dashboard/chatbot/index.html");
+ const css=read("public/css/chatbot-builder.css");
+ assert.ok(html.includes('/css/chatbot-builder.css?v=2'));
+ assert.doesNotMatch(html,/peachchat-trust-row|peachchat-steps|peachchat-credit-guide|How do TeamPeach credits compare with DeepSeek tokens/);
+ assert.doesNotMatch(css,/\\.peachchat-trust-row|\\.peachchat-steps|\\.peachchat-credit-guide/);
+ assert.ok(css.includes(".chatbot-usage-grid{margin:0 0 18px}"));
+});
+test("dashboard overview shows the PeachChat hero artwork instead of a placeholder glyph",()=>{
+ const html=read("public/dashboard/index.html");
+ const css=read("public/css/dashboard-pages.css");
+ assert.ok(html.includes('/css/dashboard-pages.css?v=2'));
+ assert.ok(html.includes('<span class="workspace-action-image"><img src="/assets/peachchat-hero.webp"'));
+ assert.ok(read("public/assets/peachchat-hero.webp").length>1000);
+ assert.ok(css.includes(".workspace-action-image img{display:block;width:100%;height:100%;object-fit:cover;object-position:center}"));
+});
 test("assistant replies render safe Markdown formatting instead of raw markers",()=>{
  const widget=read("public/js/chatbot-widget.js");
  assert.ok(widget.includes("function appendInlineMarkdown"));
@@ -165,9 +181,9 @@ test("chatbot hero includes visible external photography with alternative text",
  assert.match(css,/\.cb-hero-art\{position:relative/);
  const dashboard=read("public/dashboard/chatbot/index.html");
  assert.ok(dashboard.includes('src="/assets/peachchat-hero.webp"'));
- assert.ok(dashboard.includes("1 TeamPeach credit per started 1,000 combined DeepSeek input and output tokens"));
- assert.ok(dashboard.includes("$0.15 for uncached input")&&dashboard.includes("$0.60 for output"));
- assert.ok(dashboard.includes("https://api-docs.deepseek.com/quick_start/pricing/"));
+ assert.doesNotMatch(dashboard,/peachchat-credit-guide|How do TeamPeach credits compare with DeepSeek tokens|DeepSeek.s off-peak price/);
+ assert.ok(dashboard.includes('id="chatbot-credits-used"'));
+ assert.ok(dashboard.includes("CREDITS USED · LAST 30 DAYS"));
 });
 
 test("public tools catalogue lists only the two currently published tools with capability notes",()=>{
