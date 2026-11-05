@@ -47,7 +47,7 @@
  function setMembershipControls(){
   const note=$("chatbot-premium-note");
   note.textContent=membershipActive
-   ?"Premium options are optional. Customer conversation saving and branding removal are both switched off until you enable them."
+   ?"Premium options are optional. Enable conversation saving here, then publish or update this assistant. Only new conversations are saved."
    :"These options require an active TeamPeach membership. The assistant still works normally with both options off.";
   ["chatbot-save-chats","chatbot-remove-branding","chatbot-widget-icon","chatbot-widget-color"].forEach(id=>{if($(id))$(id).disabled=!membershipActive;});
  }
@@ -64,7 +64,7 @@
   $("chatbot-status").textContent=a.isActive?"Published":"Draft";$("chatbot-status").classList.toggle("live",a.isActive);
   $("chatbot-editor-title").textContent=a.assistantName||a.businessName+" Assistant";
   $("chatbot-save").textContent=a.isActive?"Update assistant":"Save draft";
-  $("chatbot-editor-caption").textContent=a.isActive?"Your assistant is live. Changes are saved as soon as you choose Save assistant.":"This assistant is a draft. Test it, then publish when you are ready.";
+  $("chatbot-editor-caption").textContent=a.isActive?"Your assistant is live. Use Update assistant to save changes to its profile and premium settings.":"This assistant is a draft. Test it, then publish when you are ready.";
   setButton("chatbot-test",false);setButton("chatbot-publish",!a.id||a.isActive);setHidden("chatbot-unpublish",!a.isActive);
   setHidden("chatbot-installation",!a.isActive);
   setHidden("chatbot-history-section",false);
@@ -107,7 +107,9 @@
     ?"Your Premium membership is not active, so saved transcripts are hidden. You can still delete them below."
     :(!data.savingEnabled
       ?"Conversation saving is currently off. Existing transcripts remain available to you; no new visitor messages are being saved."
-      :"Conversation saving is on for this assistant.");
+      :(!selected.isActive
+        ?"Conversation saving is enabled, but this assistant must be published before new visitor conversations can be stored."
+        :"Conversation saving is on for this published assistant."));
    box.append(node("div","chatbot-history-note",note));
    if(!data.membershipActive){
     if(!savedCount)box.append(node("div","chatbot-empty","No saved customer conversations."));
