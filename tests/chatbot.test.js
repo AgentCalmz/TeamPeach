@@ -123,6 +123,7 @@ test("public chatbot API explicitly overrides Helmet's same-origin policy for cr
  assert.ok(cors,"public chatbot CORS middleware should exist");
  assert.match(cors[0],/Access-Control-Allow-Origin/);
  assert.match(cors[0],/Cross-Origin-Resource-Policy","cross-origin"/);
+ assert.match(cors[0],/\["https:","http:"\]\.includes\(url\.protocol\)/);
  assert.match(server,/app\.use\("\/api\/chatbot\/public",chatbotPublicCors\)/);
 });
 test("assistant test page auto-opens the widget and reports loading failures",()=>{
