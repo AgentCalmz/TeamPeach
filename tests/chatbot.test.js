@@ -6,6 +6,7 @@ const path=require("node:path");
 const root=path.join(__dirname,"..");
 const chatbot=require("../src/chatbot");
 const read=rel=>fs.readFileSync(path.join(root,rel),"utf8");
+const sitemapUrls=xml=>xml.split("<loc>").slice(1).map(value=>value.split("</loc>")[0]);
 
 test("allowed domains are normalised and deduplicated",()=>{
  assert.deepEqual(chatbot.normalizeChatbotDomains(["https://www.example.com/shop","example.com","shop.example.net","*.other.org"]),["example.com","shop.example.net","other.org"]);
@@ -93,10 +94,10 @@ test("builder form requires only business name and description; premium switches
  assert.match(html,/id="chatbot-test"/);
 });
 test("public chatbot marketing page provides SEO, AEO and GEO answer content",()=>{
- const html=read("public/tools/ai-chatbot/index.html");
+ const html=read("public/tools/peachchat/index.html");
  assert.match(html,/<title>PeachChat AI Customer Assistant for Small Businesses \| TeamPeach<\/title>/);
  assert.match(html,/name="description"/);
- assert.match(html,/rel="canonical" href="https:\/\/teampeach\.org\/tools\/ai-chatbot\//);
+ assert.match(html,/rel="canonical" href="https:\/\/teampeach\.org\/tools\/peachchat\//);
  assert.match(html,/@type":"WebApplication/);
  assert.match(html,/@type":"FAQPage/);
  assert.match(html,/"areaServed":\{"@type":"Country","name":"Nigeria"\}/);
@@ -116,7 +117,7 @@ test("dashboard overview shows the PeachChat hero artwork instead of a placehold
  const html=read("public/dashboard/index.html");
  const css=read("public/css/dashboard-pages.css");
  assert.ok(html.includes('/css/dashboard-pages.css?v=2'));
- assert.ok(html.includes('<span class="workspace-action-image"><img src="/assets/peachchat-hero.webp"'));
+ assert.ok(html.includes('<span class="workspace-action-image"><img src="/assets/peachchat-hero.webp?v=2"'));
  assert.ok(read("public/assets/peachchat-hero.webp").length>1000);
  assert.ok(css.includes(".workspace-action-image img{display:block;width:100%;height:100%;object-fit:cover;object-position:center}"));
 });
@@ -134,9 +135,9 @@ test("chatbot preview and per-assistant share pages are noindex and absent from 
  for(const page of ["public/assistant/index.html","public/chatbot-preview/index.html"]){
   assert.match(read(page),/name="robots" content="noindex,nofollow"/);
  }
- const sitemap=read("public/sitemap.xml");
- assert.match(sitemap,/https:\/\/teampeach\.org\/tools\/ai-chatbot\//);
- assert.doesNotMatch(sitemap,/https:\/\/teampeach\.org\/(assistant|chatbot-preview)\//);
+ const urls=sitemapUrls(read("public/sitemap.xml"));
+ assert.ok(urls.some(value=>value==="https://teampeach.org/tools/peachchat/"));
+ assert.ok(urls.every(value=>{const parsed=new URL(value);return parsed.pathname!=="/assistant/"&&parsed.pathname!=="/chatbot-preview/";}));
  const robots=read("public/robots.txt");
  assert.doesNotMatch(robots,/Disallow: \/chatbot-preview\//);
  assert.doesNotMatch(robots,/Disallow: \/assistant\//);
@@ -171,16 +172,16 @@ test("assistant preview uses a CSP-compatible external bootstrap and reports rea
  assert.ok(read("server.js").includes("/js/chatbot-widget.js?v=4"));
 });
 test("chatbot hero includes visible external photography with alternative text",()=>{
- const html=read("public/tools/ai-chatbot/index.html");
+ const html=read("public/tools/peachchat/index.html");
  const css=read("public/css/chatbot-public.css");
  assert.match(html,/class="cb-hero-photo"/);
  assert.match(html,/chatbot-public\.css\?v=2/);
- assert.ok(html.includes('src="/assets/peachchat-hero.webp"'));
+ assert.ok(html.includes('src="/assets/peachchat-hero.webp?v=2"'));
  assert.match(html,/alt="A friendly peach-coloured AI chatbot with glowing digital chat symbols and a modern technology interface"/);
  assert.match(css,/\.cb-hero-photo/);
  assert.match(css,/\.cb-hero-art\{position:relative/);
  const dashboard=read("public/dashboard/chatbot/index.html");
- assert.ok(dashboard.includes('src="/assets/peachchat-hero.webp"'));
+ assert.ok(dashboard.includes('src="/assets/peachchat-hero.webp?v=2"'));
  assert.doesNotMatch(dashboard,/peachchat-credit-guide|How do TeamPeach credits compare with DeepSeek tokens|DeepSeek.s off-peak price/);
  assert.ok(dashboard.includes('id="chatbot-credits-used"'));
  assert.ok(dashboard.includes("CREDITS USED · LAST 30 DAYS"));
@@ -207,8 +208,52 @@ test("public tools catalogue lists only the two currently published tools with c
  const seoTool=read("public/tools/seo-content-brief/index.html");
  assert.match(seoTool,/class="brief-cover-visual"/);
  assert.match(seoTool,/images\.unsplash\.com/);
- const sitemap=read("public/sitemap.xml");
- assert.match(sitemap,/https:\/\/teampeach\.org\/tools\//);
+ const sitemap=sitemapUrls(read("public/sitemap.xml"));
+ assert.ok(sitemap.some(value=>value.startsWith("https://teampeach.org/tools/")));
  const server=read("server.js");
  assert.ok(server.includes('app.get(/^\\/tool\\/?$/'),"singular /tool alias should redirect to /tools/");
+});
+
+
+test("existing PeachChat assistants open the editor and published assistants use an update action",()=>{
+ const builder=read("public/js/chatbot-builder.js");
+ assert.match(builder,/function fillForm\(a\)\{\s*showEditor\(true\)/);
+ assert.ok(builder.includes('a.isActive?"Update assistant":"Save draft"'));
+ assert.ok(builder.includes("Conversation saving is enabled, but this assistant must be published before new visitor conversations can be stored"));
+ assert.ok(builder.includes("Your PeachChat assistant has been updated"));
+});
+test("PeachBrief appears in the workspace and explains its deployment configuration requirement",()=>{
+ const overview=read("public/dashboard/index.html"),tools=read("public/dashboard/tools/index.html");
+ assert.ok(overview.includes('href="/tools/seo-content-brief/"'));
+ assert.ok(tools.includes('href="/tools/seo-content-brief/"'));
+ const server=read("server.js");
+ assert.ok(server.includes('AI_NOT_CONFIGURED","PeachBrief is not enabled on this deployment yet.'));
+ assert.ok(server.includes("DEEPSEEK_API_KEY in Render and redeploy"));
+});
+test("homepage share metadata uses TeamPeach's own brand mark, not stock photography",()=>{
+ const home=read("public/index.html");
+ assert.ok(home.includes('property="og:image" content="https://teampeach.org/assets/teampeach-social.png"'));
+ assert.ok(home.includes('property="og:image:type" content="image/png"'));
+ assert.ok(home.includes('property="og:image:width" content="600"'));
+ assert.ok(home.includes('name="twitter:card" content="summary_large_image"'));
+ assert.ok(home.includes('name="twitter:image" content="https://teampeach.org/assets/teampeach-social.png"'));
+ assert.ok(read("public/assets/teampeach-social.png").length>1000);
+});
+test("PeachChat canonical route is published and the previous URL permanently redirects",()=>{
+ const page=read("public/tools/peachchat/index.html"),old=read("public/tools/ai-chatbot/index.html"),server=read("server.js");
+ assert.ok(page.includes('rel="canonical" href="https://teampeach.org/tools/peachchat/"'));
+ assert.ok(page.includes('property="og:url" content="https://teampeach.org/tools/peachchat/"'));
+ assert.ok(old.includes('name="robots" content="noindex,follow"'));
+ assert.ok(old.includes('rel="canonical" href="https://teampeach.org/tools/peachchat/"'));
+ assert.ok(server.includes('app.get(/^\\/tools\\/ai-chatbot\\/?$/,(_q,r)=>r.redirect(301,"/tools/peachchat/"));'));
+ const urls=sitemapUrls(read("public/sitemap.xml"));
+ assert.ok(urls.some(value=>value==="https://teampeach.org/tools/peachchat/"));
+ assert.ok(urls.every(value=>value!=="https://teampeach.org/tools/ai-chatbot/"));
+});
+test("public chatbot API reports failed optional conversation persistence without hiding the assistant reply",()=>{
+ const server=read("server.js"),widget=read("public/js/chatbot-widget.js");
+ assert.ok(server.includes('conversationSaved=Boolean(!saved.error&&saved.data&&saved.data.status==="ok")'));
+ assert.ok(server.includes('reply:result.answer,conversationSaved:result.conversationSaved!==false'));
+ assert.ok(widget.includes("body.conversationSaved===false"));
+ assert.ok(widget.includes("this conversation could not be saved"));
 });
