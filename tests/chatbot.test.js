@@ -216,7 +216,7 @@ test("public tools catalogue lists only the two currently published tools with c
 
 test("existing PeachChat assistants open the editor and published assistants use an update action",()=>{
  const builder=read("public/js/chatbot-builder.js");
- assert.ok(builder.includes("function fillForm(a){\\n  showEditor(true);"));
+ assert.match(builder,/function fillForm\\(a\\)\\{\\s*showEditor\\(true\\)/);
  assert.ok(builder.includes('a.isActive?"Update assistant":"Save draft"'));
  assert.ok(builder.includes("Conversation saving is enabled, but this assistant must be published before new visitor conversations can be stored"));
  assert.ok(builder.includes("Your PeachChat assistant has been updated"));
