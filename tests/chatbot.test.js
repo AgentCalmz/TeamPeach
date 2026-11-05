@@ -96,7 +96,7 @@ test("public chatbot marketing page provides SEO, AEO and GEO answer content",()
  const html=read("public/tools/peachchat/index.html");
  assert.match(html,/<title>PeachChat AI Customer Assistant for Small Businesses \| TeamPeach<\/title>/);
  assert.match(html,/name="description"/);
- assert.match(html,/rel="canonical" href="https:\/\/teampeach\.org\/tools\/ai-chatbot\//);
+ assert.match(html,/rel="canonical" href="https:\/\/teampeach\.org\/tools\/peachchat\//);
  assert.match(html,/@type":"WebApplication/);
  assert.match(html,/@type":"FAQPage/);
  assert.match(html,/"areaServed":\{"@type":"Country","name":"Nigeria"\}/);
@@ -135,7 +135,7 @@ test("chatbot preview and per-assistant share pages are noindex and absent from 
   assert.match(read(page),/name="robots" content="noindex,nofollow"/);
  }
  const sitemap=read("public/sitemap.xml");
- assert.match(sitemap,/https:\/\/teampeach\.org\/tools\/ai-chatbot\//);
+ assert.match(sitemap,/https:\/\/teampeach\.org\/tools\/peachchat\//);
  assert.doesNotMatch(sitemap,/https:\/\/teampeach\.org\/(assistant|chatbot-preview)\//);
  const robots=read("public/robots.txt");
  assert.doesNotMatch(robots,/Disallow: \/chatbot-preview\//);
