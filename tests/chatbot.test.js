@@ -110,7 +110,7 @@ test("assistant replies render safe Markdown formatting instead of raw markers",
  assert.ok(widget.includes("function renderAssistantMessage"));
  assert.ok(widget.includes('document.createElement("strong")'));
  assert.ok(widget.includes('document.createElement("em")'));
- assert.ok(widget.includes('document.createElement("ul")'));
+ assert.ok(widget.includes('const type=bullet?"ul":"ol"')&&widget.includes("document.createElement(type)"));
  assert.ok(widget.includes('node.classList.add("tp-rich")'));
  assert.ok(!widget.includes("innerHTML"));
 });
