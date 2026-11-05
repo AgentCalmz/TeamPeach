@@ -131,6 +131,7 @@ async function sendMessage(message){
   if(mode==="preview")response=await fetch(apiBase+"/api/chatbots/"+encodeURIComponent(assistantId)+"/preview-message",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json","X-CSRF-Token":await ensureCsrf()},body:JSON.stringify(payload)});
   else response=await fetch(apiBase+"/api/chatbot/public/"+encodeURIComponent(assistantId)+"/messages",{method:"POST",credentials:"omit",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
   const body=await response.json().catch(()=>({}));typing.remove();if(!response.ok){const error=new Error(body.message||"We could not send your message.");error.status=response.status;throw error;}
+  if(mode==="public"&&config&&config.saveConversations===true&&body.conversationSaved===false)addError("Your reply was delivered, but this conversation could not be saved. Please let the business owner know.");
   const answer=mode==="preview"?body.answer:body.reply;if(typeof answer!=="string"||!answer.trim())throw new Error("The assistant returned an empty response.");
   if(mode==="preview"&&Number.isFinite(Number(body.creditsRemaining)))subtitle.textContent="Preview · "+Number(body.creditsRemaining).toLocaleString()+" credits remaining";
   addBubble("assistant",answer);history.push({role:"user",content:value},{role:"assistant",content:answer});history=history.slice(-8);saveStored();
