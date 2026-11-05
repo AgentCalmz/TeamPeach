@@ -34,7 +34,7 @@
   if(!assistants.length){list.append(node("div","chatbot-empty","No assistants yet. Create one to get started."));}
   assistants.forEach(assistant=>{
    const button=node("button","chatbot-assistant-item");button.type="button";button.setAttribute("aria-current",String(Boolean(selected&&selected.id===assistant.id)));
-   button.append(node("span","chatbot-assistant-dot","✳"));
+   button.append(node("span","chatbot-assistant-dot","✦"));
    const main=node("span","chatbot-assistant-main");main.append(node("strong","",assistant.assistantName||assistant.businessName),node("small","",assistant.businessName+" · Updated "+date(assistant.updatedAt)));
    main.append(node("span","chatbot-state-pill"+(assistant.isActive?" live":""),assistant.isActive?"Published":"Draft"));button.append(main);
    button.addEventListener("click",()=>loadAssistant(assistant.id));list.append(button);
@@ -151,19 +151,6 @@
   }catch(error){feedback(error.message,"error");}
   finally{button.disabled=false;}
  }
- async function loadConversations(){
-  if(!selected)return;
-  const box=$("chatbot-conversation-list");box.replaceChildren(node("div","chatbot-empty","Loading conversations…"));
-  try{
-   const data=await api("/api/chatbots/"+encodeURIComponent(selected.id)+"/conversations","GET");box.replaceChildren();
-   if(!data.conversations.length){box.append(node("div","chatbot-empty","No saved customer conversations yet."));return;}
-   data.conversations.forEach(conversation=>{
-    const button=node("button","chatbot-conversation-item");button.type="button";button.dataset.conversationId=conversation.id;
-    button.append(node("strong","","Visitor conversation"),node("small", "",date(conversation.last_message_at)+" · "+number(conversation.message_count)+" messages"));
-    button.addEventListener("click",()=>loadConversation(conversation.id,button));box.append(button);
-   });
-  }catch(error){box.replaceChildren(node("div","chatbot-empty",error.message));}
- }
  async function loadConversation(id,button){
   document.querySelectorAll(".chatbot-conversation-item").forEach(item=>item.setAttribute("aria-current",String(item===button)));
   const detail=$("chatbot-conversation-detail");detail.replaceChildren(node("div","chatbot-empty","Loading messages…"));
@@ -206,7 +193,7 @@
    if(selected.isActive){$("chatbot-embed-code").textContent=detail.embedCode||"";$("chatbot-share-url").textContent=detail.publicUrl||"";$("chatbot-open-preview").href="/chatbot-preview/?assistant="+encodeURIComponent(selected.id);}
    else setHidden("chatbot-installation",true);
    await loadConversations();
-   feedback("Your assistant has been saved.","success");
+   feedback("Your PeachChat draft has been saved. Next, test it and publish when it is ready.","success");
   }catch(error){feedback(error.message,"error");}
   finally{busy=false;setButton("chatbot-save",false);}
  }
@@ -221,7 +208,7 @@
     $("chatbot-embed-code").textContent=detail.embedCode||"";
     $("chatbot-share-url").textContent=detail.publicUrl||"";
     $("chatbot-open-preview").href="/chatbot-preview/?assistant="+encodeURIComponent(selected.id);
-    feedback("Your assistant is published. Copy the HTML snippet to install it.","success");
+    feedback("PeachChat is published. Copy the installation snippet and add it to your website.","success");
    }else feedback("Your assistant is now unpublished. Existing embeds will stop responding.","success");
   }catch(error){feedback(error.message,"error");}
  }

@@ -15,7 +15,7 @@
 <link rel="stylesheet" href="/css/dashboard.css?v=5">
 <link rel="stylesheet" href="/css/dashboard-pages.css?v=1">
 <link rel="stylesheet" href="/css/chatbot-builder.css?v=1">
-<title>AI Chatbot Builder | TeamPeach Workspace</title>
+<title>PeachChat | TeamPeach Workspace</title>
 </head>
 <body class="workspace-body">
 <a class="skip-link" href="#workspace-main">Skip to workspace</a>
@@ -26,7 +26,7 @@
 <nav class="workspace-nav" aria-label="Workspace navigation">
 <a class="workspace-nav-link" href="/dashboard/"><span class="nav-glyph">⌂</span>Overview</a>
 <a class="workspace-nav-link" href="/dashboard/custom-requests/"><span class="nav-glyph">✳</span>Custom requests</a>
-<a class="workspace-nav-link active" href="/dashboard/chatbot/" aria-current="page"><span class="nav-glyph">◉</span>AI Chatbot</a>
+<a class="workspace-nav-link active" href="/dashboard/chatbot/" aria-current="page"><span class="nav-glyph">◉</span>PeachChat</a>
 <a class="workspace-nav-link" href="/dashboard/tools/"><span class="nav-glyph">✳</span>Tools & services</a>
 <a class="workspace-nav-link" href="/dashboard/billing/"><span class="nav-glyph">＄</span>Billing & plans</a>
 <a class="workspace-nav-link" href="/dashboard/support/"><span class="nav-glyph">✉</span>Support inbox<span class="nav-count" id="support-unread-count">0</span></a>
@@ -46,22 +46,40 @@
 <div class="workspace-main-wrap">
 <header class="workspace-topbar">
 <button class="mobile-sidebar-toggle" id="mobile-sidebar-toggle" type="button" aria-label="Open navigation" aria-expanded="false">☰</button>
-<div class="workspace-breadcrumb"><span>Workspace</span><span class="breadcrumb-divider">/</span><strong>AI Chatbot</strong></div>
+<div class="workspace-breadcrumb"><span>Workspace</span><span class="breadcrumb-divider">/</span><strong>PeachChat</strong></div>
 <div class="workspace-topbar-actions"><span class="workspace-secure"><span></span>Private workspace</span><a class="topbar-avatar" href="/account/" id="topbar-avatar">T</a></div>
 </header>
 <main id="workspace-main" class="workspace-main chatbot-workspace">
-<section class="workspace-page-intro chatbot-page-intro">
-<div><p class="eyebrow"><span></span> TEAMPEACH AI CHATBOT</p><h1>Create an assistant that knows your business.</h1><p>Enter your business profile, add any optional guidance, test the assistant and publish one small HTML snippet on your website.</p></div>
-<button class="button button-dark" type="button" id="chatbot-new">＋ New assistant</button>
+<section class="peachchat-hero">
+ <div class="peachchat-hero-copy">
+  <p class="eyebrow"><span></span> PEACHCHAT · YOUR CUSTOMER ASSISTANT</p>
+  <h1>Give your website a helpful first response.</h1>
+  <p>Create a friendly AI assistant for your business. Start with two details, test its answers, then publish it on your website.</p>
+  <div class="peachchat-hero-actions"><button class="button button-dark" type="button" id="chatbot-new">＋ Create assistant</button><a href="/tools/ai-chatbot/">See how PeachChat works ↗</a></div>
+  <div class="peachchat-trust-row"><span>✓ You control its knowledge</span><span>✓ Test before publishing</span><span>✓ No coding required</span></div>
+ </div>
+ <div class="peachchat-hero-image"><img src="/assets/peachchat-hero.webp" alt="A friendly peach-coloured AI chatbot with glowing digital chat symbols and a modern technology interface" width="1200" height="675"></div>
+</section>
+<section class="peachchat-steps" aria-label="How to set up PeachChat">
+ <article><span>01</span><strong>Describe your business</strong><p>Two required fields. You can add more detail later.</p></article>
+ <article><span>02</span><strong>Teach and test</strong><p>Add FAQs, services and policies, then try real customer questions.</p></article>
+ <article><span>03</span><strong>Publish and install</strong><p>Copy one script snippet into your website.</p></article>
 </section>
 
 <section class="chatbot-usage-grid" aria-label="Chatbot usage">
 <article class="chatbot-usage-card"><span class="chatbot-card-kicker">ACCOUNT CREDITS</span><strong id="chatbot-credit-balance">—</strong><small>Shared TeamPeach wallet</small></article>
-<article class="chatbot-usage-card"><span class="chatbot-card-kicker">AI REPLIES · LAST 30 DAYS</span><strong id="chatbot-replies-total">—</strong><small>Across your assistants</small></article>
-<article class="chatbot-usage-card"><span class="chatbot-card-kicker">TOKENS · LAST 30 DAYS</span><strong id="chatbot-tokens-total">—</strong><small>Input and output tokens</small></article>
-<article class="chatbot-usage-card"><span class="chatbot-card-kicker">CREDITS USED · LAST 30 DAYS</span><strong id="chatbot-credits-used">—</strong><small>Debited from your account wallet</small></article>
+<article class="chatbot-usage-card"><span class="chatbot-card-kicker">ASSISTANT REPLIES · LAST 30 DAYS</span><strong id="chatbot-replies-total">—</strong><small>Across your assistants</small></article>
+<article class="chatbot-usage-card"><span class="chatbot-card-kicker">DEEPSEEK TOKENS · LAST 30 DAYS</span><strong id="chatbot-tokens-total">—</strong><small>Input and output tokens</small></article>
+<article class="chatbot-usage-card"><span class="chatbot-card-kicker">TEAMPEACH CREDITS · LAST 30 DAYS</span><strong id="chatbot-credits-used">—</strong><small>Debited from your account wallet</small></article>
 </section>
-
+<details class="peachchat-credit-guide">
+ <summary>How do TeamPeach credits compare with DeepSeek tokens?</summary>
+ <p>PeachChat charges <strong>1 TeamPeach credit per started 1,000 combined DeepSeek input and output tokens</strong> by default. For example, 1,001 combined tokens use 2 credits. DeepSeek bills input and output at different USD rates, so one TeamPeach credit is not equal to one DeepSeek token or a fixed dollar amount.</p>
+ <p>With the current <strong>deepseek-flash</strong> model, DeepSeek's off-peak price per 1 million tokens is <strong>$0.15 for uncached input</strong>, <strong>$0.003 for cached input</strong> and <strong>$0.60 for output</strong>. Peak prices are double: $0.30, $0.006 and $1.20 respectively. These are TeamPeach's provider costs, not a fixed cash value for your credits.</p>
+ <p>For a simple illustration, 1,000 tokens would cost DeepSeek about $0.00015 if they were all uncached input, or $0.00060 if they were all output, during off-peak hours. A real request mixes input and output and may include cached input. In Nigeria time (WAT), DeepSeek's weekday peak windows are 02:00–05:00 and 07:00–11:00; other times are off-peak.</p>
+ <p>Your exact provider cost depends on prompt-cache hits and the input/output split. The usage cards above show the actual tokens and credits recorded for your assistants. One TeamPeach credit's selling value depends on the credit pack or membership price you purchased; it is not defined by DeepSeek.</p>
+ <a href="https://api-docs.deepseek.com/quick_start/pricing/" target="_blank" rel="noopener noreferrer">See DeepSeek's current official API prices ↗</a>
+</details>
 <div class="chatbot-layout">
 <aside class="chatbot-list-column">
 <div class="chatbot-panel-heading"><div><h2>Your assistants</h2><p id="chatbot-plan-limit">Loading your access…</p></div></div>
@@ -71,7 +89,7 @@
 
 <section class="chatbot-editor-column">
 <div id="chatbot-empty-state" class="chatbot-empty-state">
-<div class="chatbot-empty-mark">✳</div><h2>Your business assistant starts here.</h2><p>Create an assistant with just a business name and a short description. Everything else is optional, so you can experiment before adding more detail.</p>
+<div class="chatbot-empty-mark">✳</div><h2>Your PeachChat assistant starts here.</h2><p>Start with your business name and a short description. You can add services, FAQs and policies later, then test before publishing.</p>
 <button type="button" class="button button-dark" id="chatbot-empty-create">Create my first assistant ↗</button>
 </div>
 
@@ -83,7 +101,7 @@
 <form id="chatbot-form" class="chatbot-form">
 <input type="hidden" id="chatbot-id">
 <section class="chatbot-form-section">
-<div class="chatbot-form-section-title"><span>01</span><div><h3>Business profile</h3><p>Only these two fields are required.</p></div></div>
+<div class="chatbot-form-section-title"><span>01</span><div><h3>Business profile</h3><p>Start here. Only these two fields are required.</p></div></div>
 <label for="chatbot-assistant-name">Assistant name <small>Optional</small></label><input id="chatbot-assistant-name" name="assistantName" maxlength="100" placeholder="e.g. ABC Hotel Assistant">
 <label for="chatbot-business-name">Business name <em>Required</em></label>
 <input id="chatbot-business-name" name="businessName" maxlength="160" required placeholder="e.g. ABC Hotel">
@@ -120,23 +138,23 @@
 </div>
 </details>
 
-<section class="chatbot-form-section chatbot-access-section">
+<details class="chatbot-optional-section peachchat-advanced-section"><summary><span><b>04</b> Website access <small>Optional advanced setting</small></span><i>＋</i></summary><div class="chatbot-details-body">
 <div class="chatbot-form-section-title"><span>04</span><div><h3>Website access</h3><p>Optional domain restriction. By default, the assistant can work on any website.</p></div></div>
 <label class="chatbot-switch-row"><span><strong>Restrict allowed domains</strong><small>When enabled, only the domains below and the TeamPeach test page can use this assistant.</small></span><input id="chatbot-domains-enabled" type="checkbox"><i></i></label>
 <div id="chatbot-domains-box" hidden><label for="chatbot-domains">Allowed domains <small>One domain per line, up to 50</small></label><textarea id="chatbot-domains" rows="3" placeholder="example.com&#10;shop.example.com"></textarea><p class="chatbot-field-note">Enter hostnames, not full page URLs. A listed domain also permits its subdomains.</p></div>
-</section>
+</div></details>
 
-<section class="chatbot-form-section chatbot-premium-section">
+<details class="chatbot-optional-section peachchat-advanced-section"><summary><span><b>05</b> Premium options <small>Optional account settings</small></span><i>＋</i></summary><div class="chatbot-details-body">
 <div class="chatbot-form-section-title"><span>05</span><div><h3>Premium options</h3><p>Both options are off by default, including for members.</p></div></div>
 <div id="chatbot-premium-note" class="chatbot-premium-note">An active TeamPeach membership unlocks these optional settings. You can keep them off and use the assistant normally.</div>
 <label class="chatbot-switch-row"><span><strong>Save customer conversations</strong><small>When enabled, customer messages and replies are saved in your TeamPeach dashboard. This is off by default.</small></span><input id="chatbot-save-chats" type="checkbox"><i></i></label>
 <label class="chatbot-switch-row"><span><strong>Remove TeamPeach branding</strong><small>When enabled, the small “Powered by TeamPeach” footer is hidden. This is off by default.</small></span><input id="chatbot-remove-branding" type="checkbox"><i></i></label>
-</section>
+</div></details>
 
 <div class="chatbot-form-actions">
-<button class="button button-dark" type="submit" id="chatbot-save">Save assistant</button>
-<button class="button button-outline" type="button" id="chatbot-test" disabled>Test assistant</button>
-<button class="button button-outline" type="button" id="chatbot-publish" disabled>Publish</button>
+<button class="button button-dark" type="submit" id="chatbot-save">Save draft</button>
+<button class="button button-outline" type="button" id="chatbot-test" disabled>Test in playground</button>
+<button class="button button-outline" type="button" id="chatbot-publish" disabled>Publish assistant</button>
 <button class="button button-outline" type="button" id="chatbot-unpublish" hidden>Unpublish</button>
 </div>
 <p id="chatbot-feedback" class="chatbot-feedback" role="status" aria-live="polite"></p>

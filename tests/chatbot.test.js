@@ -94,15 +94,25 @@ test("builder form requires only business name and description; premium switches
 });
 test("public chatbot marketing page provides SEO, AEO and GEO answer content",()=>{
  const html=read("public/tools/ai-chatbot/index.html");
- assert.match(html,/<title>AI Chatbot Builder for Small Businesses \| TeamPeach<\/title>/);
+ assert.match(html,/<title>PeachChat AI Customer Assistant for Small Businesses \| TeamPeach<\/title>/);
  assert.match(html,/name="description"/);
  assert.match(html,/rel="canonical" href="https:\/\/teampeach\.org\/tools\/ai-chatbot\//);
  assert.match(html,/@type":"WebApplication/);
  assert.match(html,/@type":"FAQPage/);
  assert.match(html,/"areaServed":\{"@type":"Country","name":"Nigeria"\}/);
- assert.match(html,/Does TeamPeach automatically crawl my website/);
- assert.match(html,/Can I install one assistant on multiple websites/);
+ assert.match(html,/Does the chatbot crawl my website automatically/);
+ assert.match(html,/Can I use one assistant on more than one website/);
  assert.doesNotMatch(html,/noindex,nofollow/);
+});
+test("assistant replies render safe Markdown formatting instead of raw markers",()=>{
+ const widget=read("public/js/chatbot-widget.js");
+ assert.ok(widget.includes("function appendInlineMarkdown"));
+ assert.ok(widget.includes("function renderAssistantMessage"));
+ assert.ok(widget.includes('document.createElement("strong")'));
+ assert.ok(widget.includes('document.createElement("em")'));
+ assert.ok(widget.includes('const type=bullet?"ul":"ol"')&&widget.includes("document.createElement(type)"));
+ assert.ok(widget.includes('node.classList.add("tp-rich")'));
+ assert.ok(!widget.includes("innerHTML"));
 });
 test("chatbot preview and per-assistant share pages are noindex and absent from sitemap",()=>{
  for(const page of ["public/assistant/index.html","public/chatbot-preview/index.html"]){
@@ -133,7 +143,7 @@ test("public chatbot API explicitly overrides Helmet's same-origin policy for cr
 test("assistant preview uses a CSP-compatible external bootstrap and reports real readiness",()=>{
  const html=read("public/chatbot-preview/index.html");
  const bootstrap=read("public/js/chatbot-preview.js");
- assert.match(html,/src="\/js\/chatbot-preview\.js\?v=1" defer/);
+ assert.ok(html.includes('src="/js/chatbot-preview.js?v=1" defer'));
  assert.doesNotMatch(html,/<script>\s*\(function/);
  assert.match(bootstrap,/preview-config/);
  assert.match(bootstrap,/credentials:"same-origin"/);
@@ -141,16 +151,23 @@ test("assistant preview uses a CSP-compatible external bootstrap and reports rea
  assert.match(bootstrap,/AbortController/);
  assert.match(bootstrap,/classList\.contains\("tp-open"\)/);
  assert.match(bootstrap,/did not finish loading/);
+ assert.ok(bootstrap.includes("/js/chatbot-widget.js?v=4"));
+ assert.ok(read("server.js").includes("/js/chatbot-widget.js?v=4"));
 });
 test("chatbot hero includes visible external photography with alternative text",()=>{
  const html=read("public/tools/ai-chatbot/index.html");
  const css=read("public/css/chatbot-public.css");
  assert.match(html,/class="cb-hero-photo"/);
  assert.match(html,/chatbot-public\.css\?v=2/);
- assert.match(html,/images\.unsplash\.com/);
- assert.match(html,/alt="A small business team working together in a bright office"/);
+ assert.ok(html.includes('src="/assets/peachchat-hero.webp"'));
+ assert.match(html,/alt="A friendly peach-coloured AI chatbot with glowing digital chat symbols and a modern technology interface"/);
  assert.match(css,/\.cb-hero-photo/);
  assert.match(css,/\.cb-hero-art\{position:relative/);
+ const dashboard=read("public/dashboard/chatbot/index.html");
+ assert.ok(dashboard.includes('src="/assets/peachchat-hero.webp"'));
+ assert.ok(dashboard.includes("1 TeamPeach credit per started 1,000 combined DeepSeek input and output tokens"));
+ assert.ok(dashboard.includes("$0.15 for uncached input")&&dashboard.includes("$0.60 for output"));
+ assert.ok(dashboard.includes("https://api-docs.deepseek.com/quick_start/pricing/"));
 });
 
 test("public tools catalogue lists only the two currently published tools with capability notes",()=>{
@@ -159,9 +176,10 @@ test("public tools catalogue lists only the two currently published tools with c
  assert.match(html,/rel="canonical" href="https:\/\/teampeach\.org\/tools\//);
  assert.match(html,/@type":"CollectionPage/);
  assert.match(html,/@type":"ItemList/);
- assert.match(html,/SEO Content Brief Builder/);
- assert.match(html,/AI Chatbot Builder/);
- assert.match(html,/does not call an AI model or fetch live Google search results/i);
+ assert.match(html,/PeachBrief — AI SEO Content Planner/);
+ assert.match(html,/PeachChat — AI Customer Assistant/);
+ assert.match(html,/PeachBrief uses DeepSeek/i);
+ assert.doesNotMatch(html,/does not call an AI model|uses a structured template/i);
  assert.match(html,/does not automatically crawl your website/i);
  assert.match(html,/images\.unsplash\.com/);
  assert.doesNotMatch(html,/noindex,nofollow/);

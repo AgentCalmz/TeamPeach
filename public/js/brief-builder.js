@@ -105,38 +105,67 @@
     overview.append(node("p","", "Reader goal: "+brief.goal));
     body.append(overview);
     const seo=outputSection("SEARCH & EDITORIAL");
-    const metaLabel=node("p","brief-output-kicker","Suggested page title");metaLabel.style.marginTop="5px";seo.append(metaLabel,node("p","",brief.title));
-    seo.append(node("p","brief-output-kicker","Meta description"));
-    seo.append(node("p","",brief.metaDescription));
-    seo.append(node("p","brief-output-kicker","Recommended H1"));
-    seo.append(node("h2","",brief.h1));
-    seo.append(node("p","",brief.intentGuidance));
+    seo.append(node("p","brief-output-kicker","Suggested page title"),node("p","",brief.title));
+    seo.append(node("p","brief-output-kicker","Meta description"),node("p","",brief.metaDescription));
+    seo.append(node("p","brief-output-kicker","Recommended H1"),node("h2","",brief.h1));
+    if(brief.recommendedAngle)seo.append(node("p","brief-output-kicker","Recommended content angle"),node("p","",brief.recommendedAngle));
+    if(brief.intentGuidance)seo.append(node("p","",brief.intentGuidance));
     const keywordWrap=node("div","");
     [brief.primaryKeyword].concat(brief.related||[]).filter(Boolean).forEach(word=>keywordWrap.append(node("span","brief-keyword-chip",word)));
     seo.append(keywordWrap);body.append(seo);
-    const outline=outputSection("SUGGESTED STRUCTURE","Draft outline");
-    const outlineList=node("div","brief-outline-list");
-    (brief.outline||[]).forEach(item=>{const line=node("div","brief-outline-item");const copy=node("div","");copy.append(node("strong","",item[0]));copy.append(node("small","",item[1]));line.append(copy);outlineList.append(line);});
+    const outline=outputSection("SUGGESTED STRUCTURE","Draft outline"),outlineList=node("div","brief-outline-list");
+    (brief.outline||[]).forEach(item=>{
+      const heading=Array.isArray(item)?item[0]:(item.heading||item.title||"Section");
+      const purpose=Array.isArray(item)?item[1]:(item.purpose||item.description||"");
+      const line=node("div","brief-outline-item"),copy=node("div","");
+      copy.append(node("strong","",heading));if(purpose)copy.append(node("small","",purpose));
+      if(Array.isArray(item.keyPoints)&&item.keyPoints.length){const points=node("ul","brief-outline-points");item.keyPoints.slice(0,5).forEach(point=>points.append(node("li","",point)));copy.append(points);}
+      line.append(copy);outlineList.append(line);
+    });
     outline.append(outlineList);body.append(outline);
-    const faq=outputSection("READER QUESTIONS","Questions to address");
-    const faqList=node("div","brief-faq-list");
-    (brief.faqs||[]).forEach(question=>faqList.append(node("div","brief-faq-item",question)));
+    const faq=outputSection("READER QUESTIONS","Questions to address"),faqList=node("div","brief-faq-list");
+    (brief.faqs||[]).forEach(item=>{
+      const question=typeof item==="string"?item:item.question||"",answer=typeof item==="string"?"":item.answer||"";
+      const entry=node("div","brief-faq-item");entry.append(node("strong","",question));if(answer)entry.append(node("p","",answer));faqList.append(entry);
+    });
     faq.append(faqList);body.append(faq);
-    const notes=outputSection("QUALITY CHECK","Editorial notes");
-    const noteList=node("div","brief-faq-list");
+    const notes=outputSection("QUALITY CHECK","Editorial notes"),noteList=node("div","brief-faq-list");
     (brief.editorialNotes||[]).forEach(note=>noteList.append(node("div","brief-faq-item",note)));
     notes.append(noteList);body.append(notes);
+    if(Array.isArray(brief.keyEntities)&&brief.keyEntities.length){
+      const entities=outputSection("TOPIC COVERAGE","Important entities and subtopics"),list=node("div","brief-faq-list");
+      brief.keyEntities.slice(0,10).forEach(item=>list.append(node("div","brief-faq-item",typeof item==="string"?item:(item.entity||item.topic||""))));
+      entities.append(list);body.append(entities);
+    }
+    if(Array.isArray(brief.evidenceNeeded)&&brief.evidenceNeeded.length){
+      const evidence=outputSection("RESEARCH CHECKLIST","Claims to verify before publishing"),list=node("div","brief-faq-list");
+      brief.evidenceNeeded.slice(0,10).forEach(item=>list.append(node("div","brief-faq-item",typeof item==="string"?item:(item.claim||item.evidence||""))));
+      evidence.append(list);body.append(evidence);
+    }
+    if(Array.isArray(brief.internalLinkSuggestions)&&brief.internalLinkSuggestions.length){
+      const links=outputSection("SITE STRUCTURE","Internal link opportunities"),list=node("div","brief-faq-list");
+      brief.internalLinkSuggestions.slice(0,8).forEach(item=>list.append(node("div","brief-faq-item",(item.anchorText||item.anchor||"Related page")+" — "+(item.targetPageType||item.destination||"Relevant page"))));
+      links.append(list);body.append(links);
+    }
     $("#save-brief").textContent=currentProjectId?"Update saved brief ↗":"Save to workspace ↗";
   }
   function toMarkdown(brief){
     let out="# "+brief.title+"\n\n";
     out+="**Topic:** "+brief.topic+"\n\n**Primary keyword:** "+brief.primaryKeyword+"\n\n**Audience:** "+brief.audience+"\n\n**Search intent:** "+(intentLabels[brief.intent]||brief.intent)+"\n\n**Format:** "+(formatLabels[brief.format]||brief.format)+"\n\n**Reader goal:** "+brief.goal+"\n\n";
-    out+="## Meta description\n\n"+brief.metaDescription+"\n\n## Recommended H1\n\n"+brief.h1+"\n\n## Search intent guidance\n\n"+brief.intentGuidance+"\n\n## Draft outline\n\n";
-    (brief.outline||[]).forEach((item,index)=>{out+=(index+1)+". **"+item[0]+"**\n   "+item[1]+"\n\n";});
-    out+="## Reader questions to address\n\n";(brief.faqs||[]).forEach(q=>{out+="- "+q+"\n";});
-    out+="\n## Editorial quality checks\n\n";(brief.editorialNotes||[]).forEach(n=>{out+="- "+n+"\n";});
-    if((brief.related||[]).length){out+="\n## Related topics and questions\n\n";brief.related.forEach(item=>{out+="- "+item+"\n";});}
-    out+="\n---\nCreated with TeamPeach's structured brief builder. Verify the recommendations against current search results and trustworthy sources before publishing.\n";
+    out+="## Meta description\n\n"+brief.metaDescription+"\n\n## Recommended H1\n\n"+brief.h1+"\n\n## Recommended angle\n\n"+(brief.recommendedAngle||brief.intentGuidance||"")+"\n\n## Draft outline\n\n";
+    (brief.outline||[]).forEach((item,index)=>{
+      const heading=Array.isArray(item)?item[0]:(item.heading||item.title||"Section");
+      const purpose=Array.isArray(item)?item[1]:(item.purpose||item.description||"");
+      out+=(index+1)+". **"+heading+"**\n   "+purpose+"\n";
+      (item.keyPoints||[]).forEach(point=>{out+="   - "+point+"\n";});out+="\n";
+    });
+    out+="## Reader questions and answers\n\n";
+    (brief.faqs||[]).forEach(item=>{out+="- **"+(typeof item==="string"?item:item.question||"")+"**\n";if(item&&typeof item==="object"&&item.answer)out+="  "+item.answer+"\n";});
+    out+="\n## Editorial quality checks\n\n";(brief.editorialNotes||[]).forEach(item=>{out+="- "+item+"\n";});
+    if((brief.keyEntities||[]).length){out+="\n## Entities and subtopics\n\n";brief.keyEntities.forEach(item=>{out+="- "+(typeof item==="string"?item:(item.entity||item.topic||""))+"\n";});}
+    if((brief.evidenceNeeded||[]).length){out+="\n## Claims and evidence to verify\n\n";brief.evidenceNeeded.forEach(item=>{out+="- "+(typeof item==="string"?item:(item.claim||item.evidence||""))+"\n";});}
+    if((brief.internalLinkSuggestions||[]).length){out+="\n## Internal link opportunities\n\n";brief.internalLinkSuggestions.forEach(item=>{out+="- "+(item.anchorText||item.anchor||"Related page")+" — "+(item.targetPageType||item.destination||"Relevant page")+"\n";});}
+    out+="\n---\nCreated with PeachBrief by TeamPeach. This AI-generated draft does not contain live search-volume, ranking or competitor data. Verify current search results and sources before publishing.\n";
     return out;
   }
   async function ensureCsrf(){if(csrfToken)return csrfToken;const response=await fetch("/api/csrf",{credentials:"same-origin",cache:"no-store"});if(!response.ok)throw new Error("Secure request setup failed. Refresh and try again.");const result=await response.json();csrfToken=result.token||"";if(!csrfToken)throw new Error("Could not establish a secure request.");return csrfToken;}
@@ -166,22 +195,27 @@
   async function makeBrief(){
     const values=valuesFromForm();
     if(values.topic.length<2){say("#brief-form-feedback","Enter a topic with at least two characters.","error");return;}
-    if(!signedIn){say("#brief-form-feedback","Sign in and choose a membership before running this tool. You can still review the product information and sample output.","error");return;}
-    if(!accessChecked){try{const access=await api("/api/commerce/overview","GET");membershipActive=Boolean(access.membershipActive);availableCredits=Number(access.credits||0);accessChecked=true;}catch(error){say("#brief-form-feedback","We could not check your membership or credits: "+error.message,"error");return;}}
-    if(!membershipActive){say("#brief-form-feedback","An active membership is required to run hosted tools. Open your dashboard and choose a plan under Billing & tools.","error");return;}
-    if(availableCredits<1){say("#brief-form-feedback","Your available credit balance is too low. Buy a credit top-up or choose a plan with a larger monthly allowance.","error");return;}
+    if(!signedIn){say("#brief-form-feedback","Sign in and choose a membership before generating an AI brief. You can still review the sample output.","error");return;}
+    if(!accessChecked){
+      try{const access=await api("/api/commerce/overview","GET");membershipActive=Boolean(access.membershipActive);availableCredits=Number(access.credits||0);accessChecked=true;}
+      catch(error){say("#brief-form-feedback","We could not check your membership or credits: "+error.message,"error");return;}
+    }
+    if(!membershipActive){say("#brief-form-feedback","An active membership is required. Open Billing & plans in your workspace to choose a plan.","error");return;}
+    if(availableCredits<1){say("#brief-form-feedback","Your credit balance is empty. Add credits or choose a plan with a larger allowance.","error");return;}
     const button=$("#generate-brief"),regenerate=$("#regenerate-brief");
     if(button)button.disabled=true;if(regenerate)regenerate.disabled=true;
-    say("#brief-form-feedback","Checking access and charging the configured run cost…","");
+    say("#brief-form-feedback","PeachBrief is preparing your AI content brief with DeepSeek. Checking your credit balance…","");
     try{
-      const run=await api("/api/commerce/tool-runs","POST",{productSlug:"seo-content-brief"});
-      availableCredits=Number(run.creditsRemaining||0);
-      const brief=buildBrief(values);currentProjectId=currentProjectId||null;renderBrief(brief);
-      say("#brief-form-feedback","Your structured content brief is ready. Charged "+Number(run.creditsCharged||0)+" credit(s); "+availableCredits.toLocaleString()+" remain. This tool uses a structured template, not a live AI or search call.","success");
+      const result=await api("/api/tools/seo-content-brief/generate","POST",values);
+      const brief=result.brief||{};currentProjectId=currentProjectId||null;
+      availableCredits=Number(result.usage&&result.usage.creditsRemaining||0);
+      renderBrief(brief);
+      const usage=result.usage||{};
+      say("#brief-form-feedback","Your AI brief is ready. "+Number(usage.totalTokens||0).toLocaleString()+" tokens · "+Number(usage.creditsCharged||0).toLocaleString()+" credits used · "+availableCredits.toLocaleString()+" credits remaining. This draft does not include live Google ranking or search-volume data.","success");
       say("#brief-save-feedback","");
     }catch(error){
-      if(error.code==="MEMBERSHIP_REQUIRED"){membershipActive=false;say("#brief-form-feedback","An active membership is required. Open your dashboard and choose a plan under Billing & tools.","error");}
-      else if(error.code==="INSUFFICIENT_CREDITS"){availableCredits=Number(error.balance||0);say("#brief-form-feedback","You do not have enough credits to run this tool. Buy a top-up or choose another membership plan.","error");}
+      if(error.code==="MEMBERSHIP_REQUIRED"){membershipActive=false;say("#brief-form-feedback","An active membership is required. Open Billing & plans in your workspace.","error");}
+      else if(error.code==="INSUFFICIENT_CREDITS"){availableCredits=Number(error.balance||0);say("#brief-form-feedback","Your current balance is not enough for the estimated AI generation cost. Add credits and try again.","error");}
       else say("#brief-form-feedback",error.message,"error");
     }finally{if(button)button.disabled=false;if(regenerate)regenerate.disabled=false;}
   }
