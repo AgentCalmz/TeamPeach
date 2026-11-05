@@ -229,7 +229,7 @@ test("conversation saving is verified by the API and failures are surfaced to vi
 });
 test("PeachChat canonical route redirects the former AI chatbot slug",()=>{
  const server=read("server.js"),html=read("public/tools/peachchat/index.html"),sitemap=read("public/sitemap.xml");
- assert.match(server,/tools\\\/ai-chatbot\\\/.+tools\\\/peachchat/);
+ assert.ok(server.includes('app.get(/^\\/tools\\/ai-chatbot\\/?$/ ,(_q,r)=>r.redirect(301,"/tools/peachchat/"));'));
  assert.match(html,/rel="canonical" href="https:\/\/teampeach\.org\/tools\/peachchat\//);
  assert.match(sitemap,/https:\/\/teampeach\.org\/tools\/peachchat\//);
  assert.doesNotMatch(sitemap,/https:\/\/teampeach\.org\/tools\/peachchat\//);
