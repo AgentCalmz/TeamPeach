@@ -16,6 +16,9 @@ app.disable("x-powered-by");app.set("trust proxy",1);
 app.use(helmet({contentSecurityPolicy:{directives:{defaultSrc:["'self'"],baseUri:["'self'"],formAction:["'self'"],frameAncestors:["'none'"],objectSrc:["'none'"],scriptSrc:["'self'"],styleSrc:["'self'","'unsafe-inline'","https://fonts.googleapis.com"],fontSrc:["'self'","https://fonts.gstatic.com","data:"],imgSrc:["'self'","data:","https:"],connectSrc:["'self'"]}},crossOriginEmbedderPolicy:false}));
 app.use(express.json({limit:"64kb",strict:true,verify(req,res,buf){if(String(req.originalUrl||"").includes("/api/payments/webhooks/"))req.rawBody=Buffer.from(buf);}}));
 app.use(cookieParser());
+// Attach chatbot CORS headers before global rate limits and CSRF middleware.
+// This ensures browsers can read even error responses from cross-origin embeds.
+app.use("/api/chatbot/public",chatbotPublicCors);
 app.use("/api",(req,res,next)=>{res.setHeader("Cache-Control","no-store");res.setHeader("Pragma","no-cache");next();});
 app.use("/api",rateLimit({windowMs:15*60*1000,limit:150,standardHeaders:true,legacyHeaders:false,message:{error:"RATE_LIMITED",message:"Too many requests. Please wait a little and try again."}}));
 const authLimit=rateLimit({windowMs:60*60*1000,limit:30,standardHeaders:true,legacyHeaders:false,message:{error:"AUTH_RATE_LIMITED",message:"Too many account attempts. Wait before trying again."}});
@@ -74,7 +77,10 @@ function logFailure(area,e){const code=String(e&&(e.code||e.status||e.name)||"un
 function trusted(req){const o=req.get("origin");if(!o)return true;try{return origins.has(new URL(o).origin);}catch(_){return false;}}
 function csrf(req,res,next){
  if(!["POST","PUT","PATCH","DELETE"].includes(req.method))return next();
- if(req.path.startsWith("/api/payments/webhooks/")||req.path.startsWith("/chatbot/public/"))return next();
+ // Public chatbot messages are anonymous customer requests; they do not use
+ // TeamPeach owner cookies or the dashboard's double-submit CSRF token.
+ // The old "/chatbot/public/" prefix missed Express's full "/api/..." path.
+ if(req.path.startsWith("/api/chatbot/public/")||req.path.startsWith("/chatbot/public/")||req.path.startsWith("/api/payments/webhooks/"))return next();
  const c=Buffer.from(String(req.cookies.tp_csrf||"")),h=Buffer.from(String(req.get("x-csrf-token")||""));
  if(!trusted(req)||c.length<24||h.length<24||c.length!==h.length||!crypto.timingSafeEqual(c,h))return errorJson(res,403,"CSRF_CHECK_FAILED","Refresh the page and try again.");
  next();
@@ -1153,7 +1159,7 @@ function chatbotPublicCors(req,res,next){
  if(req.method==="OPTIONS")return res.status(204).end();
  next();
 }
-app.use("/api/chatbot/public",chatbotPublicCors);
+
 
 function chatbotPublicConfig(assistant,memberActive){
  return {
@@ -1904,6 +1910,7 @@ app.get("/sitemap.xml",publicSitemapLimit,asyncRoute(async(_q,r)=>{
  return r.type("application/xml").send(sitemap);
 }));
 
+app.get(/^\/tool\/?$/ ,(_q,r)=>r.redirect(301,"/tools/"));
 app.get("/dashboard/projects/",(_q,r)=>r.redirect(302,"/dashboard/custom-requests/"));
 app.get("/dashboard/tasks/",(_q,r)=>r.redirect(302,"/dashboard/custom-requests/"));
 app.use((q,r,n)=>{if(!["GET","HEAD"].includes(q.method)||!/\.html$/i.test(q.path))return n();let t=/\/index\.html$/i.test(q.path)?(q.path.slice(0,-10)||"/"):q.path.slice(0,-5);if(!t.startsWith("/"))t="/"+t;if(t!=="/"&&!t.endsWith("/"))t+="/";r.redirect(301,t+(q.url.includes("?")?q.url.slice(q.url.indexOf("?")):""));});
