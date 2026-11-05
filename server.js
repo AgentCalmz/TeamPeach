@@ -1353,7 +1353,7 @@ app.get("/api/chatbots/:id",authenticated,asyncRoute(async(q,r)=>{
   if(usage.error)throw usage.error;
   r.json({ok:true,assistant:chatbotAssistantPayload(assistant),membershipActive:memberActive,credits:Number(balance.data||0),usage:usage.data||[],
    publicUrl:baseUrl()+"/assistant/?id="+assistant.public_id,
-   embedCode:'<script src="'+baseUrl()+'/js/chatbot-widget.js" data-assistant-id="'+assistant.public_id+'" defer></script>'});
+   embedCode:'<script src="'+baseUrl()+'/js/chatbot-widget.js?v=4" data-assistant-id="'+assistant.public_id+'" defer></script>'});
  }catch(error){logFailure("chatbot-detail",error);errorJson(r,503,"CHATBOT_LOAD_FAILED","This assistant could not be loaded.");}
 }));
 app.put("/api/chatbots/:id",csrf,authLimit,authenticated,asyncRoute(async(q,r)=>{
