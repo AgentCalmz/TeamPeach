@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675">
+<defs>
+ <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff6ec"/><stop offset=".55" stop-color="#f7e4d7"/><stop offset="1" stop-color="#dfe7f1"/></linearGradient>
+ <linearGradient id="peach" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffb48e"/><stop offset="1" stop-color="#f27c62"/></linearGradient>
+ <linearGradient id="navy" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#293750"/><stop offset="1" stop-color="#131e33"/></linearGradient>
+ <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur in="SourceAlpha" stdDeviation="18"/><feOffset dy="15"/><feComponentTransfer><feFuncA type="linear" slope=".17"/></feComponentTransfer><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<rect width="1200" height="675" rx="30" fill="url(#bg)"/>
+<circle cx="930" cy="190" r="215" fill="#fff" opacity=".32"/><circle cx="170" cy="520" r="210" fill="#f5b18f" opacity=".14"/>
+<g opacity=".4" stroke="#d39b84" fill="none"><circle cx="600" cy="330" r="240" stroke-width="2"/><circle cx="600" cy="330" r="280" stroke-width="1.5" stroke-dasharray="5 12"/></g>
+<g filter="url(#shadow)">
+ <ellipse cx="585" cy="548" rx="260" ry="38" fill="#27364d" opacity=".13"/>
+ <rect x="410" y="175" width="360" height="330" rx="160" fill="url(#peach)"/>
+ <path d="M563 184c-9-40-3-75 21-104 18 46 49 53 86 42-15 49-56 75-107 62" fill="#6f9d63"/>
+ <path d="M600 179c-28-36-51-58-85-63" fill="none" stroke="#925b3e" stroke-width="15" stroke-linecap="round"/>
+ <rect x="468" y="270" width="244" height="155" rx="75" fill="url(#navy)"/>
+ <path d="M518 337q20-28 43 0M619 337q20-28 43 0" fill="none" stroke="#ffe0a5" stroke-width="14" stroke-linecap="round"/>
+ <path d="M563 371q31 34 62 0" fill="none" stroke="#ffe0a5" stroke-width="13" stroke-linecap="round"/>
+ <circle cx="418" cy="335" r="58" fill="#ffe6d6" stroke="#e9a083" stroke-width="7"/><circle cx="762" cy="335" r="58" fill="#ffe6d6" stroke="#e9a083" stroke-width="7"/>
+ <rect x="431" y="352" width="20" height="58" rx="10" fill="#e9a083"/><path d="M448 394q50 45 100 22" fill="none" stroke="#26344a" stroke-width="17" stroke-linecap="round"/>
+</g>
+<g fill="#fff" stroke="#e9d8ca" stroke-width="2" filter="url(#shadow)">
+ <path d="M140 170h210a28 28 0 0 1 28 28v74a28 28 0 0 1-28 28H244l-42 34v-34h-62a28 28 0 0 1-28-28v-74a28 28 0 0 1 28-28" />
+ <path d="M847 138h215a28 28 0 0 1 28 28v71a28 28 0 0 1-28 28h-87l-36 32v-32h-92a28 28 0 0 1-28-28v-71a28 28 0 0 1 28-28"/>
+ <path d="M851 430h190a27 27 0 0 1 27 27v62a27 27 0 0 1-27 27H953l-41 31v-31h-61a27 27 0 0 1-27-27v-62a27 27 0 0 1 27-27"/>
+</g>
+<g fill="none" stroke="#b9785e" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
+ <path d="M185 234h100M185 261h72"/><circle cx="972" cy="202" r="8" fill="#ff936f" stroke="none"/><circle cx="1008" cy="202" r="8" fill="#ff936f" stroke="none"/><circle cx="1044" cy="202" r="8" fill="#ff936f" stroke="none"/>
+ <path d="M889 475h88m-88 26h58"/>
+</g>
+<g fill="#293750" font-family="Arial,Helvetica,sans-serif">
+ <text x="600" y="610" text-anchor="middle" font-size="24" font-weight="700" letter-spacing="4">PEACHCHAT · CUSTOMER ASSISTANT</text>
+ <text x="600" y="644" text-anchor="middle" font-size="16" fill="#6b7482">A friendlier first response for your website</text>
+</g>
+</svg>
