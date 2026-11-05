@@ -231,9 +231,12 @@ test("PeachBrief appears in the workspace and explains its deployment configurat
 });
 test("homepage share metadata uses TeamPeach's own brand mark, not stock photography",()=>{
  const home=read("public/index.html");
- assert.ok(home.includes('property="og:image" content="https://teampeach.org/assets/favicon.svg"'));
- assert.ok(home.includes('property="og:image:alt" content="TeamPeach brand mark"'));
- assert.ok(home.includes('name="twitter:image" content="https://teampeach.org/assets/favicon.svg"'));
+ assert.ok(home.includes('property="og:image" content="https://teampeach.org/assets/teampeach-social.png"'));
+ assert.ok(home.includes('property="og:image:type" content="image/png"'));
+ assert.ok(home.includes('property="og:image:width" content="600"'));
+ assert.ok(home.includes('name="twitter:card" content="summary_large_image"'));
+ assert.ok(home.includes('name="twitter:image" content="https://teampeach.org/assets/teampeach-social.png"'));
+ assert.ok(read("public/assets/teampeach-social.png").length>1000);
 });
 test("PeachChat canonical route is published and the previous URL permanently redirects",()=>{
  const page=read("public/tools/peachchat/index.html"),old=read("public/tools/ai-chatbot/index.html"),server=read("server.js");
