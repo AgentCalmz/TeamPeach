@@ -40,7 +40,7 @@ function selectVisitorKey(){
 function saveStored(){}
 function appendInlineMarkdown(target,value){
  const source=String(value||"");
- const pattern=/\*\*[^*\n]+?\*\*|__[^_\n]+?__|~~[^~\n]+?~~|\x60[^\x60\n]+\x60|\*[^*\n]+?\*|_[^_\n]+?_| \[[^\]]+\]\(https?:\/\/[^\s)]+\)/g;
+ const pattern=/\*\*[^*\n]+?\*\*|__[^_\n]+?__|~~[^~\n]+?~~|\x60[^\x60\n]+\x60|\*[^*\n]+?\*|_[^_\n]+?_|\[[^\]]+\]\(https?:\/\/[^\s)]+\)/g;
  let cursor=0,match;
  while((match=pattern.exec(source))){
   if(match.index>cursor)target.append(document.createTextNode(source.slice(cursor,match.index)));
