@@ -72,3 +72,17 @@
 @media(max-width:980px){.cb-hero{grid-template-columns:1fr;gap:34px;padding-top:55px}.cb-hero-copy{max-width:800px}.cb-hero-art{max-width:640px;width:100%;margin:auto}.cb-feature-layout{grid-template-columns:1fr;gap:24px}}
 @media(max-width:700px){.cb-hero{padding-top:36px;padding-bottom:40px}.cb-hero-copy h1{font-size:42px;letter-spacing:-1.8px}.cb-lede{font-size:13px}.cb-trust-points{display:grid;gap:8px}.cb-hero-art{padding:11px}.cb-browser-content{min-height:300px;padding:16px}.cb-product-row{grid-template-columns:75px 1fr;gap:10px;margin-top:35px}.cb-product-image{height:82px}.cb-chat-preview{right:10px;bottom:10px;width:min(225px,76%)}.cb-steps{grid-template-columns:1fr}.cb-steps article{min-height:0}.cb-feature-list{grid-template-columns:1fr}.cb-plan-grid{grid-template-columns:1fr}.cb-plan p{min-height:0}.cb-section,.cb-membership,.cb-faq{padding-top:52px;padding-bottom:52px}.cb-final-cta{align-items:flex-start;flex-direction:column;padding:23px;margin-bottom:32px}.cb-final-cta h2{font-size:28px}}
 @media(max-width:380px){.cb-hero-copy h1{font-size:36px}.cb-chat-preview{width:78%}.cb-product-row b{font-size:11px}.cb-product-row span{font-size:8px}}
+
+/* Make the chatbot hero visually prominent with real business photography. */
+.cb-hero-art{position:relative;isolation:isolate;overflow:hidden;min-height:500px;padding:0;border-radius:23px;background:#e6e2dc;box-shadow:0 22px 55px #26314420}
+.cb-hero-photo{position:absolute;z-index:-2;inset:0;display:block;width:100%;height:100%;object-fit:cover;object-position:center 42%}
+.cb-hero-art:after{content:"";position:absolute;z-index:-1;inset:0;pointer-events:none;background:linear-gradient(135deg,#1e2b3b22 0%,transparent 48%,#1e2b3b25 100%)}
+.cb-hero-proof{position:absolute;z-index:2;top:18px;left:18px;display:flex;align-items:center;gap:8px;padding:10px 13px;border:1px solid #ffffffa8;border-radius:999px;background:#fffdf5ed;color:#374253;font-size:10px;font-weight:850;box-shadow:0 8px 26px #17203320}
+.cb-hero-proof span{display:grid;place-items:center;width:20px;height:20px;border-radius:7px;background:#f5e5d9;color:#a85e43;font-size:13px}
+.cb-photo-credit{position:absolute;z-index:2;left:19px;bottom:17px;padding:5px 8px;border-radius:7px;background:#1720339c;color:#fff;font-size:9px;font-weight:650;text-decoration:none}
+.cb-photo-credit:hover{background:#172033d9;text-decoration:underline}
+.cb-browser{position:absolute;z-index:1;right:18px;bottom:18px;width:min(86%,460px)}
+.cb-browser-content{min-height:320px}
+@media(max-width:980px){.cb-hero-art{min-height:490px}}
+@media(max-width:700px){.cb-hero-art{min-height:410px;padding:0}.cb-hero-proof{top:12px;left:12px;padding:8px 10px;font-size:9px}.cb-browser{right:10px;bottom:10px;width:90%}.cb-browser-content{min-height:280px}.cb-photo-credit{left:12px;bottom:12px}}
+@media(max-width:380px){.cb-hero-art{min-height:385px}.cb-browser{right:8px;bottom:8px;width:94%}.cb-browser-content{min-height:265px}}

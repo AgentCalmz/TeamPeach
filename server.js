@@ -1137,12 +1137,16 @@ function chatbotPublicCors(req,res,next){
  if(origin){
   try{
    const url=new URL(origin);
-   if(["https:","http:"].includes(url.protocol)&&(url.protocol!=="http:"||["localhost","127.0.0.1"].includes(url.hostname))){
+   if(["https:","http:"].includes(url.protocol)){
     res.setHeader("Access-Control-Allow-Origin",url.origin);
     res.setHeader("Vary","Origin");
     res.setHeader("Access-Control-Allow-Methods","GET, POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers","Content-Type");
     res.setHeader("Access-Control-Max-Age","600");
+    // Helmet defaults CORP to same-origin. That blocks browser fetches from
+    // third-party websites even when the CORS response is otherwise valid.
+    // Relax CORP only for this intentionally public, CORS-enabled API.
+    res.setHeader("Cross-Origin-Resource-Policy","cross-origin");
    }
   }catch(_){}
  }
