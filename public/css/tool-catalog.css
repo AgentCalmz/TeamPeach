@@ -1,0 +1,76 @@
+/* Public tool catalogue and image-led homepage cards. */
+.home-tool-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-top:25px}
+.home-tool-card{min-width:0;overflow:hidden;border:1px solid #e7e0d8;border-radius:18px;background:#fffdfa;box-shadow:0 12px 34px #2631440a;transition:transform .2s,box-shadow .2s}
+.home-tool-card:hover{transform:translateY(-3px);box-shadow:0 18px 42px #26314416}
+.home-tool-image,.directory-tool-image{position:relative;display:block;overflow:hidden;aspect-ratio:16/9;background:#e8e1d8}
+.home-tool-image img,.directory-tool-image img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .45s}
+.home-tool-card:hover .home-tool-image img,.directory-tool-card:hover .directory-tool-image img{transform:scale(1.035)}
+.home-tool-image:after,.directory-tool-image:after{content:"";position:absolute;inset:45% 0 0;background:linear-gradient(transparent,#121a2b66);pointer-events:none}
+.home-tool-image-tag,.directory-tool-image>span{position:absolute;z-index:1;left:14px;bottom:13px;padding:7px 9px;border:1px solid #ffffff70;border-radius:7px;background:#172033a8;color:#fff;font-size:8px;font-weight:850;letter-spacing:.11em}
+.home-tool-copy{padding:18px 19px 20px}
+.home-tool-meta,.directory-tool-meta{display:flex;align-items:center;justify-content:space-between;gap:12px;color:#a47a65;font-size:8px;font-weight:850;letter-spacing:.12em}
+.home-tool-copy h3{margin:9px 0 7px;color:#263144;font:800 21px/1.2 var(--display);letter-spacing:-.7px}
+.home-tool-copy p{margin:0;color:#7b8490;font-size:11px;line-height:1.75}
+.home-tool-copy>a{display:inline-flex;align-items:center;gap:8px;margin-top:14px;color:#a75f43;font-size:10px;font-weight:850;text-decoration:none}
+.home-tool-copy>a:hover,.directory-tool-cta:hover{text-decoration:underline}
+.home-tools-footer{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-top:18px;padding-top:15px;border-top:1px solid #eae3da}
+.home-tools-footer>span{color:#8a8e96;font-size:10px}
+.home-tools-footer>a{color:#a75f43;font-size:10px;font-weight:850;text-decoration:none}
+.tool-directory{padding-bottom:65px;background:#fbf8f3;color:#263144}
+.tool-directory-hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,.92fr);gap:52px;align-items:center;padding-top:72px;padding-bottom:72px}
+.tool-directory-hero-copy h1{max-width:660px;margin:10px 0 15px;color:#202a3b;font:800 clamp(39px,5.4vw,64px)/1.03 var(--display);letter-spacing:-2.5px}
+.tool-directory-hero-copy h1 em,.tool-directory-cta h2 em{color:#bd7659;font-style:normal}
+.tool-directory-hero-copy>p:not(.eyebrow){max-width:620px;margin:0;color:#747d89;font-size:14px;line-height:1.85}
+.tool-directory-actions{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-top:24px}
+.tool-dir-secondary{color:#515d6c;font-size:11px;font-weight:850;text-decoration:none}
+.tool-dir-secondary:hover{text-decoration:underline}
+.tool-directory-stats{display:flex;align-items:center;gap:18px;margin-top:33px}
+.tool-directory-stats>span{display:grid;gap:2px}
+.tool-directory-stats strong{color:#303c4d;font:800 20px/1 var(--display)}
+.tool-directory-stats small{color:#89909a;font-size:8px;font-weight:750}
+.tool-directory-stats>i{width:1px;height:27px;background:#e1d9cf}
+.tool-directory-hero-art{position:relative;min-height:370px;overflow:hidden;border-radius:23px;background:#ded8cf;box-shadow:0 22px 55px #26314420}
+.tool-directory-hero-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center}
+.tool-directory-hero-art:after{content:"";position:absolute;inset:35% 0 0;background:linear-gradient(transparent,#1b2639a8)}
+.tool-directory-hero-label{position:absolute;z-index:1;right:18px;bottom:18px;left:18px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;color:#fff}
+.tool-directory-hero-label span{font-size:8px;font-weight:850;letter-spacing:.15em}
+.tool-directory-hero-label strong{font:800 20px var(--display)}
+.tool-directory-list{padding-top:22px;padding-bottom:65px}
+.tool-directory-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:35px;margin-bottom:24px}
+.tool-directory-heading h2,.tool-directory-faq h2{margin:7px 0 0;color:#263144;font:800 clamp(27px,3.5vw,40px)/1.1 var(--display);letter-spacing:-1.4px}
+.tool-directory-heading>p{max-width:430px;margin:0;color:#838a94;font-size:11px;line-height:1.8}
+.tool-directory-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.directory-tool-card{min-width:0;overflow:hidden;border:1px solid #e8e0d7;border-radius:18px;background:#fffdfa;box-shadow:0 12px 34px #2631440a}
+.directory-tool-image{aspect-ratio:16/9}
+.directory-tool-copy{padding:20px}
+.directory-tool-meta{color:#92909a}
+.directory-tool-meta .tool-live-dot{display:inline-flex;align-items:center;gap:6px;color:#568267}
+.tool-live-dot:before{content:"";width:6px;height:6px;border-radius:50%;background:#70a17d}
+.directory-tool-copy h3{margin:10px 0 8px;color:#293447;font:800 23px/1.2 var(--display);letter-spacing:-.7px}
+.directory-tool-copy h3 a{color:inherit;text-decoration:none}
+.directory-tool-copy h3 a:hover{color:#a96145}
+.directory-tool-copy>p{margin:0;color:#737d89;font-size:11px;line-height:1.8}
+.directory-tool-copy ul{display:grid;gap:7px;margin:15px 0;padding:0;list-style:none}
+.directory-tool-copy li{position:relative;padding-left:17px;color:#596576;font-size:10px;line-height:1.55}
+.directory-tool-copy li:before{content:"✓";position:absolute;left:0;color:#ad7053;font-weight:900}
+.directory-tool-copy .directory-tool-limit{padding:11px 12px;border-radius:10px;background:#f7f2eb;color:#777f89;font-size:9px}
+.directory-tool-limit strong{color:#4a5564}
+.directory-tool-cta{display:inline-flex;align-items:center;gap:8px;margin-top:15px;color:#a65f44;font-size:10px;font-weight:900;text-decoration:none}
+.tool-directory-faq{display:grid;grid-template-columns:.85fr 1.15fr;gap:55px;padding-top:40px;padding-bottom:70px}
+.tool-directory-faq>div:first-child>p:last-child{max-width:390px;color:#808894;font-size:11px;line-height:1.8}
+.tool-faq-list{display:grid;gap:9px}
+.tool-faq-list details{padding:0 16px;border:1px solid #e8e0d7;border-radius:11px;background:#fffdfa}
+.tool-faq-list summary{position:relative;padding:14px 26px 14px 0;color:#344052;font-size:11px;font-weight:850;cursor:pointer;list-style:none}
+.tool-faq-list summary::-webkit-details-marker{display:none}
+.tool-faq-list summary:after{content:"＋";position:absolute;right:0;top:12px;color:#ad6b4d;font-size:15px}
+.tool-faq-list details[open] summary:after{content:"−"}
+.tool-faq-list details p{margin:0;padding:0 0 14px;color:#78818c;font-size:10px;line-height:1.8}
+.tool-directory-cta{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:0;padding:29px;border-radius:19px;background:#263247;color:#fff}
+.tool-directory-cta .eyebrow{color:#e0bdac;font-size:9px}
+.tool-directory-cta h2{margin:6px 0;color:#fff;font:800 clamp(24px,3.2vw,34px)/1.08 var(--display);letter-spacing:-1.1px}
+.tool-directory-cta h2 em{color:#f0a17f}
+.tool-directory-cta p:last-child{max-width:520px;margin:8px 0 0;color:#c9cdd5;font-size:10px;line-height:1.7}
+.tool-directory-cta .button-light{flex:0 0 auto;color:#263247}
+@media(max-width:980px){.tool-directory-hero{grid-template-columns:1fr;gap:28px;padding-top:50px}.tool-directory-hero-art{min-height:330px}.tool-directory-faq{grid-template-columns:1fr;gap:22px}}
+@media(max-width:700px){.home-tool-grid,.tool-directory-grid{grid-template-columns:1fr}.home-tool-copy{padding:16px}.home-tools-footer{align-items:flex-start;flex-direction:column}.tool-directory-hero{padding-top:35px;padding-bottom:42px}.tool-directory-hero-copy h1{font-size:40px;letter-spacing:-1.7px}.tool-directory-hero-copy>p:not(.eyebrow){font-size:12px}.tool-directory-hero-art{min-height:260px}.tool-directory-stats{gap:12px}.tool-directory-stats small{font-size:7px}.tool-directory-heading{align-items:flex-start;flex-direction:column;gap:10px}.tool-directory-list{padding-bottom:45px}.tool-directory-faq{padding-top:20px;padding-bottom:45px}.directory-tool-copy{padding:17px}.directory-tool-copy h3{font-size:21px}.tool-directory-cta{align-items:flex-start;flex-direction:column;padding:22px}.tool-directory-cta .button-light{width:100%;justify-content:center}}
+@media(max-width:380px){.tool-directory-hero-copy h1{font-size:35px}.tool-directory-hero-art{min-height:220px}.tool-directory-stats{gap:9px}.tool-directory-stats strong{font-size:17px}}
