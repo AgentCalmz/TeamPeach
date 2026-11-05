@@ -157,10 +157,16 @@ test("chatbot hero includes visible external photography with alternative text",
  const css=read("public/css/chatbot-public.css");
  assert.match(html,/class="cb-hero-photo"/);
  assert.match(html,/chatbot-public\.css\?v=2/);
- assert.match(html,/images\.unsplash\.com/);
+ assert.match(html,/src="\\/assets\\/peachchat-hero\\.webp"/);
  assert.match(html,/alt="A friendly peach-coloured AI chatbot with glowing digital chat symbols and a modern technology interface"/);
  assert.match(css,/\.cb-hero-photo/);
  assert.match(css,/\.cb-hero-art\{position:relative/);
+ const dashboard=read("public/dashboard/chatbot/index.html");
+ assert.match(dashboard,/src="\\/assets\\/peachchat-hero\\.webp"/);
+ assert.match(dashboard,/1 TeamPeach credit per started 1,000 combined DeepSeek input and output tokens/);
+ assert.match(dashboard,/\\$0\\.15 for uncached input/);
+ assert.match(dashboard,/\\$0\\.60 for output/);
+ assert.match(dashboard,/https:\\/\\/api-docs\\.deepseek\\.com\\/quick_start\\/pricing\\//);
 });
 
 test("public tools catalogue lists only the two currently published tools with capability notes",()=>{
@@ -172,6 +178,7 @@ test("public tools catalogue lists only the two currently published tools with c
  assert.match(html,/PeachBrief — AI SEO Content Planner/);
  assert.match(html,/PeachChat — AI Customer Assistant/);
  assert.match(html,/PeachBrief uses DeepSeek/i);
+ assert.doesNotMatch(html,/does not call an AI model|uses a structured template/i);
  assert.match(html,/does not automatically crawl your website/i);
  assert.match(html,/images\.unsplash\.com/);
  assert.doesNotMatch(html,/noindex,nofollow/);
