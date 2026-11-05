@@ -251,7 +251,7 @@ async function runEmailQueue(){if(emailCoordinatorBusy)return;emailCoordinatorBu
 async function cleanup(){if(!db)return;try{await db.from("tp_pending_registrations").delete().lt("expires_at",new Date(Date.now()-86400000).toISOString());await db.from("tp_password_resets").delete().lt("expires_at",new Date(Date.now()-86400000).toISOString());await db.from("tp_sessions").delete().lt("expires_at",new Date().toISOString());await db.from("tp_sessions").delete().lt("revoked_at",new Date(Date.now()-30*86400000).toISOString());}catch(e){logFailure("cleanup",e);}}
 
 app.get("/api/health",asyncRoute(async(_q,r)=>{
- let schemaReady=false,commerceSchemaReady=false,chatbotSchemaReady=false;
+ let schemaReady=false,commerceSchemaReady=false,chatbotSchemaReady=false,peachBriefEnabled=false;
  if(db){
   const checks=await Promise.all([
    db.from("tp_users").select("id",{head:true,count:"exact"}),
@@ -280,12 +280,15 @@ app.get("/api/health",asyncRoute(async(_q,r)=>{
   schemaReady=checks.slice(0,7).every(x=>!x.error);
   commerceSchemaReady=checks.slice(7,18).every(x=>!x.error);
   chatbotSchemaReady=checks.slice(18).every(x=>!x.error);
+  const peachBrief=await db.from("tp_products").select("active,hosted_enabled").eq("slug","seo-content-brief").maybeSingle();
+  if(peachBrief.error)logFailure("health-peachbrief-catalogue",peachBrief.error);
+  else peachBriefEnabled=Boolean(peachBrief.data&&peachBrief.data.active===true&&peachBrief.data.hosted_enabled===true);
   const failure=checks.find(x=>x.error);
   if(failure)logFailure("health-schema",failure.error);
  }
  const ready=authReady()&&schemaReady&&emailReady();
  r.status(ready?200:503).json({status:ready?"ready":"degraded",service:"teampeach",accountServicesConfigured:authReady(),
-  databaseSchemaReady:schemaReady,commerceSchemaReady,chatbotSchemaReady,chatbotAIConfigured:Boolean(String(process.env.DEEPSEEK_API_KEY||"").trim()),emailDeliveryConfigured:emailReady(),emailTransport:emailReady()?emailTransportMode():"unconfigured",
+  databaseSchemaReady:schemaReady,commerceSchemaReady,chatbotSchemaReady,peachBriefEnabled,chatbotAIConfigured:Boolean(String(process.env.DEEPSEEK_API_KEY||"").trim()),emailDeliveryConfigured:emailReady(),emailTransport:emailReady()?emailTransportMode():"unconfigured",
   paymentMode:paymentMode(),paystackConfigured:paymentReady("paystack"),flutterwaveConfigured:paymentReady("flutterwave")});
 }));
 app.get("/api/csrf",(q,r)=>r.json({token:q.csrfToken()}));
@@ -1266,14 +1269,16 @@ async function chatbotGenerateForOwner(assistant,ownerId,input){
   p_requests:1,p_input_tokens:generated.inputTokens,p_output_tokens:generated.outputTokens,p_credits_charged:credits
  });
  if(usage.error)logFailure("chatbot-usage-record",usage.error);
+ let conversationSaved=null;
  if(persist){
   const saved=await db.rpc("tp_chatbot_save_messages",{
    p_assistant_id:assistant.id,p_user_id:ownerId,p_visitor_key:visitorKey,p_request_id:requestId,
    p_user_content:message,p_assistant_content:generated.answer
   });
-  if(saved.error||!saved.data||saved.data.status!=="ok")logFailure("chatbot-conversation-save",saved.error||new Error("CONVERSATION_NOT_SAVED"));
+  conversationSaved=!saved.error&&Boolean(saved.data)&&saved.data.status==="ok";
+  if(!conversationSaved)logFailure("chatbot-conversation-save",saved.error||new Error("CONVERSATION_NOT_SAVED"));
  }
- return {answer:generated.answer,duplicate:false,inputTokens:generated.inputTokens,outputTokens:generated.outputTokens,totalTokens:generated.totalTokens,creditsCharged:credits,creditsRemaining,model:generated.model};
+ return {answer:generated.answer,duplicate:false,inputTokens:generated.inputTokens,outputTokens:generated.outputTokens,totalTokens:generated.totalTokens,creditsCharged:credits,creditsRemaining,model:generated.model,conversationSaved};
 }
 
 function chatbotAssistantPayload(row){
@@ -1502,12 +1507,15 @@ app.post("/api/chatbot/public/:publicId/messages",chatbotPublicLimit,asyncRoute(
    visitorKey:q.body&&q.body.visitorKey,requestId:q.body&&q.body.requestId,
    persist:memberActive&&found.data.save_conversations===true
   });
-  r.json({ok:true,reply:result.answer});
+  r.json({ok:true,reply:result.answer,conversationSaved:result.conversationSaved});
  }catch(error){return chatbotSendError(r,error,"chatbot-public-message");}
 }));
 
 app.post("/api/tools/seo-content-brief/generate",csrf,authLimit,authenticated,asyncRoute(async(q,r)=>{
  if(!db)return errorJson(r,503,"COMMERCE_NOT_CONFIGURED","AI tool usage is not configured yet.");
+ const productCheck=await db.from("tp_products").select("active,hosted_enabled").eq("slug","seo-content-brief").maybeSingle();
+ if(productCheck.error){logFailure("peachbrief-catalogue-check",productCheck.error);return errorJson(r,503,"TOOL_STATUS_UNAVAILABLE","PeachBrief availability could not be checked. Please try again shortly.");}
+ if(!productCheck.data||productCheck.data.active!==true||productCheck.data.hosted_enabled!==true)return errorJson(r,404,"TOOL_NOT_AVAILABLE","PeachBrief is not enabled in the TeamPeach tools catalogue yet.");
  const b=q.body||{};
  const topic=cleanText(b.topic,180),primaryKeyword=cleanText(b.primaryKeyword||b.topic,180);
  const audience=cleanText(b.audience||"General readers",140),intent=cleanText(b.intent||"informational",30);
@@ -2019,6 +2027,7 @@ app.get("/sitemap.xml",publicSitemapLimit,asyncRoute(async(_q,r)=>{
 }));
 
 app.get(/^\/tool\/?$/ ,(_q,r)=>r.redirect(301,"/tools/"));
+app.get(/^\/tools\/ai-chatbot\/?$/ ,(_q,r)=>r.redirect(301,"/tools/peachchat/"));
 app.get("/dashboard/projects/",(_q,r)=>r.redirect(302,"/dashboard/custom-requests/"));
 app.get("/dashboard/tasks/",(_q,r)=>r.redirect(302,"/dashboard/custom-requests/"));
 app.use((q,r,n)=>{if(!["GET","HEAD"].includes(q.method)||!/\.html$/i.test(q.path))return n();let t=/\/index\.html$/i.test(q.path)?(q.path.slice(0,-10)||"/"):q.path.slice(0,-5);if(!t.startsWith("/"))t="/"+t;if(t!=="/"&&!t.endsWith("/"))t+="/";r.redirect(301,t+(q.url.includes("?")?q.url.slice(q.url.indexOf("?")):""));});
