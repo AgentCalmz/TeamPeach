@@ -1539,7 +1539,6 @@ app.post("/api/tools/seo-content-brief/generate",csrf,authLimit,authenticated,as
  const apiKey=String(process.env.DEEPSEEK_API_KEY||"").trim();
  if(!apiKey)return errorJson(r,503,"AI_NOT_CONFIGURED","PeachBrief is temporarily unavailable because its AI service has not been configured. Please contact TeamPeach support. No credits were deducted.");
  try{
-  if(!(await chatbotMemberActive(q.user.id)))return errorJson(r,402,"MEMBERSHIP_REQUIRED","An active TeamPeach membership is required to run PeachBrief.");
   const prompt=[
    "Create a useful SEO content brief for a human writer. Return only one valid JSON object.",
    "Do not claim to have live Google Search Console, SERP, ranking, competitor, backlink, keyword-volume or trend data. Do not invent search metrics or cite nonexistent sources.",
