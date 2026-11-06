@@ -232,7 +232,7 @@ test("PeachBrief appears in the workspace and explains its deployment configurat
  assert.ok(tools.includes('href="/tools/seo-content-brief/"'));
  const server=read("server.js");
  assert.ok(server.includes('AI_NOT_CONFIGURED","PeachBrief is temporarily unavailable'));
- const route=server.slice(server.indexOf('app.post("/api/tools/seo-content-brief/generate"'),server.indexOf('app.post("/api/tools/seo-content-brief/generate"')+12000));
+ const route=server.slice(server.indexOf('app.post("/api/tools/seo-content-brief/generate"'),server.indexOf('app.post("/api/tools/seo-content-brief/generate"')+12000);
  assert.match(route,/AI_NOT_CONFIGURED","PeachBrief is temporarily unavailable/);
  const publicCopy=overview+tools+read("public/tools/index.html")+read("public/tools/seo-content-brief/index.html")+read("public/js/brief-builder.js");
  assert.doesNotMatch(publicCopy,/DeepSeek|deepseek/i);
