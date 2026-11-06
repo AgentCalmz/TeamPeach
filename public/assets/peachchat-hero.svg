@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 667" role="img" aria-labelledby="title desc">
+<title id="title">PeachChat AI customer assistant</title>
+<desc id="desc">A friendly peach-coloured robot assistant beside a laptop, with a customer chat bubble and response indicators.</desc>
+<defs>
+ <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff4ec"/><stop offset=".52" stop-color="#f5eaff"/><stop offset="1" stop-color="#dbe4ff"/></linearGradient>
+ <linearGradient id="peach" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffbd8d"/><stop offset=".55" stop-color="#ff925f"/><stop offset="1" stop-color="#e66c43"/></linearGradient>
+ <linearGradient id="shell" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff"/><stop offset="1" stop-color="#e5eaf5"/></linearGradient>
+ <linearGradient id="navy" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#34415e"/><stop offset="1" stop-color="#17233e"/></linearGradient>
+ <linearGradient id="desk" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#f6bc85"/><stop offset="1" stop-color="#d98b5c"/></linearGradient>
+ <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%"><feGaussianBlur in="SourceAlpha" stdDeviation="12"/><feOffset dy="12"/><feComponentTransfer><feFuncA type="linear" slope=".18"/></feComponentTransfer><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+ <filter id="soft"><feGaussianBlur stdDeviation="24"/></filter>
+</defs>
+<rect width="1000" height="667" rx="26" fill="url(#bg)"/>
+<circle cx="110" cy="130" r="115" fill="#ffd3bc" opacity=".42" filter="url(#soft)"/>
+<circle cx="890" cy="145" r="120" fill="#9caefb" opacity=".32" filter="url(#soft)"/>
+<path d="M0 560C190 510 275 605 450 575s335-60 550-7v99H0Z" fill="#ffd3b6" opacity=".55"/>
+<path d="M0 608c180-50 300 40 480 8s320-44 520-5v56H0Z" fill="#ff946c" opacity=".45"/>
+<g opacity=".75" fill="none" stroke="#fff" stroke-width="4"><circle cx="140" cy="260" r="40"/><circle cx="140" cy="260" r="20"/><path d="M140 205v-22m0 154v-22m-55-55H63m154 0h-22"/></g>
+<g fill="#ff9b6d"><path d="m268 95 9-25 9 25 25 9-25 9-9 25-9-25-25-9z"/><circle cx="322" cy="170" r="7"/><circle cx="90" cy="410" r="8"/></g>
+<g filter="url(#shadow)">
+ <!-- robot body -->
+ <path d="M354 392c-4-70 38-116 112-122h88c73 7 111 52 110 122l-4 112H363Z" fill="url(#shell)" stroke="#d8deeb" stroke-width="7"/>
+ <path d="M392 418c-40 8-76 40-87 93-4 19 8 35 27 35h80l40-101z" fill="url(#shell)" stroke="#d8deeb" stroke-width="7"/>
+ <path d="M627 415c42 5 72 38 78 83 3 22-10 38-31 38h-75l-25-95z" fill="url(#shell)" stroke="#d8deeb" stroke-width="7"/>
+ <path d="M444 365c23-33 55-48 98-48 42 0 75 15 99 48l-19 48H462Z" fill="#fff" opacity=".7"/>
+ <!-- neck -->
+ <rect x="451" y="338" width="119" height="65" rx="28" fill="#e6eaf2" stroke="#cbd3e1" stroke-width="6"/>
+ <!-- head -->
+ <path d="M351 165c0-77 57-126 143-126h44c87 0 142 49 142 126v87c0 91-60 143-164 143h-2c-105 0-163-52-163-143Z" fill="url(#peach)" stroke="#d96b48" stroke-width="7"/>
+ <path d="M385 174c9-59 47-89 107-89h50c56 0 92 26 105 79" fill="none" stroke="#ffd8b8" stroke-width="12" stroke-linecap="round" opacity=".8"/>
+ <!-- face -->
+ <rect x="392" y="171" width="205" height="142" rx="51" fill="url(#navy)" stroke="#d9e1f3" stroke-width="8"/>
+ <path d="M434 232c10-16 24-16 35 0m54 0c10-16 24-16 35 0" fill="none" stroke="#fff" stroke-width="11" stroke-linecap="round"/>
+ <path d="M472 265q29 30 58 0" fill="none" stroke="#ffae83" stroke-width="10" stroke-linecap="round"/>
+ <!-- headset -->
+ <path d="M348 219c-4-104 49-166 143-166s153 62 153 166" fill="none" stroke="#303c57" stroke-width="17" stroke-linecap="round"/>
+ <rect x="328" y="192" width="46" height="100" rx="22" fill="#f5f6fb" stroke="#75819b" stroke-width="8"/>
+ <rect x="622" y="192" width="46" height="100" rx="22" fill="#f5f6fb" stroke="#75819b" stroke-width="8"/>
+ <circle cx="351" cy="242" r="12" fill="#ff935f"/><circle cx="645" cy="242" r="12" fill="#ff935f"/>
+ <path d="M650 287q37 25 17 54l-45 19" fill="none" stroke="#303c57" stroke-width="8" stroke-linecap="round"/>
+ <circle cx="621" cy="361" r="11" fill="#303c57"/>
+ <!-- chest emblem -->
+ <circle cx="510" cy="452" r="35" fill="#ff936f" stroke="#fff" stroke-width="5"/>
+ <path d="M491 445c0-13 10-22 22-22s22 9 22 22c0 8-5 15-13 20l-9 9-9-9c-8-5-13-12-13-20Z" fill="#fff"/>
+ <circle cx="505" cy="445" r="3.5" fill="#ff936f"/><circle cx="521" cy="445" r="3.5" fill="#ff936f"/>
+ <!-- hand waving -->
+ <path d="M704 443c-8-34 4-62 24-69 17-6 30 10 27 28 14-13 29-2 24 15 16-8 28 6 18 23l-24 46c-12 23-43 23-57 4Z" fill="url(#shell)" stroke="#cbd3e1" stroke-width="7"/>
+ <path d="M744 368l4-26m29 38 15-17m-6 44 22-7" stroke="#ff925f" stroke-width="9" stroke-linecap="round"/>
+</g>
+<!-- laptop -->
+<g filter="url(#shadow)">
+ <path d="M626 438h252c17 0 28 15 24 31l-30 122H628l-26-123c-3-16 8-30 24-30Z" fill="url(#navy)" stroke="#fff" stroke-width="7"/>
+ <path d="M590 587h331l46 30c8 6 3 18-8 18H575c-12 0-16-11-7-18Z" fill="#dfe4ef" stroke="#aeb9ce" stroke-width="5"/>
+ <path d="M694 474h117" stroke="#6e7d9e" stroke-width="5" stroke-linecap="round"/>
+ <circle cx="749" cy="520" r="21" fill="#ff936f"/><path d="M736 519c0-8 6-14 13-14s13 6 13 14c0 5-3 9-8 12l-5 5-5-5c-5-3-8-7-8-12Z" fill="#fff"/>
+</g>
+<!-- floating customer chat -->
+<g filter="url(#shadow)">
+ <rect x="680" y="68" width="276" height="116" rx="25" fill="#fff" stroke="#e1e5ef" stroke-width="4"/>
+ <path d="m715 180-15 27 45-26" fill="#fff" stroke="#e1e5ef" stroke-width="4" stroke-linejoin="round"/>
+ <circle cx="715" cy="109" r="17" fill="#ff936f"/>
+ <path d="M707 108c0-5 4-9 8-9s8 4 8 9c0 3-2 6-5 8l-3 3-3-3c-3-2-5-5-5-8Z" fill="#fff"/>
+ <text x="747" y="116" fill="#1d2942" font-family="Arial,sans-serif" font-size="23" font-weight="700">Hello! How can I help?</text>
+ <text x="710" y="154" fill="#758097" font-family="Arial,sans-serif" font-size="15">Your business assistant is online</text>
+</g>
+<g filter="url(#shadow)">
+ <rect x="751" y="224" width="205" height="48" rx="20" fill="#fff" opacity=".96"/>
+ <circle cx="778" cy="248" r="11" fill="#43b77a"/><path d="m773 248 4 4 7-9" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+ <text x="800" y="255" fill="#34415e" font-family="Arial,sans-serif" font-size="16" font-weight="700">Answers questions</text>
+ <rect x="751" y="283" width="205" height="48" rx="20" fill="#fff" opacity=".96"/>
+ <circle cx="778" cy="307" r="11" fill="#43b77a"/><path d="m773 307 4 4 7-9" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+ <text x="800" y="314" fill="#34415e" font-family="Arial,sans-serif" font-size="16" font-weight="700">Captures leads</text>
+</g>
+<!-- plant and table -->
+<g>
+ <path d="M917 535c-15-57-13-92 5-127m-1 84c-31-37-54-42-65-32 10 31 30 43 65 48m-2-55c20-40 44-48 58-35-8 31-28 44-58 50" fill="#62a97e" stroke="#438664" stroke-width="5" stroke-linecap="round"/>
+ <path d="M893 535h53l-7 64h-40Z" fill="#f9f4ef" stroke="#d9d2cc" stroke-width="5"/>
+</g>
+<path d="M0 610h1000v57H0Z" fill="url(#desk)" opacity=".95"/>
+<path d="M0 612c220-35 350 13 520 0s290-21 480 0" fill="none" stroke="#fff" stroke-width="4" opacity=".65"/>
+<g fill="#fff" opacity=".8"><circle cx="90" cy="80" r="4"/><circle cx="220" cy="330" r="4"/><circle cx="830" cy="390" r="5"/><circle cx="932" cy="390" r="3"/></g>
+</svg>

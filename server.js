@@ -1217,6 +1217,27 @@ async function chatbotDeepSeekReply(assistant,message,history){
  const totalTokens=Math.max(1,Number(usage.total_tokens)||inputTokens+outputTokens);
  return {answer,inputTokens,outputTokens,totalTokens,model};
 }
+async function chatbotSaveConversation(assistantId,visitorKey,requestId,userContent,assistantContent){
+ const now=new Date().toISOString();
+ const conversation=await db.from("tp_chatbot_conversations").upsert({
+  assistant_id:assistantId,visitor_key:visitorKey,last_message_at:now,updated_at:now
+ },{onConflict:"assistant_id,visitor_key"}).select("id").single();
+ if(conversation.error)throw conversation.error;
+ const conversationId=conversation.data&&conversation.data.id;
+ if(!conversationId)throw new Error("CHATBOT_CONVERSATION_ID_MISSING");
+ const saved=await db.from("tp_chatbot_messages").upsert([
+  {conversation_id:conversationId,request_id:requestId,role:"user",content:userContent},
+  {conversation_id:conversationId,request_id:requestId,role:"assistant",content:assistantContent}
+ ],{onConflict:"conversation_id,request_id,role",ignoreDuplicates:true});
+ if(saved.error)throw saved.error;
+ const count=await db.from("tp_chatbot_messages").select("id",{head:true,count:"exact"}).eq("conversation_id",conversationId);
+ if(count.error)throw count.error;
+ const updated=await db.from("tp_chatbot_conversations").update({
+  message_count:count.count||0,updated_at:now,last_message_at:now
+ }).eq("id",conversationId);
+ if(updated.error)throw updated.error;
+ return true;
+}
 async function chatbotPersistedHistory(assistantId,visitorKey){
  const conversation=await db.from("tp_chatbot_conversations").select("id").eq("assistant_id",assistantId).eq("visitor_key",visitorKey).maybeSingle();
  if(conversation.error)throw conversation.error;
@@ -1269,12 +1290,7 @@ async function chatbotGenerateForOwner(assistant,ownerId,input){
  let conversationSaved=null;
  if(persist){
   try{
-   const saved=await db.rpc("tp_chatbot_save_messages",{
-    p_assistant_id:assistant.id,p_user_id:ownerId,p_visitor_key:visitorKey,p_request_id:requestId,
-    p_user_content:message,p_assistant_content:generated.answer
-   });
-   conversationSaved=Boolean(!saved.error&&saved.data&&saved.data.status==="ok");
-   if(!conversationSaved)logFailure("chatbot-conversation-save",saved.error||new Error("CONVERSATION_NOT_SAVED"));
+   conversationSaved=await chatbotSaveConversation(assistant.id,visitorKey,requestId,message,generated.answer);
   }catch(error){conversationSaved=false;logFailure("chatbot-conversation-save",error);}
  }
  return {answer:generated.answer,duplicate:false,inputTokens:generated.inputTokens,outputTokens:generated.outputTokens,totalTokens:generated.totalTokens,creditsCharged:credits,creditsRemaining,model:generated.model,conversationSaved};
@@ -1521,7 +1537,7 @@ app.post("/api/tools/seo-content-brief/generate",csrf,authLimit,authenticated,as
  if(!["informational","commercial","transactional","navigational"].includes(intent))return errorJson(r,400,"INVALID_INTENT","Choose a valid search intent.");
  if(!["guide","listicle","comparison","tutorial","landing-page"].includes(format))return errorJson(r,400,"INVALID_FORMAT","Choose a valid content format.");
  const apiKey=String(process.env.DEEPSEEK_API_KEY||"").trim();
- if(!apiKey)return errorJson(r,503,"AI_NOT_CONFIGURED","PeachBrief is not enabled on this deployment yet. Ask the TeamPeach administrator to set DEEPSEEK_API_KEY in Render and redeploy. No credits were deducted.");
+ if(!apiKey)return errorJson(r,503,"AI_NOT_CONFIGURED","PeachBrief is temporarily unavailable because its AI service has not been configured. Please contact TeamPeach support. No credits were deducted.");
  try{
   if(!(await chatbotMemberActive(q.user.id)))return errorJson(r,402,"MEMBERSHIP_REQUIRED","An active TeamPeach membership is required to run PeachBrief.");
   const prompt=[
@@ -1541,7 +1557,7 @@ app.post("/api/tools/seo-content-brief/generate",csrf,authLimit,authenticated,as
    "Reader goal: "+goal,
    "Related questions or subtopics: "+(related||"None supplied")
   ].join("\n\n");
-  const estimatedTokens=estimateChatbotTokens(prompt)+1800;
+  const estimatedTokens=estimateChatbotTokens(prompt)+3200;
   const estimatedCredits=chatbotCreditsForTokens(estimatedTokens);
   const balance=await db.rpc("tp_credit_balance",{p_user_id:q.user.id});
   if(balance.error)throw balance.error;
@@ -1552,27 +1568,27 @@ app.post("/api/tools/seo-content-brief/generate",csrf,authLimit,authenticated,as
     method:"POST",
     headers:{Authorization:"Bearer "+apiKey,"Content-Type":"application/json"},
     body:JSON.stringify({
-     model:cleanText(process.env.DEEPSEEK_MODEL||"deepseek-flash",80),
-     messages:[
+      messages:[
       {role:"system",content:"You are PeachBrief, a careful SEO content strategist. Return only the requested JSON. Never invent data or claim to have performed live research."},
       {role:"user",content:prompt}
      ],
-     temperature:0.25,max_tokens:1800,stream:false,thinking:{type:"disabled"},response_format:{type:"json_object"}
+     temperature:0.25,max_tokens:3200,stream:false,thinking:{type:"disabled"},response_format:{type:"json_object"}
     }),
     signal:AbortSignal.timeout(45000)
    });
   }catch(_){throw chatbotHttpError(502,"AI_PROVIDER_UNREACHABLE","The AI provider could not be reached. No credits were deducted.");}
   const data=await response.json().catch(()=>({}));
   if(!response.ok){
-   const providerError=new Error("DeepSeek returned HTTP "+response.status+".");
-   providerError.code="DEEPSEEK_HTTP_"+response.status;
+   const providerError=new Error("AI provider returned HTTP "+response.status+".");
+   providerError.code="AI_PROVIDER_HTTP_"+response.status;
    providerError.providerCode=cleanText(data&&data.error&&data.error.code||"",70);
-   logFailure("peachbrief-deepseek",providerError);
+   logFailure("peachbrief-generation",providerError);
    if(response.status===401||response.status===403)throw chatbotHttpError(503,"AI_CONFIGURATION_ERROR","The AI provider configuration needs attention. No credits were deducted.");
    if(response.status===429)throw chatbotHttpError(503,"AI_PROVIDER_BUSY","The AI service is busy. Please try again shortly. No credits were deducted.");
    throw chatbotHttpError(502,"AI_GENERATION_FAILED","PeachBrief could not generate the brief. No credits were deducted.");
   }
   const choice=data&&Array.isArray(data.choices)?data.choices[0]:null;
+  if(choice&&choice.finish_reason==="length")throw chatbotHttpError(502,"AI_OUTPUT_TRUNCATED","PeachBrief could not finish the brief. Reduce the related questions and try again. No credits were deducted.");
   const raw=String(choice&&choice.message&&choice.message.content||"").trim().replace(/^\x60{3}(?:json)?\s*/i,"").replace(/\s*\x60{3}$/,"");
   let parsed;
   try{parsed=JSON.parse(raw);}catch(_){throw chatbotHttpError(502,"AI_INVALID_OUTPUT","The AI response was not valid structured data. No credits were deducted.");}
@@ -1604,7 +1620,7 @@ app.post("/api/tools/seo-content-brief/generate",csrf,authLimit,authenticated,as
   const credits=chatbotCreditsForTokens(totalTokens);
   const charge=await db.rpc("tp_credit_apply",{
    p_user_id:q.user.id,p_amount:-credits,p_entry_type:"tool_run",
-   p_description:"PeachBrief AI generation — "+totalTokens+" DeepSeek tokens",
+   p_description:"PeachBrief AI generation — "+totalTokens+" tokens",
    p_idempotency_key:"peachbrief:"+q.user.id+":"+crypto.randomUUID(),
    p_payment_id:null,p_created_by:null
   });
