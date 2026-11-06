@@ -221,9 +221,11 @@ test("SEO content brief builder is interactive and states its current data limit
  const builder=fs.readFileSync(path.join(__dirname,"..","public","js","brief-builder.js"),"utf8");
  assert.match(html,/id="brief-form"/);
  assert.match(html,/id="brief-output"/);
- assert.match(html,/PeachBrief uses DeepSeek/);
+ assert.match(html,/PeachBrief uses AI/);
  assert.ok(builder.includes('api("/api/tools/seo-content-brief/generate","POST"'));
- assert.ok(builder.includes("PeachBrief is preparing your AI content brief with DeepSeek"));
+ assert.ok(builder.includes("PeachBrief is preparing your AI content brief."));
+ assert.doesNotMatch(html,/DeepSeek|deepseek/i);
+ assert.doesNotMatch(builder,/DeepSeek|deepseek/i);
  assert.match(builder,/api\("\/api\/workspace\/projects","POST"/);
  assert.match(builder,/api\("\/api\/workspace\/projects\/"/);
  assert.match(html,/id="copy-brief"/);
