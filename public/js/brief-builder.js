@@ -204,7 +204,7 @@
     if(availableCredits<1){say("#brief-form-feedback","Your credit balance is empty. Add credits or choose a plan with a larger allowance.","error");return;}
     const button=$("#generate-brief"),regenerate=$("#regenerate-brief");
     if(button)button.disabled=true;if(regenerate)regenerate.disabled=true;
-    say("#brief-form-feedback","PeachBrief is preparing your AI content brief with DeepSeek. Checking your credit balance…","");
+    say("#brief-form-feedback","PeachBrief is preparing your AI content brief. Checking your credit balance…","");
     try{
       const result=await api("/api/tools/seo-content-brief/generate","POST",values);
       const brief=result.brief||{};currentProjectId=currentProjectId||null;

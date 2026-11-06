@@ -117,8 +117,8 @@ test("dashboard overview shows the PeachChat hero artwork instead of a placehold
  const html=read("public/dashboard/index.html");
  const css=read("public/css/dashboard-pages.css");
  assert.ok(html.includes('/css/dashboard-pages.css?v=2'));
- assert.ok(html.includes('<span class="workspace-action-image"><img src="/assets/peachchat-hero.webp?v=2"'));
- assert.ok(read("public/assets/peachchat-hero.webp").length>1000);
+ assert.ok(html.includes('<span class="workspace-action-image"><img src="/assets/peachchat-hero.svg?v=1"'));
+ assert.ok(read("public/assets/peachchat-hero.svg").length>1000);
  assert.ok(css.includes(".workspace-action-image img{display:block;width:100%;height:100%;object-fit:cover;object-position:center}"));
 });
 test("assistant replies render safe Markdown formatting instead of raw markers",()=>{
@@ -176,13 +176,13 @@ test("chatbot hero includes visible external photography with alternative text",
  const css=read("public/css/chatbot-public.css");
  assert.match(html,/class="cb-hero-photo"/);
  assert.match(html,/chatbot-public\.css\?v=2/);
- assert.ok(html.includes('src="/assets/peachchat-hero.webp?v=2"'));
+ assert.ok(html.includes('src="/assets/peachchat-hero.svg?v=1"'));
  assert.match(html,/alt="A friendly peach-coloured AI chatbot with glowing digital chat symbols and a modern technology interface"/);
  assert.match(css,/\.cb-hero-photo/);
  assert.match(css,/\.cb-hero-art\{position:relative/);
  const dashboard=read("public/dashboard/chatbot/index.html");
- assert.ok(dashboard.includes('src="/assets/peachchat-hero.webp?v=2"'));
- assert.doesNotMatch(dashboard,/peachchat-credit-guide|How do TeamPeach credits compare with DeepSeek tokens|DeepSeek.s off-peak price/);
+ assert.ok(dashboard.includes('src="/assets/peachchat-hero.svg?v=1"'));
+ assert.doesNotMatch(dashboard,/DeepSeek|deepseek/);
  assert.ok(dashboard.includes('id="chatbot-credits-used"'));
  assert.ok(dashboard.includes("CREDITS USED · LAST 30 DAYS"));
 });
@@ -195,10 +195,12 @@ test("public tools catalogue lists only the two currently published tools with c
  assert.match(html,/@type":"ItemList/);
  assert.match(html,/PeachBrief — AI SEO Content Planner/);
  assert.match(html,/PeachChat — AI Customer Assistant/);
- assert.match(html,/PeachBrief uses DeepSeek/i);
+ assert.match(html,/PeachBrief uses AI to generate/i);
+ assert.doesNotMatch(html,/DeepSeek|deepseek/);
  assert.doesNotMatch(html,/does not call an AI model|uses a structured template/i);
  assert.match(html,/does not automatically crawl your website/i);
  assert.match(html,/images\.unsplash\.com/);
+ assert.doesNotMatch(html,/DeepSeek|deepseek/);
  assert.doesNotMatch(html,/noindex,nofollow/);
  const home=read("public/index.html");
  assert.match(home,/href="\/tools\//);
@@ -208,6 +210,8 @@ test("public tools catalogue lists only the two currently published tools with c
  const seoTool=read("public/tools/seo-content-brief/index.html");
  assert.match(seoTool,/class="brief-cover-visual"/);
  assert.match(seoTool,/images\.unsplash\.com/);
+ assert.doesNotMatch(seoTool,/DeepSeek|deepseek/);
+ assert.doesNotMatch(seoTool,/DeepSeek|deepseek/);
  const sitemap=sitemapUrls(read("public/sitemap.xml"));
  assert.ok(sitemap.some(value=>value.startsWith("https://teampeach.org/tools/")));
  const server=read("server.js");
@@ -227,8 +231,8 @@ test("PeachBrief appears in the workspace and explains its deployment configurat
  assert.ok(overview.includes('href="/tools/seo-content-brief/"'));
  assert.ok(tools.includes('href="/tools/seo-content-brief/"'));
  const server=read("server.js");
- assert.ok(server.includes('AI_NOT_CONFIGURED","PeachBrief is not enabled on this deployment yet.'));
- assert.ok(server.includes("DEEPSEEK_API_KEY in Render and redeploy"));
+ assert.ok(server.includes('AI_NOT_CONFIGURED","PeachBrief is temporarily unavailable'));
+ assert.doesNotMatch(server.slice(server.indexOf('app.post("/api/tools/seo-content-brief/generate"'),server.indexOf('app.post("/api/tools/seo-content-brief/generate"')+12000),/DeepSeek|DEEPSEEK_API_KEY/);
 });
 test("homepage share metadata uses TeamPeach's own brand mark, not stock photography",()=>{
  const home=read("public/index.html");
@@ -250,9 +254,12 @@ test("PeachChat canonical route is published and the previous URL permanently re
  assert.ok(urls.some(value=>value==="https://teampeach.org/tools/peachchat/"));
  assert.ok(urls.every(value=>value!=="https://teampeach.org/tools/ai-chatbot/"));
 });
-test("public chatbot API reports failed optional conversation persistence without hiding the assistant reply",()=>{
+test("public chatbot API saves visitor conversations directly and reports real persistence status",()=>{
  const server=read("server.js"),widget=read("public/js/chatbot-widget.js");
- assert.ok(server.includes('conversationSaved=Boolean(!saved.error&&saved.data&&saved.data.status==="ok")'));
+ assert.ok(server.includes("async function chatbotSaveConversation("));
+ assert.ok(server.includes('db.from("tp_chatbot_conversations").upsert({'));
+ assert.ok(server.includes('db.from("tp_chatbot_messages").upsert(['));
+ assert.doesNotMatch(server,/db\.rpc\("tp_chatbot_save_messages"/);
  assert.ok(server.includes('reply:result.answer,conversationSaved:result.conversationSaved!==false'));
  assert.ok(widget.includes("body.conversationSaved===false"));
  assert.ok(widget.includes("this conversation could not be saved"));
