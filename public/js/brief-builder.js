@@ -224,14 +224,14 @@
     if(button)button.disabled=true;if(regenerate)regenerate.disabled=true;
     say("#brief-form-feedback","PeachBrief is preparing your AI content brief. Checking your credit balance…","");
     try{
-      const requestId=generationRequestId||(generationRequestId=(crypto&&crypto.randomUUID?crypto.randomUUID():String(Date.now())+"-"+Math.random().toString(16).slice(2)));
+      const requestId=generationRequestId||(generationRequestId=((window.crypto&&typeof window.crypto.randomUUID==="function")?window.crypto.randomUUID():"xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,char=>{const value=Math.random()*16|0;return(char==="x"?value:(value&3|8)).toString(16);})));
       const result=await api("/api/tools/seo-content-brief/generate","POST",{...values,requestId});
       generationRequestId=null;
       const brief=result.brief||{};currentProjectId=currentProjectId||null;
       availableCredits=Number(result.usage&&result.usage.creditsRemaining||0);
       renderBrief(brief);
       const usage=result.usage||{};
-      say("#brief-form-feedback","Your AI brief is ready. "+Number(usage.totalTokens||0).toLocaleString()+" tokens · "+Number(usage.creditsCharged||0).toLocaleString()+" credits used · "+availableCredits.toLocaleString()+" credits remaining. This draft does not include live Google ranking or search-volume data.","success");
+      say("#brief-form-feedback","Your AI brief is ready. "+Number(usage.totalTokens||0).toLocaleString()+" tokens · "+Number(usage.creditsCharged||0).toLocaleString()+" credits used"+(usage.chargeReused?" (the earlier attempt was already charged, so this retry took no additional credits)":"")+" · "+availableCredits.toLocaleString()+" credits remaining. This draft does not include live Google ranking or search-volume data.","success");
       say("#brief-save-feedback","");
     }catch(error){
       if(error.code==="INSUFFICIENT_CREDITS"){availableCredits=Number(error.balance||0);say("#brief-form-feedback","Your current balance is not enough for the estimated AI generation cost. Add credits and try again.","error");}
@@ -239,6 +239,7 @@
     }finally{if(button)button.disabled=false;if(regenerate)regenerate.disabled=false;}
   }
   form?.addEventListener("input",()=>{generationRequestId=null;});
+  form?.addEventListener("change",()=>{generationRequestId=null;});
   form?.addEventListener("submit",event=>{event.preventDefault();makeBrief();});
   $("#regenerate-brief")?.addEventListener("click",makeBrief);
   $("#copy-brief")?.addEventListener("click",async()=>{
