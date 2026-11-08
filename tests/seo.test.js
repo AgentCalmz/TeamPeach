@@ -20,8 +20,8 @@ const indexablePages=[
 
 test("every static indexable landing page has canonical, descriptive and share metadata",()=>{
  for(const [file,canonical] of indexablePages){
-  const html=read(file),head=(html.match(/<head[\\s\\S]*?<\\/head>/i)||[])[0]||"";
-  assert.match(head,/<title>[^<]{12,}<\\/title>/i,file+" needs a descriptive title");
+  const html=read(file),head=(html.match(/<head[\s\S]*?<\/head>/i)||[])[0]||"";
+  assert.match(head,/<title>[^<]{12,}<\/title>/i,file+" needs a descriptive title");
   assert.match(head,/<meta[^>]+name=["']description["'][^>]+content=["'][^"']{50,200}["']/i,file+" needs a useful meta description");
   assert.ok(head.includes('<link rel="canonical" href="'+canonical+'">'),file+" canonical mismatch");
   assert.match(head,/<meta[^>]+name=["']robots["'][^>]+content=["']index,follow/i,file+" must remain indexable");
@@ -31,9 +31,8 @@ test("every static indexable landing page has canonical, descriptive and share m
   assert.match(head,/property=["']og:image["']/i,file+" needs Open Graph image");
   assert.match(head,/name=["']twitter:card["']/i,file+" needs Twitter card metadata");
   assert.match(head,/name=["']twitter:image["']/i,file+" needs Twitter image metadata");
-  const h1=[...html.matchAll(/<h1[ >]/gi)];
-  assert.equal(h1.length,1,file+" should have one primary H1");
-  const schemas=[...head.matchAll(/<script[^>]+type=["']application\\/ld\\+json["'][^>]*>([\\s\\S]*?)<\\/script>/gi)];
+  assert.equal([...html.matchAll(/<h1[ >]/gi)].length,1,file+" should have one primary H1");
+  const schemas=[...head.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
   assert.ok(schemas.length>0,file+" needs structured data");
   for(const match of schemas)assert.doesNotThrow(()=>JSON.parse(match[1]),file+" contains invalid JSON-LD");
  }
@@ -46,16 +45,16 @@ test("sitemap lists canonical public pages and omits legacy, private and noindex
   const pathOnly=url.replace("https://teampeach.org","");
   assert.ok(sitemap.includes("<loc>"+url+"</loc>"),"missing "+pathOnly);
  }
- assert.doesNotMatch(sitemap,/seo-content-brief|ai-chatbot|\\/(?:api|admin|dashboard|account|login|register|verify-email|forgot-password|unsubscribe)\\//i);
+ assert.doesNotMatch(sitemap,/seo-content-brief|ai-chatbot|\/(?:api|admin|dashboard|account|login|register|verify-email|forgot-password|unsubscribe)\//i);
 });
 
 test("robots rules expose the public site to Google, Bing and OpenAI search discovery",()=>{
  for(const file of ["robots.txt","public/robots.txt"]){
   const robots=read(file);
   for(const agent of ["*","Bingbot","OAI-SearchBot"]){
-   const group=robots.split(/\\n(?=User-agent:)/i).find(section=>section.split("\\n",1)[0]==="User-agent: "+agent);
+   const group=robots.split(/\n(?=User-agent:)/i).find(section=>section.split("\n",1)[0]==="User-agent: "+agent);
    assert.ok(group,"missing "+agent+" group in "+file);
-   assert.match(group,/Allow: \\//);
+   assert.match(group,/Allow: \//);
    for(const route of ["/tools/","/products/","/journal/"])assert.ok(group.includes("Allow: "+route),agent+" should be allowed to crawl "+route);
    for(const route of ["/api/","/admin/","/dashboard/","/account/","/login/","/register/","/verify-email/","/forgot-password/","/unsubscribe/"])assert.ok(group.includes("Disallow: "+route),agent+" should not crawl "+route);
   }
@@ -75,9 +74,9 @@ test("private utility pages stay noindex and legacy product URLs consolidate to 
  const peachbriefOld=read("public/tools/seo-content-brief/index.html");
  assert.match(peachchatOld,/noindex,follow/);
  assert.match(peachbriefOld,/noindex,follow/);
- assert.match(peachchatOld,/canonical["'] href=["']https:\\/\\/teampeach\\.org\\/tools\\/peachchat\\//);
- assert.match(peachbriefOld,/canonical["'] href=["']https:\\/\\/teampeach\\.org\\/tools\\/peachbrief\\//);
+ assert.ok(peachchatOld.includes('rel="canonical" href="https://teampeach.org/tools/peachchat/"'));
+ assert.ok(peachbriefOld.includes('rel="canonical" href="https://teampeach.org/tools/peachbrief/"'));
  const server=read("server.js");
- assert.match(server,/app\.get\(\/\^\\\\\/tools\\\\\/ai-chatbot/);
- assert.match(server,/app\.get\(\/\^\\\\\/tools\\\\\/seo-content-brief/);
+ assert.ok(server.includes('app.get(/^\\/tools\\/ai-chatbot'));
+ assert.ok(server.includes('app.get(/^\\/tools\\/seo-content-brief'));
 });
