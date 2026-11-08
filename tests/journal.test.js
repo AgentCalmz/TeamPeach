@@ -1,7 +1,7 @@
 "use strict";
 const test=require("node:test");
 const assert=require("node:assert/strict");
-const {renderMarkdown,renderJournalPage,slugifyJournalTitle}=require("../src/journal");
+const {renderMarkdown,renderJournalCards,renderJournalPage,slugifyJournalTitle}=require("../src/journal");
 
 test("journal Markdown formats headings, lists, emphasis and safe links",()=>{
  const html=renderMarkdown("## A clear heading\n\nUse **bold** and *italic* text.\n\n- First item\n- Second item\n\n[Read more](https://example.com/guide)");
@@ -38,6 +38,31 @@ test("dynamic published journal pages include canonical metadata and structured 
  assert.match(page,/aria-label="Quick answer"/);
  assert.match(page,/<strong>formatted<\/strong>/);
  assert.match(page,/og:image/);
+ assert.match(page,/name="twitter:title"/);
+ assert.match(page,/name="twitter:description"/);
+ assert.match(page,/name="twitter:image"/);
+});
+
+
+test("journal Markdown keeps crawlable internal links and descriptive external links",()=>{
+ const html=renderMarkdown("[PeachBrief](/tools/peachbrief/) and [Google Search Central](https://developers.google.com/search/docs).");
+ assert.match(html,/<a href="\\/tools\\/peachbrief\\/">PeachBrief<\\/a>/);
+ assert.doesNotMatch(html,/<a href="\\/tools\\/peachbrief\\/"[^>]*nofollow/);
+ assert.match(html,/<a href="https:\\/\\/developers\\.google\\.com[^>]*rel="noopener noreferrer"/);
+ assert.doesNotMatch(html,/nofollow/);
+});
+
+test("published archive cards are safe, useful internal links and avoid duplicate built-in articles",()=>{
+ const html=renderJournalCards([
+  {slug:"future-guide",title:"A <Practical> Guide",excerpt:"A useful summary.",category:"Research",published_at:"2026-11-01T00:00:00.000Z",cover_image_url:"https://images.example.com/guide.jpg"},
+  {slug:"what-is-an-ai-agent",title:"Built in duplicate",excerpt:"Do not duplicate."},
+  {slug:"bad slug",title:"Invalid route",excerpt:"Do not render."}
+ ],"https://teampeach.org");
+ assert.match(html,/A &lt;Practical&gt; Guide/);
+ assert.match(html,/href="https:\/\/teampeach\.org\/journal\/future-guide\//);
+ assert.match(html,/alt="A &lt;Practical&gt; Guide"/);
+ assert.doesNotMatch(html,/Built in duplicate|Invalid route/);
+ assert.match(html,/Read the guide/);
 });
 
 test("journal slug generation produces a clean URL-safe slug",()=>{
