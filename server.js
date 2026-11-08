@@ -73,7 +73,7 @@ function getSmtpTransporter(){
 }
 function backendReady(res,needEmail){if(!authReady()){errorJson(res,503,"SERVICE_NOT_CONFIGURED","Account services are being configured. Your information has not been submitted.");return false;}if(needEmail&&!emailReady()){errorJson(res,503,"EMAIL_NOT_CONFIGURED","Email delivery is not configured yet. Your information has not been submitted.");return false;}return true;}
 function cookies(){return{httpOnly:true,secure:isProd,sameSite:"lax",path:"/",maxAge:SESSION_DAYS*86400000};}
-function logFailure(area,e){const code=String(e&&(e.code||e.status||e.name)||"unknown").slice(0,40),details=[e&&e.responseCode?"response="+String(e.responseCode).slice(0,12):"",e&&e.providerCode?"provider="+String(e.providerCode).replace(/[^a-zA-Z0-9_. -]/g,"").slice(0,70):"",e&&e.deliveryCause?"cause="+String(e.deliveryCause).replace(/[^a-zA-Z0-9_. -]/g,"").slice(0,40):""].filter(Boolean).join(" ");console.error("["+area+"] operation failed ("+code+(details?" "+details:"")+").");}
+function logFailure(area,e){const code=String(e&&(e.code||e.status||e.name)||"unknown").slice(0,40),details=[e&&e.responseCode?"response="+String(e.responseCode).slice(0,12):"",e&&e.providerCode?"provider="+String(e.providerCode).replace(/[^a-zA-Z0-9_. -]/g,"").slice(0,70):"",e&&e.providerMessage?"message="+String(e.providerMessage).replace(/[\\r\\n\\t]/g," ").replace(/[^a-zA-Z0-9_. -]/g,"").slice(0,140):"",e&&e.deliveryCause?"cause="+String(e.deliveryCause).replace(/[^a-zA-Z0-9_. -]/g,"").slice(0,40):""].filter(Boolean).join(" ");console.error("["+area+"] operation failed ("+code+(details?" "+details:"")+").");}
 function trusted(req){const o=req.get("origin");if(!o)return true;try{return origins.has(new URL(o).origin);}catch(_){return false;}}
 function csrf(req,res,next){
  if(!["POST","PUT","PATCH","DELETE"].includes(req.method))return next();
@@ -1590,6 +1590,7 @@ app.post("/api/tools/seo-content-brief/generate",csrf,authLimit,authenticated,as
     method:"POST",
     headers:{Authorization:"Bearer "+apiKey,"Content-Type":"application/json"},
     body:JSON.stringify({
+     model:["deepseek-flash","deepseek-v4-pro"].includes(cleanText(process.env.DEEPSEEK_MODEL||"deepseek-flash",80))?cleanText(process.env.DEEPSEEK_MODEL||"deepseek-flash",80):"deepseek-flash",
      messages:[
       {role:"system",content:"You are PeachBrief, a careful SEO content strategist. Return only the requested JSON. Never invent data or claim to have performed live research."},
       {role:"user",content:prompt}
@@ -1611,6 +1612,7 @@ app.post("/api/tools/seo-content-brief/generate",csrf,authLimit,authenticated,as
    const providerError=new Error("PeachBrief generation service returned HTTP "+response.status+".");
    providerError.code="AI_PROVIDER_HTTP_"+response.status;
    providerError.providerCode=cleanText(data&&data.error&&data.error.code||"",70);
+   providerError.providerMessage=cleanText(data&&data.error&&data.error.message||"",180);
    logFailure("peachbrief-provider",providerError);
    if(response.status===401||response.status===403)throw chatbotHttpError(503,"PEACHBRIEF_CONFIGURATION_ERROR","PeachBrief is temporarily unavailable while its service configuration is checked. No credits were deducted.");
    if(response.status===402)throw chatbotHttpError(503,"PEACHBRIEF_SERVICE_BALANCE_UNAVAILABLE","PeachBrief is temporarily unavailable. Please contact TeamPeach support. No credits were deducted.");
