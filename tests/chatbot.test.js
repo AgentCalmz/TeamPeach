@@ -281,6 +281,8 @@ test("PeachBrief generation failures are traceable and credit retries are idempo
  assert.match(route,/chargeReused:charged\.status==="duplicate"/);
  assert.doesNotMatch(route,/model:cleanText\(process\.env\.DEEPSEEK_MODEL/);
  assert.match(route,/PEACHBRIEF_TIMEOUT/);
+ assert.match(route,/model:\["deepseek-flash","deepseek-v4-pro"\]\.includes\(cleanText\(process\.env\.DEEPSEEK_MODEL\|\|"deepseek-flash",80\)\)/);
+ assert.match(server,/providerError\.providerMessage=cleanText\(data&&data\.error&&data\.error\.message\|\|"",180\)/);
  assert.match(route,/stage="credit-check"/);
  assert.match(route,/stage="ai-request"/);
  assert.match(route,/stage="credit-charge"/);
