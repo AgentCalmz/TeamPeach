@@ -1664,7 +1664,6 @@ app.post("/api/tools/seo-content-brief/generate",csrf,authLimit,authenticated,as
   if(charged.status!=="applied"&&charged.status!=="duplicate")throw new Error("PEACHBRIEF_CREDIT_CHARGE_FAILED");
   stage="response";
   r.json({ok:true,brief,usage:{
-   model:cleanText(process.env.DEEPSEEK_MODEL||"deepseek-flash",80),
    inputTokens,outputTokens,totalTokens,creditsCharged:charged.status==="duplicate"?0:credits,chargeReused:charged.status==="duplicate",creditsRemaining:Number(charged.balance||0)
   }});
  }catch(error){return peachBriefSendError(r,error,stage,requestId);}
