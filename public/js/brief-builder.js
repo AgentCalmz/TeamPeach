@@ -2,7 +2,7 @@
 (function(){
   const $=selector=>document.querySelector(selector);
   const form=$("#brief-form");
-  let csrfToken="",signedIn=false,availableCredits=0,accessChecked=false,currentProjectId=null,currentBrief=null;
+  let csrfToken="",signedIn=false,availableCredits=0,accessChecked=false,currentProjectId=null,currentBrief=null,generationRequestId=null;
   const intentLabels={informational:"Learn / understand",commercial:"Compare options",transactional:"Take action / buy",navigational:"Find a specific brand"};
   const formatLabels={guide:"Practical guide",listicle:"List / roundup",comparison:"Comparison",tutorial:"Step-by-step tutorial","landing-page":"Service / landing page"};
   const intentGuidance={
@@ -172,9 +172,27 @@
   async function api(url,method,data){
     const verb=method||"GET",opts={method:verb,credentials:"same-origin",cache:"no-store",headers:{}};
     if(["POST","PATCH","DELETE"].includes(verb))opts.headers["X-CSRF-Token"]=await ensureCsrf();
-    if(data!==undefined){opts.headers["Content-Type"]="application/json";opts.body=JSON.stringify(data);}
-    const response=await fetch(url,opts),result=await response.json().catch(()=>({}));
-    if(!response.ok){const err=new Error(result.message||"The request could not be completed.");err.code=result.error||"REQUEST_FAILED";throw err;}
+    if(data!==undefined){opts.headers["Content-Type"]="application/json";opts.body=JSON.stringify(data);if(data.requestId)opts.headers["X-Idempotency-Key"]=String(data.requestId);}
+    let response;
+    try{response=await fetch(url,opts);}
+    catch(_){const err=new Error("PeachBrief could not reach the server. Check your connection and try again.");err.code="NETWORK_ERROR";throw err;}
+    const raw=await response.text().catch(()=>"");
+    let result=null;
+    try{result=raw?JSON.parse(raw):null;}catch(_){}
+    const reference=(result&&result.requestId)||response.headers.get("X-Request-Id")||"";
+    if(!response.ok){
+      let message=result&&result.message;
+      if(!message||["INTERNAL_ERROR","CHATBOT_UNAVAILABLE"].includes(result&&result.error)){
+        message=[502,503,504].includes(response.status)
+          ?"PeachBrief encountered a temporary server problem. Please try again.":("PeachBrief could not complete the request (HTTP "+response.status+"). Please refresh and try again.");
+        if(reference)message+=" Reference: "+reference+".";
+      }
+      const err=new Error(message);err.code=result&&result.error||"UNEXPECTED_SERVER_RESPONSE";err.status=response.status;err.requestId=reference;throw err;
+    }
+    if(!result||typeof result!=="object"){
+      const err=new Error("PeachBrief received an unreadable response from the server. Please try again.");
+      err.code="UNREADABLE_SERVER_RESPONSE";err.status=response.status;err.requestId=reference;throw err;
+    }
     return result;
   }
   async function checkSession(){
@@ -206,7 +224,9 @@
     if(button)button.disabled=true;if(regenerate)regenerate.disabled=true;
     say("#brief-form-feedback","PeachBrief is preparing your AI content brief. Checking your credit balance…","");
     try{
-      const result=await api("/api/tools/seo-content-brief/generate","POST",values);
+      const requestId=generationRequestId||(generationRequestId=(crypto&&crypto.randomUUID?crypto.randomUUID():String(Date.now())+"-"+Math.random().toString(16).slice(2)));
+      const result=await api("/api/tools/seo-content-brief/generate","POST",{...values,requestId});
+      generationRequestId=null;
       const brief=result.brief||{};currentProjectId=currentProjectId||null;
       availableCredits=Number(result.usage&&result.usage.creditsRemaining||0);
       renderBrief(brief);
@@ -218,6 +238,7 @@
       else say("#brief-form-feedback",error.message,"error");
     }finally{if(button)button.disabled=false;if(regenerate)regenerate.disabled=false;}
   }
+  form?.addEventListener("input",()=>{generationRequestId=null;});
   form?.addEventListener("submit",event=>{event.preventDefault();makeBrief();});
   $("#regenerate-brief")?.addEventListener("click",makeBrief);
   $("#copy-brief")?.addEventListener("click",async()=>{
