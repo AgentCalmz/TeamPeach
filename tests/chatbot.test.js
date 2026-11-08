@@ -279,6 +279,7 @@ test("PeachBrief generation failures are traceable and credit retries are idempo
  assert.match(route,/requestFingerprint=crypto\.createHash\("sha256"\)/);
  assert.match(route,/p_idempotency_key:"peachbrief:"\+q\.user\.id\+":"+requestId\+":"+requestFingerprint/);
  assert.match(route,/chargeReused:charged\.status==="duplicate"/);
+ assert.doesNotMatch(route,/model:cleanText\(process\.env\.DEEPSEEK_MODEL/);
  assert.match(route,/PEACHBRIEF_TIMEOUT/);
  assert.match(route,/stage="credit-check"/);
  assert.match(route,/stage="ai-request"/);
