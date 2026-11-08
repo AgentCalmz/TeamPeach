@@ -105,7 +105,7 @@ test("email broadcasts include signed unsubscribe handling and re-check opt-in",
  assert.match(sql,/j\.mode in\('single','system','broadcast'\)/);
 });
 
-test("dashboard removes generic project/task tracking while keeping protected SEO brief storage",function(){
+test("dashboard removes generic project/task tracking and PeachBrief keeps generated output local",function(){
  const fs=require("node:fs"),path=require("node:path"),root=path.join(__dirname,"..");
  const server=fs.readFileSync(path.join(root,"server.js"),"utf8");
  const migration=fs.readFileSync(path.join(root,"supabase","migrations","002_workspace_dashboard.sql"),"utf8");
@@ -145,9 +145,10 @@ test("dashboard removes generic project/task tracking while keeping protected SE
  assert.ok(dashboardClient.includes('request("/api/auth/me","GET")'));
  assert.ok(dashboardClient.includes("const needsWorkspaceData=Boolean("));
  assert.ok(adminShell.includes("/api/auth/me"));
- // Preserve saved SEO-brief functionality without making old project/task screens part of the user dashboard.
- assert.match(briefClient,/api\("\/api\/workspace\/projects","POST"/);
- assert.match(briefClient,/api\("\/api\/workspace","GET"/);
+ // PeachBrief is a one-session generator; output is copied or downloaded rather than stored in workspace projects.
+ assert.doesNotMatch(briefClient,/\/api\/workspace|currentProjectId|loadSavedBrief|save-brief|signin-save/);
+ assert.match(briefClient,/navigator\.clipboard\.writeText\(toMarkdown\(currentBrief\)\)/);
+ assert.match(briefClient,/download-brief/);
 });
 
 test("customization requests have private project chat, USD quotes and admin status controls",function(){
@@ -217,7 +218,7 @@ test("public membership catalogue respects existing sign-in sessions and journal
 test("SEO content brief builder is interactive and states its current data limitations",function(){
  const fs=require("node:fs");
  const path=require("node:path");
- const html=fs.readFileSync(path.join(__dirname,"..","public","tools","seo-content-brief","index.html"),"utf8");
+ const html=fs.readFileSync(path.join(__dirname,"..","public","tools","peachbrief","index.html"),"utf8");
  const builder=fs.readFileSync(path.join(__dirname,"..","public","js","brief-builder.js"),"utf8");
  assert.match(html,/id="brief-form"/);
  assert.match(html,/id="brief-output"/);
@@ -227,8 +228,10 @@ test("SEO content brief builder is interactive and states its current data limit
  assert.doesNotMatch(html,/DeepSeek|deepseek/i);
   assert.doesNotMatch(builder,/membership.*required|choose a membership/i);
  assert.doesNotMatch(builder,/DeepSeek|deepseek/i);
- assert.match(builder,/api\("\/api\/workspace\/projects","POST"/);
- assert.match(builder,/api\("\/api\/workspace\/projects\/"/);
+ assert.match(html,/Copy as Markdown/);
+ assert.match(html,/Download \.md/);
+ assert.match(html,/Nothing is saved to your workspace/);
+ assert.doesNotMatch(builder,/\/api\/workspace|currentProjectId|loadSavedBrief|save-brief/);
  assert.match(html,/id="copy-brief"/);
  assert.match(builder,/#copy-brief/);
  assert.match(builder,/navigator\.clipboard\.writeText\(toMarkdown\(currentBrief\)\)/);

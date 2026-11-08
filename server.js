@@ -6,7 +6,7 @@ const nodemailer=require("nodemailer");
 const{normalizeEmail,isValidEmail,cleanText,otpHash,hashPassword,verifyPassword,generateOtp,hashSessionToken,adminEmailsFromEnv,normalizePersonName,safeStringEqual}=require("./src/security");
 const{normalizeChatbotDomains,chatbotOriginMatches,sanitizeChatbotHistory,buildChatbotSystemPrompt,estimateChatbotTokens,isHexColor,isUuid}=require("./src/chatbot");
 const{otpEmail,plainNotificationEmail}=require("./src/email-templates");
-const{renderJournalPage,slugifyJournalTitle}=require("./src/journal");
+const{renderJournalPage,renderJournalCards,slugifyJournalTitle}=require("./src/journal");
 const app=express(),PUBLIC_DIR=path.join(__dirname,"public"),isProd=process.env.NODE_ENV==="production";
 const OTP_MINS=Math.max(5,Math.min(15,Number(process.env.OTP_TTL_MINUTES||10))),SESSION_DAYS=Math.max(1,Math.min(30,Number(process.env.SESSION_TTL_DAYS||7))),DAILY_LIMIT=Math.max(1,Math.min(250,Number(process.env.EMAIL_DAILY_SOFT_LIMIT||250))),TRANSACTIONAL_RESERVE=Math.max(0,Math.min(DAILY_LIMIT-1,Number.isFinite(Number(process.env.EMAIL_TRANSACTIONAL_RESERVE))&&String(process.env.EMAIL_TRANSACTIONAL_RESERVE||"")!==""?Number(process.env.EMAIL_TRANSACTIONAL_RESERVE):Math.ceil(DAILY_LIMIT*0.2))),CAMPAIGN_DAILY_LIMIT=Math.max(1,DAILY_LIMIT-TRANSACTIONAL_RESERVE);
 const origins=new Set([process.env.APP_BASE_URL,process.env.SITE_URL,process.env.RENDER_EXTERNAL_URL,...String(process.env.TRUSTED_ORIGINS||"").split(",")].filter(Boolean).map(v=>{try{return new URL(v.trim()).origin;}catch(_){return"";}}).filter(Boolean));
@@ -2034,6 +2034,24 @@ app.delete("/api/admin/journal/articles/:id",authLimit,csrf,authenticated,isAdmi
  if(removed.error){logFailure("journal-delete",removed.error);return errorJson(r,503,"JOURNAL_DELETE_FAILED","The article could not be deleted.");}
  if(!removed.data)return errorJson(r,404,"JOURNAL_NOT_FOUND","This article could not be found.");
  return r.json({ok:true,message:"Article deleted."});
+}));
+
+app.get("/journal/",asyncRoute(async(_q,r)=>{
+ const archivePath=path.join(PUBLIC_DIR,"journal","index.html");
+ let html;
+ try{html=fs.readFileSync(archivePath,"utf8");}
+ catch(error){logFailure("journal-archive-template",error);return r.status(503).type("text").send("Journal is temporarily unavailable.");}
+ let dynamicCards="";
+ if(db){
+  try{
+   const rows=await db.from("tp_journal_articles").select(journalPublicFields).eq("status","published").order("published_at",{ascending:false}).limit(60);
+   if(rows.error)throw rows.error;
+   dynamicCards=renderJournalCards(rows.data||[],journalBaseUrl());
+  }catch(error){logFailure("journal-archive-dynamic",error);}
+ }
+ html=html.replace("<!-- JOURNAL_DYNAMIC_CARDS -->",dynamicCards);
+ r.setHeader("Cache-Control","public, max-age=120, stale-while-revalidate=300");
+ return r.type("html").send(html);
 }));
 
 app.get("/journal/:slug",asyncRoute(async(q,r,next)=>{

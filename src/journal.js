@@ -29,7 +29,7 @@ function inlineMarkdown(source) {
   });
   value = value.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_match, label, rawUrl) => {
     const url = safeJournalUrl(rawUrl);
-    return url ? stash('<a href="' + escapeHtml(url) + '" rel="nofollow noopener noreferrer">' + escapeHtml(label) + "</a>") : stash(escapeHtml(label));
+    return url ? stash('<a href="' + escapeHtml(url) + '"' + (/^(?:\/|#)|^https?:\/\/(?:www\.)?teampeach\.org(?:\/|$)/i.test(url) ? "" : ' rel="noopener noreferrer"') + '>' + escapeHtml(label) + "</a>") : stash(escapeHtml(label));
   });
   value = escapeHtml(value);
   value = value.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
@@ -107,6 +107,34 @@ function renderMarkdown(markdown) {
   return html.join("\n");
 }
 
+
+function renderJournalCards(articles, baseUrl) {
+  const base = String(baseUrl || "https://teampeach.org").replace(/\/+$/, "");
+  const builtIn = new Set(["what-is-an-ai-agent", "choosing-an-ai-tool", "business-tasks-worth-automating"]);
+  return (Array.isArray(articles) ? articles : []).filter(article => {
+    const slug = String(article && article.slug || "");
+    return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) && !builtIn.has(slug);
+  }).map(article => {
+    const slug = String(article.slug);
+    const url = "/journal/" + encodeURIComponent(slug) + "/";
+    const title = String(article.title || "Journal article");
+    const summary = String(article.excerpt || article.meta_description || "Read this TeamPeach journal article.");
+    const category = String(article.category || "Journal").toUpperCase();
+    const cover = safeJournalUrl(article.cover_image_url);
+    const published = article.published_at || article.updated_at || "";
+    const date = published && Number.isFinite(new Date(published).getTime())
+      ? new Date(published).toLocaleDateString("en", {year:"numeric", month:"short", day:"numeric", timeZone:"UTC"})
+      : "";
+    const image = cover
+      ? '<img src="' + escapeHtml(cover) + '" alt="' + escapeHtml(title) + '" width="900" height="600" loading="lazy" decoding="async">'
+      : '<span class="journal-cover-placeholder" aria-hidden="true">TP</span>';
+    return '<article class="insight-card"><a class="insight-image" href="' + escapeHtml(url) + '">' + image + '<span>JOURNAL</span></a>' +
+      '<p class="article-meta">' + escapeHtml(category) + (date ? '<span>' + escapeHtml(date) + '</span>' : '') + '</p>' +
+      '<h3><a href="' + escapeHtml(url) + '">' + escapeHtml(title) + '</a></h3>' +
+      '<p>' + escapeHtml(summary) + '</p><a class="quiet-link" href="' + escapeHtml(url) + '">Read the guide <span>→</span></a></article>';
+  }).join("\n");
+}
+
 function renderJournalPage(article, baseUrl) {
   const title = String(article.meta_title || article.title || "").trim();
   const description = String(article.meta_description || article.excerpt || "").trim();
@@ -123,6 +151,7 @@ function renderJournalPage(article, baseUrl) {
     return Number.isFinite(d.getTime()) ? d.toLocaleDateString("en", {year:"numeric", month:"long", day:"numeric", timeZone:"UTC"}) : "";
   };
   const cover = safeJournalUrl(article.cover_image_url);
+  const socialImage = cover || base + "/assets/teampeach-social.png";
   const articleSchema = {
     "@context": "https://schema.org", "@type": "BlogPosting", "headline": String(article.title || ""),
     "description": description, "datePublished": dateIso(published), "dateModified": dateIso(modified),
@@ -147,10 +176,10 @@ function renderJournalPage(article, baseUrl) {
     '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
     '<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="/css/styles.css?v=7">',
     "<title>" + escapeHtml(title) + "</title>",
-    '<meta property="og:type" content="article"><meta property="og:site_name" content="TeamPeach"><meta property="og:title" content="' + escapeHtml(title) + '"><meta property="og:description" content="' + escapeHtml(description) + '"><meta property="og:url" content="' + escapeHtml(canonical) + '">',
-    cover ? '<meta property="og:image" content="' + escapeHtml(cover) + '">' : "",
-    '<meta name="twitter:card" content="' + (cover ? "summary_large_image" : "summary") + '">',
-    '<meta property="article:published_time" content="' + escapeHtml(dateIso(published)) + '"><meta property="article:modified_time" content="' + escapeHtml(dateIso(modified)) + '">',
+    '<meta name="author" content="' + escapeHtml(article.author_name || "TeamPeach Editorial Team") + '">',
+    '<meta property="og:type" content="article"><meta property="og:site_name" content="TeamPeach"><meta property="og:title" content="' + escapeHtml(title) + '"><meta property="og:description" content="' + escapeHtml(description) + '"><meta property="og:url" content="' + escapeHtml(canonical) + '"><meta property="og:image" content="' + escapeHtml(socialImage) + '"><meta property="og:image:alt" content="' + escapeHtml(article.title || "TeamPeach journal article") + '">',
+    '<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="' + escapeHtml(title) + '"><meta name="twitter:description" content="' + escapeHtml(description) + '"><meta name="twitter:image" content="' + escapeHtml(socialImage) + '">',
+    '<meta property="article:published_time" content="' + escapeHtml(dateIso(published)) + '"><meta property="article:modified_time" content="' + escapeHtml(dateIso(modified)) + '"><meta property="article:section" content="' + escapeHtml(article.category || "Journal") + '">',
     '<script type="application/ld+json">' + safeJson(articleSchema) + "</script>",
     '<script type="application/ld+json">' + safeJson(breadcrumbSchema) + "</script>",
     "</head><body>",
@@ -172,4 +201,4 @@ function slugifyJournalTitle(value) {
     .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 90).replace(/-+$/g, "");
 }
 
-module.exports = { escapeHtml, safeJournalUrl, renderMarkdown, renderJournalPage, slugifyJournalTitle };
+module.exports = { escapeHtml, safeJournalUrl, renderMarkdown, renderJournalCards, renderJournalPage, slugifyJournalTitle };

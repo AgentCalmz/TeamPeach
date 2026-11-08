@@ -232,7 +232,8 @@ test("PeachBrief appears in the workspace and explains its deployment configurat
  assert.ok(tools.includes('href="/tools/peachbrief/"'));
  const server=read("server.js");
  assert.ok(server.includes('AI_NOT_CONFIGURED","PeachBrief is temporarily unavailable'));
- const route=server.slice(server.indexOf('app.post("/api/tools/peachbrief/generate"'),server.indexOf('app.post("/api/tools/peachbrief/generate"')+12000);
+ const routeStart=server.indexOf('app.post("/api/tools/seo-content-brief/generate"');
+  const route=server.slice(routeStart,routeStart+12000);
  assert.match(route,/AI_NOT_CONFIGURED","PeachBrief is temporarily unavailable/);
  assert.doesNotMatch(route,/chatbotMemberActive|MEMBERSHIP_REQUIRED/);
  const publicCopy=overview+tools+read("public/tools/index.html")+read("public/tools/peachbrief/index.html")+read("public/js/brief-builder.js");
@@ -280,7 +281,7 @@ test("PeachBrief generation failures are traceable and credit retries are idempo
  assert.match(server,/function peachBriefSendError\(res,error,stage,requestId\)/);
  assert.match(route,/r\.setHeader\("X-Request-Id",requestId\)/);
  assert.match(route,/requestFingerprint=crypto\.createHash\("sha256"\)/);
- assert.match(route,/p_idempotency_key:"peachbrief:"\+q\.user\.id\+":"+requestId\+":"+requestFingerprint/);
+ assert.match(route,/p_idempotency_key:"peachbrief:"\+q\.user\.id\+":"\+requestId\+":"\+requestFingerprint/);
  assert.match(route,/chargeReused:charged\.status==="duplicate"/);
  assert.doesNotMatch(route,/model:cleanText\(process\.env\.DEEPSEEK_MODEL/);
  assert.match(route,/PEACHBRIEF_TIMEOUT/);
@@ -323,6 +324,6 @@ test("PeachBrief does not offer workspace saving or restore saved workspace proj
  assert.doesNotMatch(builder,/save-brief|signin-save|brief-save-feedback|currentProjectId|loadSavedBrief/);
  assert.ok(!builder.includes("/api/workspace"));
  assert.match(page,/Copy as Markdown/);
- assert.match(page,/Download \\.md/);
+ assert.match(page,/Download \.md/);
  assert.match(page,/Nothing is saved to your workspace/);
 });
