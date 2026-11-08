@@ -2,7 +2,7 @@
 (function(){
   const $=selector=>document.querySelector(selector);
   const form=$("#brief-form");
-  let csrfToken="",signedIn=false,availableCredits=0,accessChecked=false,currentProjectId=null,currentBrief=null,generationRequestId=null;
+  let csrfToken="",signedIn=false,availableCredits=0,accessChecked=false,currentBrief=null,generationRequestId=null;
   const intentLabels={informational:"Learn / understand",commercial:"Compare options",transactional:"Take action / buy",navigational:"Find a specific brand"};
   const formatLabels={guide:"Practical guide",listicle:"List / roundup",comparison:"Comparison",tutorial:"Step-by-step tutorial","landing-page":"Service / landing page"};
   const intentGuidance={
@@ -94,7 +94,6 @@
     };
   }
   function valuesFromForm(){return {topic:form.elements.topic.value.trim(),primaryKeyword:form.elements.primaryKeyword.value.trim(),audience:form.elements.audience.value.trim(),intent:form.elements.intent.value,format:form.elements.format.value,goal:form.elements.goal.value.trim(),related:form.elements.related.value};}
-  function fillForm(brief){for(const name of ["topic","primaryKeyword","audience","intent","format","goal"]){if(brief[name]!==undefined&&form.elements[name])form.elements[name].value=brief[name];}if(form.elements.related)form.elements.related.value=Array.isArray(brief.related)?brief.related.join("\n"):"";}
   function outputSection(kicker,title){const section=node("section","brief-output-section");section.append(node("p","brief-output-kicker",kicker));if(title)section.append(node("h3","",title));return section;}
   function renderBrief(brief){
     currentBrief=brief;$("#brief-output-empty").hidden=true;$("#brief-output").hidden=false;
@@ -147,7 +146,6 @@
       brief.internalLinkSuggestions.slice(0,8).forEach(item=>list.append(node("div","brief-faq-item",(item.anchorText||item.anchor||"Related page")+" — "+(item.targetPageType||item.destination||"Relevant page"))));
       links.append(list);body.append(links);
     }
-    $("#save-brief").textContent=currentProjectId?"Update saved brief ↗":"Save to workspace ↗";
   }
   function toMarkdown(brief){
     let out="# "+brief.title+"\n\n";
@@ -200,7 +198,6 @@
       const response=await fetch("/api/auth/me",{credentials:"same-origin",cache:"no-store"});
       if(!response.ok){signedIn=false;return false;}
       const result=await response.json();signedIn=Boolean(result&&result.user);
-      $("#signin-save").hidden=signedIn;$("#save-brief").hidden=!signedIn;
       if(signedIn){
         try{
           const billing=await fetch("/api/commerce/overview",{credentials:"same-origin",cache:"no-store"});
@@ -227,12 +224,12 @@
       const requestId=generationRequestId||(generationRequestId=((window.crypto&&typeof window.crypto.randomUUID==="function")?window.crypto.randomUUID():"xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,char=>{const value=Math.random()*16|0;return(char==="x"?value:(value&3|8)).toString(16);})));
       const result=await api("/api/tools/seo-content-brief/generate","POST",{...values,requestId});
       generationRequestId=null;
-      const brief=result.brief||{};currentProjectId=currentProjectId||null;
+      const brief=result.brief||{};
       availableCredits=Number(result.usage&&result.usage.creditsRemaining||0);
       renderBrief(brief);
       const usage=result.usage||{};
       say("#brief-form-feedback","Your AI brief is ready. "+Number(usage.totalTokens||0).toLocaleString()+" tokens · "+Number(usage.creditsCharged||0).toLocaleString()+" credits used"+(usage.chargeReused?" (the earlier attempt was already charged, so this retry took no additional credits)":"")+" · "+availableCredits.toLocaleString()+" credits remaining. This draft does not include live Google ranking or search-volume data.","success");
-      say("#brief-save-feedback","");
+      say("#brief-output-feedback","");
     }catch(error){
       if(error.code==="INSUFFICIENT_CREDITS"){availableCredits=Number(error.balance||0);say("#brief-form-feedback","Your current balance is not enough for the estimated AI generation cost. Add credits and try again.","error");}
       else say("#brief-form-feedback",error.message,"error");
@@ -244,42 +241,17 @@
   $("#regenerate-brief")?.addEventListener("click",makeBrief);
   $("#copy-brief")?.addEventListener("click",async()=>{
     if(!currentBrief)return;
-    try{await navigator.clipboard.writeText(toMarkdown(currentBrief));say("#brief-save-feedback","Brief copied as Markdown.","success");}
-    catch(_){say("#brief-save-feedback","Copy is unavailable in this browser. Use Download .md instead.","error");}
+    try{await navigator.clipboard.writeText(toMarkdown(currentBrief));say("#brief-output-feedback","Brief copied as Markdown.","success");}
+    catch(_){say("#brief-output-feedback","Copy is unavailable in this browser. Use Download .md instead.","error");}
   });
   $("#download-brief")?.addEventListener("click",()=>{
     if(!currentBrief)return;
     const blob=new Blob([toMarkdown(currentBrief)],{type:"text/markdown;charset=utf-8"}),url=URL.createObjectURL(blob),link=document.createElement("a");
     link.href=url;link.download=slugPart(currentBrief.topic)+"-content-brief.md";document.body.append(link);link.click();link.remove();URL.revokeObjectURL(url);
-    say("#brief-save-feedback","Your Markdown file has been prepared.","success");
+    say("#brief-output-feedback","Your Markdown file has been prepared.","success");
   });
-  $("#save-brief")?.addEventListener("click",async()=>{
-    if(!currentBrief)return;
-    if(!signedIn){location.href="/login/?next=%2Ftools%2Fseo-content-brief%2F";return;}
-    const button=$("#save-brief");button.disabled=true;say("#brief-save-feedback","Saving to your workspace…","");
-    const payload={title:(currentBrief.title||currentBrief.topic).slice(0,120),description:"SEO content brief for "+currentBrief.topic+". Audience: "+currentBrief.audience+".",data:{brief:currentBrief}};
-    try{
-      let result;
-      if(currentProjectId){result=await api("/api/workspace/projects/"+encodeURIComponent(currentProjectId),"PATCH",payload);currentProjectId=result.project.id;}
-      else{result=await api("/api/workspace/projects","POST",{...payload,projectType:"seo-brief"});currentProjectId=result.project.id;}
-      if(result.project&&result.project.project_type!=="seo-brief"&&!currentProjectId)currentProjectId=result.project.id;
-      const url=new URL(location.href);url.searchParams.set("project",currentProjectId);history.replaceState({}, "",url.pathname+url.search+url.hash);
-      button.textContent="Update saved brief ↗";say("#brief-save-feedback","Saved to your TeamPeach workspace.","success");
-    }catch(error){say("#brief-save-feedback",error.message+" If your workspace was just enabled, check the database migration.","error");}
-    finally{button.disabled=false;}
-  });
-  async function loadSavedBrief(){
-    const projectId=new URLSearchParams(location.search).get("project");if(!projectId||!signedIn)return;
-    try{
-      const result=await api("/api/workspace","GET"),project=(result.projects||[]).find(item=>item.id===projectId);
-      if(!project||project.project_type!=="seo-brief"||!project.data||!project.data.brief){say("#brief-save-feedback","That saved brief was not found in your workspace.","error");return;}
-      currentProjectId=project.id;const brief=project.data.brief;fillForm(brief);renderBrief(brief);say("#brief-save-feedback","Loaded your saved brief.","success");
-    }catch(error){say("#brief-save-feedback",error.message,"error");}
-  }
   async function init(){
-    const session=await checkSession();
-    if(!session){$("#save-brief").hidden=true;$("#signin-save").hidden=false;}
-    else{await loadSavedBrief();}
+    await checkSession();
   }
   init();
 })();

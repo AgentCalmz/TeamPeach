@@ -2075,6 +2075,7 @@ app.get("/sitemap.xml",publicSitemapLimit,asyncRoute(async(_q,r)=>{
 }));
 
 app.get(/^\/tools\/ai-chatbot\/?$/,(_q,r)=>r.redirect(301,"/tools/peachchat/"));
+app.get(/^\/tools\/seo-content-brief\/?$/,(_q,r)=>r.redirect(301,"/tools/peachbrief/"));
 app.get(/^\/tool\/?$/ ,(_q,r)=>r.redirect(301,"/tools/"));
 app.get("/dashboard/projects/",(_q,r)=>r.redirect(302,"/dashboard/custom-requests/"));
 app.get("/dashboard/tasks/",(_q,r)=>r.redirect(302,"/dashboard/custom-requests/"));
