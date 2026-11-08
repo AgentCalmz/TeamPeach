@@ -58,7 +58,7 @@ test("published archive cards are safe, useful internal links and avoid duplicat
   {slug:"bad slug",title:"Invalid route",excerpt:"Do not render."}
  ],"https://teampeach.org");
  assert.match(html,/A &lt;Practical&gt; Guide/);
- assert.match(html,/href="https:\/\/teampeach\.org\/journal\/future-guide\//);
+ assert.ok(html.includes('href="/journal/future-guide/"'));
  assert.match(html,/alt="A &lt;Practical&gt; Guide"/);
  assert.doesNotMatch(html,/Built in duplicate|Invalid route/);
  assert.match(html,/Read the guide/);
