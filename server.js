@@ -1526,18 +1526,38 @@ app.post("/api/chatbot/public/:publicId/messages",chatbotPublicLimit,asyncRoute(
  }catch(error){return chatbotSendError(r,error,"chatbot-public-message");}
 }));
 
+function peachBriefSendError(res,error,stage,requestId){
+ const status=Number(error&&error.httpStatus)||503;
+ const code=String(error&&error.publicCode||"PEACHBRIEF_TEMPORARY_FAILURE");
+ if(error&&error.publicCode){
+  const diagnostic=new Error(code);
+  diagnostic.code=code;
+  logFailure("peachbrief-"+stage,diagnostic);
+ }else{
+  logFailure("peachbrief-"+stage,error);
+ }
+ const message=error&&error.publicCode?error.message:
+  "PeachBrief could not complete this request because of a temporary server problem. Please try again and share reference "+requestId+" with TeamPeach support if it continues.";
+ return res.status(status).json({error:code,message,requestId});
+}
+
 app.post("/api/tools/seo-content-brief/generate",csrf,authLimit,authenticated,asyncRoute(async(q,r)=>{
+ const body=q.body||{};
+ const suppliedRequestId=String(q.get("x-idempotency-key")||body.requestId||"").trim();
+ const requestId=isUuid(suppliedRequestId)?suppliedRequestId.toLowerCase():crypto.randomUUID();
+ r.setHeader("X-Request-Id",requestId);
  if(!db)return errorJson(r,503,"COMMERCE_NOT_CONFIGURED","AI tool usage is not configured yet.");
- const b=q.body||{};
- const topic=cleanText(b.topic,180),primaryKeyword=cleanText(b.primaryKeyword||b.topic,180);
- const audience=cleanText(b.audience||"General readers",140),intent=cleanText(b.intent||"informational",30);
- const format=cleanText(b.format||"guide",40),goal=cleanText(b.goal||"Help the reader understand the topic and take a useful next step.",500);
- const related=String(b.related||"").replace(/\u0000/g,"").trim().slice(0,1400);
+ const topic=cleanText(body.topic,180),primaryKeyword=cleanText(body.primaryKeyword||body.topic,180);
+ const audience=cleanText(body.audience||"General readers",140),intent=cleanText(body.intent||"informational",30);
+ const format=cleanText(body.format||"guide",40),goal=cleanText(body.goal||"Help the reader understand the topic and take a useful next step.",500);
+ const related=String(body.related||"").replace(/\u0000/g,"").trim().slice(0,1400);
+ const requestFingerprint=crypto.createHash("sha256").update(JSON.stringify({topic,primaryKeyword,audience,intent,format,goal,related})).digest("hex").slice(0,32);
  if(topic.length<2)return errorJson(r,400,"INVALID_TOPIC","Enter a topic with at least two characters.");
  if(!["informational","commercial","transactional","navigational"].includes(intent))return errorJson(r,400,"INVALID_INTENT","Choose a valid search intent.");
  if(!["guide","listicle","comparison","tutorial","landing-page"].includes(format))return errorJson(r,400,"INVALID_FORMAT","Choose a valid content format.");
  const apiKey=String(process.env.DEEPSEEK_API_KEY||"").trim();
  if(!apiKey)return errorJson(r,503,"AI_NOT_CONFIGURED","PeachBrief is temporarily unavailable because its AI service has not been configured. Please contact TeamPeach support. No credits were deducted.");
+ let stage="request-validation";
  try{
   const prompt=[
    "Create a useful SEO content brief for a human writer. Return only one valid JSON object.",
@@ -1556,41 +1576,55 @@ app.post("/api/tools/seo-content-brief/generate",csrf,authLimit,authenticated,as
    "Reader goal: "+goal,
    "Related questions or subtopics: "+(related||"None supplied")
   ].join("\n\n");
+  stage="credit-check";
   const estimatedTokens=estimateChatbotTokens(prompt)+3200;
   const estimatedCredits=chatbotCreditsForTokens(estimatedTokens);
   const balance=await db.rpc("tp_credit_balance",{p_user_id:q.user.id});
   if(balance.error)throw balance.error;
-  if(Number(balance.data||0)<estimatedCredits)return r.status(402).json({error:"INSUFFICIENT_CREDITS",message:"Your balance is below the estimated PeachBrief generation cost of "+estimatedCredits+" credits. Add credits and try again.",balance:Number(balance.data||0),estimatedCredits});
+  const currentBalance=Number(balance.data||0);
+  if(currentBalance<estimatedCredits)return r.status(402).json({error:"INSUFFICIENT_CREDITS",message:"Your balance is below the estimated PeachBrief generation cost of "+estimatedCredits+" credits. Add credits and try again.",balance:currentBalance,estimatedCredits});
+  stage="ai-request";
   let response;
   try{
    response=await fetch("https://api.deepseek.com/chat/completions",{
     method:"POST",
     headers:{Authorization:"Bearer "+apiKey,"Content-Type":"application/json"},
     body:JSON.stringify({
-      messages:[
+     messages:[
       {role:"system",content:"You are PeachBrief, a careful SEO content strategist. Return only the requested JSON. Never invent data or claim to have performed live research."},
       {role:"user",content:prompt}
      ],
      temperature:0.25,max_tokens:3200,stream:false,thinking:{type:"disabled"},response_format:{type:"json_object"}
     }),
-    signal:AbortSignal.timeout(45000)
+    signal:AbortSignal.timeout(35000)
    });
-  }catch(_){throw chatbotHttpError(502,"AI_PROVIDER_UNREACHABLE","The AI provider could not be reached. No credits were deducted.");}
+  }catch(error){
+   const timedOut=Boolean(error&&["AbortError","TimeoutError"].includes(error.name));
+   const wrapped=chatbotHttpError(timedOut?504:502,timedOut?"PEACHBRIEF_TIMEOUT":"PEACHBRIEF_CONNECTION_FAILED",
+    timedOut?"PeachBrief took too long to receive a response. No credits were deducted. Please try again.":
+     "PeachBrief could not reach its generation service. No credits were deducted. Please try again shortly.");
+   wrapped.code=String(error&&error.name||"NETWORK_ERROR").slice(0,40);
+   throw wrapped;
+  }
   const data=await response.json().catch(()=>({}));
   if(!response.ok){
-   const providerError=new Error("AI provider returned HTTP "+response.status+".");
+   const providerError=new Error("PeachBrief generation service returned HTTP "+response.status+".");
    providerError.code="AI_PROVIDER_HTTP_"+response.status;
    providerError.providerCode=cleanText(data&&data.error&&data.error.code||"",70);
-   logFailure("peachbrief-generation",providerError);
-   if(response.status===401||response.status===403)throw chatbotHttpError(503,"AI_CONFIGURATION_ERROR","The AI provider configuration needs attention. No credits were deducted.");
-   if(response.status===429)throw chatbotHttpError(503,"AI_PROVIDER_BUSY","The AI service is busy. Please try again shortly. No credits were deducted.");
-   throw chatbotHttpError(502,"AI_GENERATION_FAILED","PeachBrief could not generate the brief. No credits were deducted.");
+   logFailure("peachbrief-provider",providerError);
+   if(response.status===401||response.status===403)throw chatbotHttpError(503,"PEACHBRIEF_CONFIGURATION_ERROR","PeachBrief is temporarily unavailable while its service configuration is checked. No credits were deducted.");
+   if(response.status===402)throw chatbotHttpError(503,"PEACHBRIEF_SERVICE_BALANCE_UNAVAILABLE","PeachBrief is temporarily unavailable. Please contact TeamPeach support. No credits were deducted.");
+   if(response.status===429)throw chatbotHttpError(503,"PEACHBRIEF_SERVICE_BUSY","PeachBrief is busy right now. Please try again shortly. No credits were deducted.");
+   if(response.status===400||response.status===422)throw chatbotHttpError(502,"PEACHBRIEF_REQUEST_REJECTED","PeachBrief could not process this brief request. Please simplify the related questions and try again. No credits were deducted.");
+   throw chatbotHttpError(502,"PEACHBRIEF_GENERATION_FAILED","PeachBrief could not generate the brief just now. No credits were deducted. Please try again shortly.");
   }
+  stage="output-validation";
   const choice=data&&Array.isArray(data.choices)?data.choices[0]:null;
-  if(choice&&choice.finish_reason==="length")throw chatbotHttpError(502,"AI_OUTPUT_TRUNCATED","PeachBrief could not finish the brief. Reduce the related questions and try again. No credits were deducted.");
+  if(choice&&choice.finish_reason==="length")throw chatbotHttpError(502,"PEACHBRIEF_OUTPUT_TRUNCATED","PeachBrief could not finish the brief. Reduce the related questions and try again. No credits were deducted.");
+  if(choice&&["content_filter","insufficient_system_resource","aborted"].includes(choice.finish_reason))throw chatbotHttpError(502,"PEACHBRIEF_OUTPUT_INCOMPLETE","PeachBrief could not produce a complete brief. Please try again. No credits were deducted.");
   const raw=String(choice&&choice.message&&choice.message.content||"").trim().replace(/^\x60{3}(?:json)?\s*/i,"").replace(/\s*\x60{3}$/,"");
   let parsed;
-  try{parsed=JSON.parse(raw);}catch(_){throw chatbotHttpError(502,"AI_INVALID_OUTPUT","The AI response was not valid structured data. No credits were deducted.");}
+  try{if(!raw)throw new Error("Empty output");parsed=JSON.parse(raw);}catch(_){throw chatbotHttpError(502,"PEACHBRIEF_INVALID_OUTPUT","PeachBrief received an incomplete response. Please try again. No credits were deducted.");}
   const txt=(value,max)=>cleanText(value,max);
   const arr=(value,max,count)=>Array.isArray(value)?value.slice(0,count).map(item=>txt(item,max)).filter(Boolean):[];
   const brief={
@@ -1611,7 +1645,8 @@ app.post("/api/tools/seo-content-brief/generate",csrf,authLimit,authenticated,as
    editorialNotes:arr(parsed.editorialNotes,500,8),
    createdAt:new Date().toISOString()
   };
-  if(brief.outline.length<4)throw chatbotHttpError(502,"AI_INCOMPLETE_OUTPUT","The AI response did not include a usable outline. No credits were deducted.");
+  if(brief.outline.length<4)throw chatbotHttpError(502,"PEACHBRIEF_INCOMPLETE_OUTPUT","PeachBrief could not produce a complete outline. Please try again. No credits were deducted.");
+  stage="credit-charge";
   const usage=data&&data.usage||{};
   const inputTokens=Math.max(0,Number(usage.prompt_tokens)||estimateChatbotTokens(prompt));
   const outputTokens=Math.max(0,Number(usage.completion_tokens)||estimateChatbotTokens(raw));
@@ -1620,18 +1655,18 @@ app.post("/api/tools/seo-content-brief/generate",csrf,authLimit,authenticated,as
   const charge=await db.rpc("tp_credit_apply",{
    p_user_id:q.user.id,p_amount:-credits,p_entry_type:"tool_run",
    p_description:"PeachBrief AI generation — "+totalTokens+" tokens",
-   p_idempotency_key:"peachbrief:"+q.user.id+":"+crypto.randomUUID(),
+   p_idempotency_key:"peachbrief:"+q.user.id+":"+requestId+":"+requestFingerprint,
    p_payment_id:null,p_created_by:null
   });
   if(charge.error)throw charge.error;
   const charged=charge.data||{};
   if(charged.status==="insufficient_credits")return r.status(402).json({error:"INSUFFICIENT_CREDITS",message:"Your balance changed before the AI brief could be charged. Add credits and run it again.",balance:Number(charged.balance||0)});
   if(charged.status!=="applied"&&charged.status!=="duplicate")throw new Error("PEACHBRIEF_CREDIT_CHARGE_FAILED");
+  stage="response";
   r.json({ok:true,brief,usage:{
-   model:cleanText(process.env.DEEPSEEK_MODEL||"deepseek-flash",80),
-   inputTokens,outputTokens,totalTokens,creditsCharged:credits,creditsRemaining:Number(charged.balance||0)
+   inputTokens,outputTokens,totalTokens,creditsCharged:charged.status==="duplicate"?0:credits,chargeReused:charged.status==="duplicate",creditsRemaining:Number(charged.balance||0)
   }});
- }catch(error){return chatbotSendError(r,error,"peachbrief-generate");}
+ }catch(error){return peachBriefSendError(r,error,stage,requestId);}
 }));
 app.post("/api/commerce/subscription/cancel",csrf,authLimit,authenticated,asyncRoute(async(q,r)=>{
  if(!db)return errorJson(r,503,"COMMERCE_NOT_CONFIGURED","Subscription management is not configured.");
