@@ -121,7 +121,6 @@ function renderJournalCards(articles, baseUrl) {
     const summary = String(article.excerpt || article.meta_description || "Read this TeamPeach journal article.");
     const category = String(article.category || "Journal").toUpperCase();
     const cover = safeJournalUrl(article.cover_image_url);
-  const socialImage = cover || base + "/assets/teampeach-social.png";
     const published = article.published_at || article.updated_at || "";
     const date = published && Number.isFinite(new Date(published).getTime())
       ? new Date(published).toLocaleDateString("en", {year:"numeric", month:"short", day:"numeric", timeZone:"UTC"})
@@ -133,7 +132,7 @@ function renderJournalCards(articles, baseUrl) {
       '<p class="article-meta">' + escapeHtml(category) + (date ? '<span>' + escapeHtml(date) + '</span>' : '') + '</p>' +
       '<h3><a href="' + escapeHtml(url) + '">' + escapeHtml(title) + '</a></h3>' +
       '<p>' + escapeHtml(summary) + '</p><a class="quiet-link" href="' + escapeHtml(url) + '">Read the guide <span>→</span></a></article>';
-  }).join("\\n");
+  }).join("\n");
 }
 
 function renderJournalPage(article, baseUrl) {
@@ -152,6 +151,7 @@ function renderJournalPage(article, baseUrl) {
     return Number.isFinite(d.getTime()) ? d.toLocaleDateString("en", {year:"numeric", month:"long", day:"numeric", timeZone:"UTC"}) : "";
   };
   const cover = safeJournalUrl(article.cover_image_url);
+  const socialImage = cover || base + "/assets/teampeach-social.png";
   const articleSchema = {
     "@context": "https://schema.org", "@type": "BlogPosting", "headline": String(article.title || ""),
     "description": description, "datePublished": dateIso(published), "dateModified": dateIso(modified),
