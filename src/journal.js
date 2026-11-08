@@ -116,7 +116,7 @@ function renderJournalCards(articles, baseUrl) {
     return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) && !builtIn.has(slug);
   }).map(article => {
     const slug = String(article.slug);
-    const url = base + "/journal/" + encodeURIComponent(slug) + "/";
+    const url = "/journal/" + encodeURIComponent(slug) + "/";
     const title = String(article.title || "Journal article");
     const summary = String(article.excerpt || article.meta_description || "Read this TeamPeach journal article.");
     const category = String(article.category || "Journal").toUpperCase();
