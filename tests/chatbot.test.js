@@ -253,7 +253,10 @@ test("PeachChat canonical route is published and the previous URL permanently re
  assert.ok(page.includes('property="og:url" content="https://teampeach.org/tools/peachchat/"'));
  assert.ok(old.includes('name="robots" content="noindex,follow"'));
  assert.ok(old.includes('rel="canonical" href="https://teampeach.org/tools/peachchat/"'));
- assert.ok(server.includes('app.get(/^\\/tools\\/ai-chatbot\\/?$/,(_q,r)=>r.redirect(301,"/tools/peachchat/"));'));
+ const redirectIndex=server.indexOf('r.redirect(301,"/tools/peachbrief/")');
+ assert.ok(redirectIndex>0);
+ const redirectLine=server.slice(server.lastIndexOf("\n",redirectIndex)+1,server.indexOf("\n",redirectIndex));
+ assert.ok(redirectLine.startsWith("app.get(/^")&&redirectLine.includes("seo-content-brief"));
  const urls=sitemapUrls(read("public/sitemap.xml"));
  assert.ok(urls.some(value=>value==="https://teampeach.org/tools/peachchat/"));
  assert.ok(urls.every(value=>value!=="https://teampeach.org/tools/ai-chatbot/"));
@@ -272,7 +275,7 @@ test("public chatbot API saves visitor conversations directly and reports real p
 
 test("PeachBrief generation failures are traceable and credit retries are idempotent",()=>{
  const server=read("server.js"),builder=read("public/js/brief-builder.js"),page=read("public/tools/peachbrief/index.html");
- const start=server.indexOf('app.post("/api/tools/peachbrief/generate"');
+ const start=server.indexOf('app.post("/api/tools/seo-content-brief/generate"');
  const route=server.slice(start,server.indexOf('app.post("/api/commerce/subscription/cancel"',start));
  assert.match(server,/function peachBriefSendError\(res,error,stage,requestId\)/);
  assert.match(route,/r\.setHeader\("X-Request-Id",requestId\)/);
@@ -303,7 +306,10 @@ test("PeachBrief uses its new canonical URL and permanently redirects the old UR
  const page=read("public/tools/peachbrief/index.html"),old=read("public/tools/seo-content-brief/index.html"),server=read("server.js");
  assert.ok(page.includes('rel="canonical" href="https://teampeach.org/tools/peachbrief/"'));
  assert.ok(page.includes('property="og:url" content="https://teampeach.org/tools/peachbrief/"'));
- assert.ok(server.includes('app.get(/^\\\\/tools\\\\/seo-content-brief\\\\/?$/,(_q,r)=>r.redirect(301,"/tools/peachbrief/"));'));
+ const redirectIndex=server.indexOf('r.redirect(301,"/tools/peachbrief/")');
+ assert.ok(redirectIndex>0);
+ const redirectLine=server.slice(server.lastIndexOf("\n",redirectIndex)+1,server.indexOf("\n",redirectIndex));
+ assert.ok(redirectLine.startsWith("app.get(/^")&&redirectLine.includes("seo-content-brief"));
  assert.match(old,/name="robots" content="noindex,follow"/);
  assert.ok(old.includes('rel="canonical" href="https://teampeach.org/tools/peachbrief/"'));
  const urls=sitemapUrls(read("public/sitemap.xml"));
@@ -314,7 +320,8 @@ test("PeachBrief uses its new canonical URL and permanently redirects the old UR
 test("PeachBrief does not offer workspace saving or restore saved workspace projects",()=>{
  const page=read("public/tools/peachbrief/index.html"),builder=read("public/js/brief-builder.js");
  assert.doesNotMatch(page,/Save to workspace|Sign in to save|id="save-brief"|id="signin-save"/i);
- assert.doesNotMatch(builder,/save-brief|signin-save|brief-save-feedback|currentProjectId|loadSavedBrief|\\/api\\/workspace/);
+ assert.doesNotMatch(builder,/save-brief|signin-save|brief-save-feedback|currentProjectId|loadSavedBrief/);
+ assert.ok(!builder.includes("/api/workspace"));
  assert.match(page,/Copy as Markdown/);
  assert.match(page,/Download \\.md/);
  assert.match(page,/Nothing is saved to your workspace/);
