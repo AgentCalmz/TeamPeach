@@ -109,7 +109,7 @@ function renderMarkdown(markdown) {
 
 
 function renderJournalCards(articles, baseUrl) {
-  const base = String(baseUrl || "https://teampeach.org").replace(/\\/+$/, "");
+  const base = String(baseUrl || "https://teampeach.org").replace(/\/+$/, "");
   const builtIn = new Set(["what-is-an-ai-agent", "choosing-an-ai-tool", "business-tasks-worth-automating"]);
   return (Array.isArray(articles) ? articles : []).filter(article => {
     const slug = String(article && article.slug || "");
