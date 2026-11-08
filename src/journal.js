@@ -121,6 +121,7 @@ function renderJournalCards(articles, baseUrl) {
     const summary = String(article.excerpt || article.meta_description || "Read this TeamPeach journal article.");
     const category = String(article.category || "Journal").toUpperCase();
     const cover = safeJournalUrl(article.cover_image_url);
+  const socialImage = cover || base + "/assets/teampeach-social.png";
     const published = article.published_at || article.updated_at || "";
     const date = published && Number.isFinite(new Date(published).getTime())
       ? new Date(published).toLocaleDateString("en", {year:"numeric", month:"short", day:"numeric", timeZone:"UTC"})
@@ -175,10 +176,10 @@ function renderJournalPage(article, baseUrl) {
     '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
     '<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="/css/styles.css?v=7">',
     "<title>" + escapeHtml(title) + "</title>",
-    '<meta property="og:type" content="article"><meta property="og:site_name" content="TeamPeach"><meta property="og:title" content="' + escapeHtml(title) + '"><meta property="og:description" content="' + escapeHtml(description) + '"><meta property="og:url" content="' + escapeHtml(canonical) + '">',
-    cover ? '<meta property="og:image" content="' + escapeHtml(cover) + '">' : "",
-    '<meta name="twitter:card" content="' + (cover ? "summary_large_image" : "summary") + '">',
-    '<meta property="article:published_time" content="' + escapeHtml(dateIso(published)) + '"><meta property="article:modified_time" content="' + escapeHtml(dateIso(modified)) + '">',
+    '<meta name="author" content="' + escapeHtml(article.author_name || "TeamPeach Editorial Team") + '">',
+    '<meta property="og:type" content="article"><meta property="og:site_name" content="TeamPeach"><meta property="og:title" content="' + escapeHtml(title) + '"><meta property="og:description" content="' + escapeHtml(description) + '"><meta property="og:url" content="' + escapeHtml(canonical) + '"><meta property="og:image" content="' + escapeHtml(socialImage) + '"><meta property="og:image:alt" content="' + escapeHtml(article.title || "TeamPeach journal article") + '">',
+    '<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="' + escapeHtml(title) + '"><meta name="twitter:description" content="' + escapeHtml(description) + '"><meta name="twitter:image" content="' + escapeHtml(socialImage) + '">',
+    '<meta property="article:published_time" content="' + escapeHtml(dateIso(published)) + '"><meta property="article:modified_time" content="' + escapeHtml(dateIso(modified)) + '"><meta property="article:section" content="' + escapeHtml(article.category || "Journal") + '">',
     '<script type="application/ld+json">' + safeJson(articleSchema) + "</script>",
     '<script type="application/ld+json">' + safeJson(breadcrumbSchema) + "</script>",
     "</head><body>",
