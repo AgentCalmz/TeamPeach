@@ -1551,6 +1551,7 @@ app.post("/api/tools/seo-content-brief/generate",csrf,authLimit,authenticated,as
  const audience=cleanText(body.audience||"General readers",140),intent=cleanText(body.intent||"informational",30);
  const format=cleanText(body.format||"guide",40),goal=cleanText(body.goal||"Help the reader understand the topic and take a useful next step.",500);
  const related=String(body.related||"").replace(/\u0000/g,"").trim().slice(0,1400);
+ const requestFingerprint=crypto.createHash("sha256").update(JSON.stringify({topic,primaryKeyword,audience,intent,format,goal,related})).digest("hex").slice(0,32);
  if(topic.length<2)return errorJson(r,400,"INVALID_TOPIC","Enter a topic with at least two characters.");
  if(!["informational","commercial","transactional","navigational"].includes(intent))return errorJson(r,400,"INVALID_INTENT","Choose a valid search intent.");
  if(!["guide","listicle","comparison","tutorial","landing-page"].includes(format))return errorJson(r,400,"INVALID_FORMAT","Choose a valid content format.");
@@ -1654,7 +1655,7 @@ app.post("/api/tools/seo-content-brief/generate",csrf,authLimit,authenticated,as
   const charge=await db.rpc("tp_credit_apply",{
    p_user_id:q.user.id,p_amount:-credits,p_entry_type:"tool_run",
    p_description:"PeachBrief AI generation — "+totalTokens+" tokens",
-   p_idempotency_key:"peachbrief:"+q.user.id+":"+requestId,
+   p_idempotency_key:"peachbrief:"+q.user.id+":"+requestId+":"+requestFingerprint,
    p_payment_id:null,p_created_by:null
   });
   if(charge.error)throw charge.error;
@@ -1664,7 +1665,7 @@ app.post("/api/tools/seo-content-brief/generate",csrf,authLimit,authenticated,as
   stage="response";
   r.json({ok:true,brief,usage:{
    model:cleanText(process.env.DEEPSEEK_MODEL||"deepseek-flash",80),
-   inputTokens,outputTokens,totalTokens,creditsCharged:credits,creditsRemaining:Number(charged.balance||0)
+   inputTokens,outputTokens,totalTokens,creditsCharged:charged.status==="duplicate"?0:credits,chargeReused:charged.status==="duplicate",creditsRemaining:Number(charged.balance||0)
   }});
  }catch(error){return peachBriefSendError(r,error,stage,requestId);}
 }));
