@@ -207,7 +207,7 @@ test("public tools catalogue lists only the two currently published tools with c
  assert.match(home,/class="home-tool-grid"/);
  assert.match(home,/class="home-tool-image"/);
  assert.match(home,/images\.unsplash\.com/);
- const seoTool=read("public/tools/seo-content-brief/index.html");
+ const seoTool=read("public/tools/peachbrief/index.html");
  assert.match(seoTool,/class="brief-cover-visual"/);
  assert.match(seoTool,/images\.unsplash\.com/);
  assert.doesNotMatch(seoTool,/DeepSeek|deepseek/);
@@ -228,14 +228,14 @@ test("existing PeachChat assistants open the editor and published assistants use
 });
 test("PeachBrief appears in the workspace and explains its deployment configuration requirement",()=>{
  const overview=read("public/dashboard/index.html"),tools=read("public/dashboard/tools/index.html");
- assert.ok(overview.includes('href="/tools/seo-content-brief/"'));
- assert.ok(tools.includes('href="/tools/seo-content-brief/"'));
+ assert.ok(overview.includes('href="/tools/peachbrief/"'));
+ assert.ok(tools.includes('href="/tools/peachbrief/"'));
  const server=read("server.js");
  assert.ok(server.includes('AI_NOT_CONFIGURED","PeachBrief is temporarily unavailable'));
- const route=server.slice(server.indexOf('app.post("/api/tools/seo-content-brief/generate"'),server.indexOf('app.post("/api/tools/seo-content-brief/generate"')+12000);
+ const route=server.slice(server.indexOf('app.post("/api/tools/peachbrief/generate"'),server.indexOf('app.post("/api/tools/peachbrief/generate"')+12000);
  assert.match(route,/AI_NOT_CONFIGURED","PeachBrief is temporarily unavailable/);
  assert.doesNotMatch(route,/chatbotMemberActive|MEMBERSHIP_REQUIRED/);
- const publicCopy=overview+tools+read("public/tools/index.html")+read("public/tools/seo-content-brief/index.html")+read("public/js/brief-builder.js");
+ const publicCopy=overview+tools+read("public/tools/index.html")+read("public/tools/peachbrief/index.html")+read("public/js/brief-builder.js");
  assert.doesNotMatch(publicCopy,/DeepSeek|deepseek/i);
 });
 test("homepage share metadata uses TeamPeach's own brand mark, not stock photography",()=>{
@@ -271,8 +271,8 @@ test("public chatbot API saves visitor conversations directly and reports real p
 
 
 test("PeachBrief generation failures are traceable and credit retries are idempotent",()=>{
- const server=read("server.js"),builder=read("public/js/brief-builder.js"),page=read("public/tools/seo-content-brief/index.html");
- const start=server.indexOf('app.post("/api/tools/seo-content-brief/generate"');
+ const server=read("server.js"),builder=read("public/js/brief-builder.js"),page=read("public/tools/peachbrief/index.html");
+ const start=server.indexOf('app.post("/api/tools/peachbrief/generate"');
  const route=server.slice(start,server.indexOf('app.post("/api/commerce/subscription/cancel"',start));
  assert.match(server,/function peachBriefSendError\(res,error,stage,requestId\)/);
  assert.match(route,/r\.setHeader\("X-Request-Id",requestId\)/);
@@ -294,6 +294,28 @@ test("PeachBrief generation failures are traceable and credit retries are idempo
  assert.match(builder,/window\.crypto&&typeof window\.crypto\.randomUUID/);
  assert.match(builder,/earlier attempt was already charged/);
  assert.match(builder,/Reference: /);
- assert.match(page,/brief-builder\.js\?v=3/);
- assert.doesNotMatch(read("public/tools/seo-content-brief/index.html")+builder,/DeepSeek|deepseek/i);
+ assert.match(page,/brief-builder\.js\?v=4/);
+ assert.doesNotMatch(read("public/tools/peachbrief/index.html")+builder,/DeepSeek|deepseek/i);
+});
+
+
+test("PeachBrief uses its new canonical URL and permanently redirects the old URL",()=>{
+ const page=read("public/tools/peachbrief/index.html"),old=read("public/tools/seo-content-brief/index.html"),server=read("server.js");
+ assert.ok(page.includes('rel="canonical" href="https://teampeach.org/tools/peachbrief/"'));
+ assert.ok(page.includes('property="og:url" content="https://teampeach.org/tools/peachbrief/"'));
+ assert.ok(server.includes('app.get(/^\\\\/tools\\\\/seo-content-brief\\\\/?$/,(_q,r)=>r.redirect(301,"/tools/peachbrief/"));'));
+ assert.match(old,/name="robots" content="noindex,follow"/);
+ assert.ok(old.includes('rel="canonical" href="https://teampeach.org/tools/peachbrief/"'));
+ const urls=sitemapUrls(read("public/sitemap.xml"));
+ assert.ok(urls.includes("https://teampeach.org/tools/peachbrief/"));
+ assert.ok(!urls.includes("https://teampeach.org/tools/seo-content-brief/"));
+});
+
+test("PeachBrief does not offer workspace saving or restore saved workspace projects",()=>{
+ const page=read("public/tools/peachbrief/index.html"),builder=read("public/js/brief-builder.js");
+ assert.doesNotMatch(page,/Save to workspace|Sign in to save|id="save-brief"|id="signin-save"/i);
+ assert.doesNotMatch(builder,/save-brief|signin-save|brief-save-feedback|currentProjectId|loadSavedBrief|\\/api\\/workspace/);
+ assert.match(page,/Copy as Markdown/);
+ assert.match(page,/Download \\.md/);
+ assert.match(page,/Nothing is saved to your workspace/);
 });
