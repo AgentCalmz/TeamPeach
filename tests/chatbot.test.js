@@ -276,7 +276,9 @@ test("PeachBrief generation failures are traceable and credit retries are idempo
  const route=server.slice(start,server.indexOf('app.post("/api/commerce/subscription/cancel"',start));
  assert.match(server,/function peachBriefSendError\(res,error,stage,requestId\)/);
  assert.match(route,/r\.setHeader\("X-Request-Id",requestId\)/);
- assert.match(route,/p_idempotency_key:"peachbrief:"\+q\.user\.id\+":"+requestId/);
+ assert.match(route,/requestFingerprint=crypto\.createHash\("sha256"\)/);
+ assert.match(route,/p_idempotency_key:"peachbrief:"\+q\.user\.id\+":"+requestId\+":"+requestFingerprint/);
+ assert.match(route,/chargeReused:charged\.status==="duplicate"/);
  assert.match(route,/PEACHBRIEF_TIMEOUT/);
  assert.match(route,/stage="credit-check"/);
  assert.match(route,/stage="ai-request"/);
@@ -285,6 +287,8 @@ test("PeachBrief generation failures are traceable and credit retries are idempo
  assert.match(builder,/const raw=await response\.text\(\)/);
  assert.match(builder,/X-Idempotency-Key/);
  assert.match(builder,/generationRequestId=null/);
+ assert.match(builder,/window\.crypto&&typeof window\.crypto\.randomUUID/);
+ assert.match(builder,/earlier attempt was already charged/);
  assert.match(builder,/Reference: /);
  assert.match(page,/brief-builder\.js\?v=3/);
  assert.doesNotMatch(read("public/tools/seo-content-brief/index.html")+builder,/DeepSeek|deepseek/i);
