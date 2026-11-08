@@ -98,11 +98,16 @@ test("robots and sitemap explicitly expose public journal, tools and product pag
  const publicMap=fs.readFileSync(path.join(root,"public","sitemap.xml"),"utf8");
  const rootMap=fs.readFileSync(path.join(root,"sitemap.xml"),"utf8");
  assert.equal(publicMap,rootMap,"root and public sitemap copies must match");
- for(const route of ["/","/products/","/tools/seo-content-brief/","/journal/","/journal/business-tasks-worth-automating/","/journal/choosing-an-ai-tool/","/journal/what-is-an-ai-agent/"])assert.ok(publicMap.includes("<loc>https://teampeach.org"+route+"</loc>"),"Sitemap is missing "+route);
+ for(const route of ["/","/products/","/tools/peachbrief/","/tools/peachchat/","/tools/","/journal/","/journal/business-tasks-worth-automating/","/journal/choosing-an-ai-tool/","/journal/what-is-an-ai-agent/"])assert.ok(publicMap.includes("<loc>https://teampeach.org"+route+"</loc>"),"Sitemap is missing "+route);
  assert.doesNotMatch(publicMap,/\/(?:api|admin|dashboard|account|login|register)\//);
- const tool=fs.readFileSync(path.join(root,"public","tools","seo-content-brief","index.html"),"utf8");
+ const tool=fs.readFileSync(path.join(root,"public","tools","peachbrief","index.html"),"utf8");
+ const legacy=fs.readFileSync(path.join(root,"public","tools","seo-content-brief","index.html"),"utf8");
  assert.match(tool,/<meta name="robots" content="index,follow/);
- assert.doesNotMatch(tool,/<meta name="robots" content="noindex/i);
+ assert.match(tool,/rel="canonical" href="https:\/\/teampeach\.org\/tools\/peachbrief\//);
+ assert.match(legacy,/<meta name="robots" content="noindex,follow"/);
+ assert.match(legacy,/rel="canonical" href="https:\/\/teampeach\.org\/tools\/peachbrief\//);
+ assert.ok(publicMap.includes("<loc>https://teampeach.org/tools/peachchat/</loc>"));
+ assert.doesNotMatch(publicMap,/tools\/seo-content-brief/);
 });
 
 test("homepage mobile layout explicitly prevents horizontal page panning",()=>{
