@@ -46,9 +46,8 @@ test("dynamic published journal pages include canonical metadata and structured 
 
 test("journal Markdown keeps crawlable internal links and descriptive external links",()=>{
  const html=renderMarkdown("[PeachBrief](/tools/peachbrief/) and [Google Search Central](https://developers.google.com/search/docs).");
- assert.match(html,/<a href="\\/tools\\/peachbrief\\/">PeachBrief<\\/a>/);
- assert.doesNotMatch(html,/<a href="\\/tools\\/peachbrief\\/"[^>]*nofollow/);
- assert.match(html,/<a href="https:\\/\\/developers\\.google\\.com[^>]*rel="noopener noreferrer"/);
+ assert.ok(html.includes('<a href="/tools/peachbrief/">PeachBrief</a>'));
+ assert.ok(html.includes('<a href="https://developers.google.com/search/docs" rel="noopener noreferrer">Google Search Central</a>'));
  assert.doesNotMatch(html,/nofollow/);
 });
 
