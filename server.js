@@ -13,7 +13,7 @@ const origins=new Set([process.env.APP_BASE_URL,process.env.SITE_URL,process.env
 if(!isProd){origins.add("http://localhost:3000");origins.add("http://127.0.0.1:3000");}
 const db=process.env.SUPABASE_URL&&process.env.SUPABASE_SERVICE_ROLE_KEY?createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}}):null;
 app.disable("x-powered-by");app.set("trust proxy",1);
-app.use(helmet({contentSecurityPolicy:{directives:{defaultSrc:["'self'"],baseUri:["'self'"],formAction:["'self'"],frameAncestors:["'none'"],objectSrc:["'none'"],scriptSrc:["'self'"],styleSrc:["'self'","'unsafe-inline'","https://fonts.googleapis.com"],fontSrc:["'self'","https://fonts.gstatic.com","data:"],imgSrc:["'self'","data:","https:"],connectSrc:["'self'"]}},crossOriginEmbedderPolicy:false}));
+app.use(helmet({contentSecurityPolicy:{directives:{defaultSrc:["'self'"],baseUri:["'self'"],formAction:["'self'"],frameAncestors:["'none'"],objectSrc:["'none'"],scriptSrc:["'self'"],styleSrc:["'self'","'unsafe-inline'","https://fonts.googleapis.com"],fontSrc:["'self'","https://fonts.gstatic.com","data:"],imgSrc:["'self'","data:","https:"],connectSrc:["'self'","https://teampeach-domain-api.creatorletofficial.workers.dev"]}},crossOriginEmbedderPolicy:false}));
 app.use(express.json({limit:"64kb",strict:true,verify(req,res,buf){if(String(req.originalUrl||"").includes("/api/payments/webhooks/"))req.rawBody=Buffer.from(buf);}}));
 app.use(cookieParser());
 // Attach chatbot CORS headers before global rate limits and CSRF middleware.
