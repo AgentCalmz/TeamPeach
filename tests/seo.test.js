@@ -11,6 +11,7 @@ const indexablePages=[
  ["public/tools/index.html","https://teampeach.org/tools/"],
  ["public/tools/peachchat/index.html","https://teampeach.org/tools/peachchat/"],
  ["public/tools/peachbrief/index.html","https://teampeach.org/tools/peachbrief/"],
+ ["public/tools/domain-intelligence/index.html","https://teampeach.org/tools/domain-intelligence/"],
  ["public/products/index.html","https://teampeach.org/products/"],
  ["public/journal/index.html","https://teampeach.org/journal/"],
  ["public/journal/what-is-an-ai-agent/index.html","https://teampeach.org/journal/what-is-an-ai-agent/"],
