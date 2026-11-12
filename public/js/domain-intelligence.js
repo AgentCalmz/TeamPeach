@@ -211,7 +211,7 @@
     button.textContent="Loading snapshot…";
     feedback("Downloading and preparing the latest new-domain list. The feed is processed in your browser.","");
     try{
-      const response=await fetch(API+"/v1/new-domains",{method:"GET",mode:"cors",credentials:"omit",cache:"default",headers:{Accept:"application/gzip"}});
+      const response=await fetch(API+"/v1/new-domains",{method:"GET",mode:"cors",credentials:"omit",cache:"no-store",headers:{Accept:"application/gzip"}});
       if(!response.ok){
         const problem=await response.json().catch(()=>({}));
         throw new Error(problem.detail||problem.error||"The new-domain feed could not be downloaded.");
