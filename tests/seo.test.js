@@ -81,3 +81,19 @@ test("private utility pages stay noindex and legacy product URLs consolidate to 
  assert.ok(server.includes('app.get(/^\\/tools\\/ai-chatbot'));
  assert.ok(server.includes('app.get(/^\\/tools\\/seo-content-brief'));
 });
+
+
+test("domain intelligence prioritises new-domain discovery with transparent business signals",()=>{
+ const page=read("public/tools/domain-intelligence/index.html");
+ const script=read("public/js/domain-intelligence.js");
+ for(const id of ["di-load-domains","di-new-search","di-tld-filter","di-signal-filter","di-explorer-results","di-pagination","di-search-form"]){
+  assert.ok(page.includes('id="'+id+'"'),"missing discovery control "+id);
+ }
+ assert.match(page,/NEW DOMAIN EXPLORER/i);
+ assert.match(page,/BUSINESS RADAR/i);
+ assert.match(page,/not a verified company profile/i);
+ assert.match(script,/\/v1\/new-domains/);
+ assert.match(script,/DecompressionStream/);
+ assert.match(script,/PAGE_SIZE=30/);
+ assert.match(script,/\/v1\/domain\?domain=/,"the secondary exact-domain lookup should remain available");
+});

@@ -4,38 +4,39 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#f8f4ee">
-<title>Domain Intelligence Engine — Domain Lookup | TeamPeach</title>
-<meta name="description" content="Check domains against newly observed, removed, expired and dropped domain feeds. Explore source signals and daily domain intelligence from TeamPeach.">
+<title>New Domain Discovery & Business Radar | TeamPeach</title>
+<meta name="description" content="Explore newly observed domains, search emerging names by keyword and extension, and identify business and service signals worth researching with TeamPeach.">
 <link rel="canonical" href="https://teampeach.org/tools/domain-intelligence/">
 <meta name="robots" content="index,follow,max-image-preview:large">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="TeamPeach">
-<meta property="og:title" content="Domain Intelligence Engine | TeamPeach">
-<meta property="og:description" content="Look up a domain against daily newly observed, removed, expired and dropped domain feeds.">
+<meta property="og:title" content="New Domain Discovery & Business Radar | TeamPeach">
+<meta property="og:description" content="Search newly observed domains and explore name-based business signals that may point to emerging projects and opportunities.">
 <meta property="og:url" content="https://teampeach.org/tools/domain-intelligence/">
 <meta property="og:image" content="https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=85">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Domain Intelligence Engine | TeamPeach">
-<meta name="twitter:description" content="Look up a domain against daily domain intelligence feeds.">
+<meta name="twitter:title" content="New Domain Discovery & Business Radar | TeamPeach">
+<meta name="twitter:description" content="Explore newly observed domains and identify promising names to research.">
 <meta name="twitter:image" content="https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=85">
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/styles.css?v=7">
-<link rel="stylesheet" href="/css/domain-intelligence.css?v=1">
+<link rel="stylesheet" href="/css/domain-intelligence.css?v=2">
 <script type="application/ld+json">
 {
  "@context":"https://schema.org",
  "@graph":[
   {"@type":"Organization","@id":"https://teampeach.org/#organization","name":"TeamPeach","url":"https://teampeach.org/"},
-  {"@type":"WebApplication","@id":"https://teampeach.org/tools/domain-intelligence/#application","name":"Domain Intelligence Engine","url":"https://teampeach.org/tools/domain-intelligence/","applicationCategory":"SecurityApplication","operatingSystem":"Web","description":"A domain intelligence lookup tool that checks a domain against daily newly observed, removed, expired and dropped domain feeds and explains the source signals.","provider":{"@id":"https://teampeach.org/#organization"},"featureList":["Exact domain lookup","Newly observed domain feed checks","Removed domain feed checks","Expired and dropped domain feed checks","Source-level result explanations","Daily dataset freshness information"]},
+  {"@type":"WebApplication","@id":"https://teampeach.org/tools/domain-intelligence/#application","name":"Domain Intelligence Engine","url":"https://teampeach.org/tools/domain-intelligence/","applicationCategory":"BusinessApplication","operatingSystem":"Web","description":"A new-domain discovery and business-research tool that helps users explore Webamon's newly observed domain feed, search by keyword and extension, and review clearly labelled name-based business signals.","provider":{"@id":"https://teampeach.org/#organization"},"featureList":["Search newly observed domains","Filter by keyword and top-level domain","Explore name-based business and industry clues","Review possible TeamPeach service-fit hypotheses","Exact checks against the latest domain lifecycle feeds"]},
   {"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://teampeach.org/"},{"@type":"ListItem","position":2,"name":"Tools","item":"https://teampeach.org/tools/"},{"@type":"ListItem","position":3,"name":"Domain Intelligence Engine","item":"https://teampeach.org/tools/domain-intelligence/"}]},
   {"@type":"FAQPage","mainEntity":[
-   {"@type":"Question","name":"What does the Domain Intelligence Engine check?","acceptedAnswer":{"@type":"Answer","text":"It checks an exact domain name against TeamPeach's latest newly observed, removed, expired and dropped domain datasets, and reports which sources contain a match."}},
-   {"@type":"Question","name":"Does a removed domain mean it is available to register?","acceptedAnswer":{"@type":"Answer","text":"No. A domain appearing in a removed-domain feed is not proof that it has expired or is available to register. Check current registration status with RDAP and an appropriate registrar."}},
-   {"@type":"Question","name":"Does a no-match result mean a domain is safe?","acceptedAnswer":{"@type":"Answer","text":"No. It only means the domain was not found in the current datasets checked. It is not a security verdict, availability check or guarantee that the domain is harmless."}},
-   {"@type":"Question","name":"Do domain lookups use TeamPeach AI credits?","acceptedAnswer":{"@type":"Answer","text":"No. Normal domain lookups and filtering are data operations and do not consume AI credits."}}
+   {"@type":"Question","name":"What can I discover with the Domain Intelligence Engine?","acceptedAnswer":{"@type":"Answer","text":"You can explore domains in the latest newly observed Webamon feed, search by name or extension, and review possible industry and service signals based on words in each domain name."}},
+   {"@type":"Question","name":"Does a newly observed domain prove that a business has launched?","acceptedAnswer":{"@type":"Answer","text":"No. It means the domain appeared in Webamon's monitored zone-file data. A domain name or keyword clue does not confirm that a business exists, is operating, or needs a particular service."}},
+   {"@type":"Question","name":"Is the observation date the domain's registration date?","acceptedAnswer":{"@type":"Answer","text":"No. The snapshot date is when the domain appears in the source feed. It is not a guaranteed registrar creation timestamp."}},
+   {"@type":"Question","name":"Do discovery searches use TeamPeach AI credits?","acceptedAnswer":{"@type":"Answer","text":"No. Loading the feed, searching, filtering and viewing name-based signals are ordinary data operations and do not consume AI credits."}},
+   {"@type":"Question","name":"Does a removed domain mean it is available to register?","acceptedAnswer":{"@type":"Answer","text":"No. Removal from a monitored zone-file feed does not prove expiry or current registration availability. Verify current status with RDAP and a registrar."}}
   ]}
  ]
 }
@@ -51,75 +52,106 @@
 <main id="main" class="domain-intel-page">
 <section class="page-wrap domain-intel-hero">
  <div class="domain-intel-hero-copy">
-  <p class="eyebrow"><span></span> DOMAIN INTELLIGENCE / 01</p>
-  <h1>Know what has<br><em>been happening to a domain.</em></h1>
-  <p class="domain-intel-lede">Check a domain against daily newly observed, removed, expired and dropped domain feeds. See the source signals behind each result, without turning a simple lookup into an AI task.</p>
-  <div class="domain-intel-trust"><span><i></i> Daily data updates</span><span><i></i> Source-level results</span><span><i></i> No AI credits for lookups</span></div>
+  <p class="eyebrow"><span></span> DOMAIN INTELLIGENCE / BUSINESS RADAR</p>
+  <h1>Discover the names<br><em>emerging across the web.</em></h1>
+  <p class="domain-intel-lede">Explore newly observed domains, find names connected to industries and business activity, and turn promising signals into research leads. Start with what is appearing today; investigate the businesses and opportunities behind the names.</p>
+  <div class="domain-intel-trust"><span><i></i> Daily new-domain observations</span><span><i></i> Keyword and extension discovery</span><span><i></i> No AI credits for browsing</span></div>
  </div>
- <aside class="domain-intel-hero-panel" aria-label="Dataset status">
-  <div class="domain-intel-panel-top"><span>LIVE DATASET</span><span class="domain-intel-pulse"></span></div>
-  <div class="domain-intel-panel-number" id="di-indexed-domains">—</div>
-  <p>unique domain records indexed</p>
-  <div class="domain-intel-panel-bottom"><span>Latest snapshot</span><strong id="di-snapshot-date">Checking…</strong></div>
+ <aside class="domain-intel-hero-panel" aria-label="Latest new-domain snapshot">
+  <div class="domain-intel-panel-top"><span>LATEST NEW-DOMAIN SNAPSHOT</span><span class="domain-intel-pulse"></span></div>
+  <div class="domain-intel-panel-number" id="di-new-count">—</div>
+  <p>newly observed domains in the latest source feed</p>
+  <div class="domain-intel-panel-bottom"><span>Snapshot date</span><strong id="di-snapshot-date">Checking…</strong></div>
   <div class="domain-intel-panel-bottom"><span>Data status</span><strong id="di-data-status">Connecting</strong></div>
  </aside>
 </section>
 
-<section class="page-wrap domain-intel-workspace" aria-labelledby="di-search-title">
+<section class="page-wrap domain-intel-workspace" aria-labelledby="di-explorer-title">
  <div class="domain-intel-workspace-heading">
-  <div><p class="eyebrow"><span></span> DOMAIN LOOKUP</p><h2 id="di-search-title">Check a domain</h2><p>Enter one complete domain name. We'll check the latest available dataset and show which feeds contain it.</p></div>
-  <span class="domain-intel-free-note">Standard lookups are free of AI-credit charges.</span>
+  <div><p class="eyebrow"><span></span> NEW DOMAIN EXPLORER</p><h2 id="di-explorer-title">Find names worth investigating</h2><p>Search the latest newly observed domain list by keyword, extension or business-related wording. The source list is loaded only when you choose to start.</p></div>
+  <span class="domain-intel-free-note">Browsing and filtering are free of AI-credit charges.</span>
  </div>
- <form id="di-search-form" class="domain-intel-search" novalidate>
-  <label class="sr-only" for="di-domain-input">Domain name</label>
-  <span class="domain-intel-search-icon" aria-hidden="true">⌕</span>
-  <input id="di-domain-input" name="domain" type="text" inputmode="url" autocomplete="url" autocapitalize="none" spellcheck="false" maxlength="253" placeholder="Enter a domain, e.g. example.com" required>
-  <button id="di-search-button" class="button button-dark" type="submit">Check domain <span>↗</span></button>
- </form>
- <p class="domain-intel-search-hint">Enter the root domain only, such as <button type="button" class="di-example" data-domain-example="example.com">example.com</button> or <button type="button" class="di-example" data-domain-example="teampeach.org">teampeach.org</button>.</p>
- <div id="di-result" class="domain-intel-result" role="status" aria-live="polite" hidden></div>
- <p id="di-search-feedback" class="domain-intel-feedback" role="status" aria-live="polite"></p>
+ <div class="di-load-row">
+  <div><strong>Latest daily feed</strong><p id="di-feed-caption">Connect to the current snapshot to begin exploring.</p></div>
+  <button id="di-load-domains" class="button button-dark" type="button">Load latest new domains <span>↗</span></button>
+ </div>
+ <div class="di-explorer-controls" aria-label="New domain search filters">
+  <label class="di-keyword-field"><span>Search domain names</span><input id="di-new-search" type="search" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Try: clinic, logistics, agency, AI…" disabled></label>
+  <label><span>Domain extension</span><select id="di-tld-filter" disabled><option value="">All extensions</option></select></label>
+  <label><span>Name signals</span><select id="di-signal-filter" disabled><option value="all">All new domains</option><option value="business">Business-related wording</option><option value="customer">Customer-service wording</option><option value="automation">Operations and automation wording</option></select></label>
+ </div>
+ <div id="di-explorer-feedback" class="domain-intel-feedback" role="status" aria-live="polite">Load the latest snapshot to begin.</div>
+ <div id="di-explorer-results" class="di-explorer-results" aria-live="polite">
+  <div class="di-empty-state"><span class="di-empty-icon">⌕</span><strong>Your discovery workspace is ready.</strong><p>Load the latest new-domain snapshot to search and review possible business signals.</p></div>
+ </div>
+ <div id="di-pagination" class="di-pagination" hidden>
+  <span id="di-page-summary"></span>
+  <div><button id="di-prev-page" type="button" disabled>Previous</button><span id="di-page-number">Page 1</span><button id="di-next-page" type="button" disabled>Next</button></div>
+ </div>
+ <p class="di-data-note">Source: <a href="https://codeberg.org/webamon/newly_registered_domains" target="_blank" rel="noopener noreferrer">Webamon public dataset</a>. Records are newly observed in monitored zone-file data, not guaranteed registrar creation dates. A domain name is not proof that an operating business exists.</p>
+</section>
+
+<section class="page-wrap domain-intel-radar">
+ <div class="di-radar-heading"><p class="eyebrow"><span></span> BUSINESS RADAR</p><h2>From a new name to a research lead.</h2><p>Use domain wording to identify possible sectors and reasons to investigate further. Treat every signal as a starting point, not a verified company profile or a claim that a business needs a service.</p></div>
+ <div class="di-radar-grid">
+  <article><span class="di-radar-index">01</span><h3>Industry clues</h3><p>Words such as “clinic”, “academy”, “shop” or “logistics” can help organise names into possible markets for further research.</p></article>
+  <article><span class="di-radar-index">02</span><h3>Possible service fit</h3><p>Some names may suggest a reason to explore website development, content, customer support or workflow automation opportunities.</p></article>
+  <article><span class="di-radar-index">03</span><h3>Verify before outreach</h3><p>Visit promising domains and check public evidence before treating them as businesses, deciding they are prospects or contacting their owners.</p></article>
+ </div>
+ <p class="di-radar-caution"><strong>Evidence standard:</strong> the first release classifies wording found in domain names only. It does not yet verify ownership, live websites, company status, location, products, purchasing intent or service needs.</p>
 </section>
 
 <section class="page-wrap domain-intel-stats-section" aria-labelledby="di-dataset-title">
- <div class="domain-intel-section-heading"><div><p class="eyebrow"><span></span> THE CURRENT SNAPSHOT</p><h2 id="di-dataset-title">What the latest feeds contain</h2></div><p id="di-updated-note">Retrieving the latest dataset summary.</p></div>
+ <div class="domain-intel-section-heading"><div><p class="eyebrow"><span></span> THE WIDER DATASET</p><h2 id="di-dataset-title">Other domain lifecycle signals</h2></div><p id="di-updated-note">Retrieving the latest dataset summary.</p></div>
  <div class="domain-intel-stat-grid">
-  <article class="domain-intel-stat-card"><span class="di-stat-label">NEWLY OBSERVED</span><strong id="di-new-count">—</strong><p>Domains appearing in Webamon's new-domain feed.</p></article>
-  <article class="domain-intel-stat-card"><span class="di-stat-label">REMOVED</span><strong id="di-removed-count">—</strong><p>Domains removed from the monitored zone-file data.</p></article>
+  <article class="domain-intel-stat-card"><span class="di-stat-label">UNIQUE RECORDS</span><strong id="di-indexed-domains">—</strong><p>Unique domains across the available source feeds.</p></article>
+  <article class="domain-intel-stat-card"><span class="di-stat-label">REMOVED</span><strong id="di-removed-count">—</strong><p>Domains removed from monitored zone-file data.</p></article>
   <article class="domain-intel-stat-card"><span class="di-stat-label">EXPIRED</span><strong id="di-expired-count">—</strong><p>Entries in the public WhoisFreaks expired list.</p></article>
   <article class="domain-intel-stat-card"><span class="di-stat-label">DROPPED</span><strong id="di-dropped-count">—</strong><p>Entries in the public WhoisFreaks dropped list.</p></article>
  </div>
 </section>
 
 <section class="page-wrap domain-intel-sources">
- <div><p class="eyebrow"><span></span> HOW TO READ A RESULT</p><h2>Four source signals.<br><em>Not four interchangeable statuses.</em></h2><p>Each provider describes a different observation. TeamPeach preserves the source label so a match is not mistaken for a definitive registration or availability status.</p></div>
+ <div><p class="eyebrow"><span></span> SOURCE INTERPRETATION</p><h2>Different feeds.<br><em>Different observations.</em></h2><p>TeamPeach keeps the provider's meaning attached to each dataset. These signals should not be treated as interchangeable registration statuses.</p></div>
  <div class="domain-intel-source-list">
   <article><span class="di-source-number">01</span><div><h3>Newly observed</h3><p>Appeared in Webamon's newly observed zone-file data. This is not a confirmed registrar creation timestamp.</p></div></article>
   <article><span class="di-source-number">02</span><div><h3>Removed</h3><p>Appeared in Webamon's removed-domain data. Removal does not prove expiry or current availability.</p></div></article>
-  <article><span class="di-source-number">03</span><div><h3>Expired</h3><p>Appeared in WhoisFreaks' free public expired-domain list. Its coverage is limited.</p></div></article>
+  <article><span class="di-source-number">03</span><div><h3>Expired</h3><p>Appeared in WhoisFreaks' free public expired-domain list. Coverage is limited.</p></div></article>
   <article><span class="di-source-number">04</span><div><h3>Dropped</h3><p>Appeared in WhoisFreaks' free public dropped-domain list. A match still needs current registration verification.</p></div></article>
  </div>
 </section>
 
-<section class="page-wrap domain-intel-notice">
- <strong>Important interpretation</strong>
- <p>A match tells you which current feed contains a domain. A no-match does not prove that a domain is safe, unregistered or available. This first version performs exact domain lookups; it is not yet a bulk search, RDAP availability checker or threat verdict.</p>
+<section class="page-wrap domain-intel-lookup">
+ <details>
+  <summary>Need to check one exact domain against all feeds?</summary>
+  <div class="di-lookup-inner">
+   <p>This secondary check looks for an exact domain match in the latest newly observed, removed, expired and dropped datasets.</p>
+   <form id="di-search-form" class="domain-intel-search" novalidate>
+    <label class="sr-only" for="di-domain-input">Domain name</label>
+    <span class="domain-intel-search-icon" aria-hidden="true">⌕</span>
+    <input id="di-domain-input" name="domain" type="text" inputmode="url" autocomplete="url" autocapitalize="none" spellcheck="false" maxlength="253" placeholder="Enter one domain, e.g. example.com" required>
+    <button id="di-search-button" class="button button-dark" type="submit">Check domain <span>↗</span></button>
+   </form>
+   <div id="di-result" class="domain-intel-result" role="status" aria-live="polite" hidden></div>
+   <p id="di-search-feedback" class="domain-intel-feedback" role="status" aria-live="polite"></p>
+  </div>
+ </details>
 </section>
 
 <section class="page-wrap domain-intel-faq">
  <p class="eyebrow"><span></span> COMMON QUESTIONS</p>
- <h2>Domain lookup, clearly explained.</h2>
+ <h2>Understand what the data can tell you.</h2>
  <div class="domain-intel-faq-grid">
-  <details><summary>Does a removed domain mean I can register it?</summary><p>No. The removed feed is a zone-file observation, not a registrar availability confirmation. A current RDAP check and registrar verification are needed.</p></details>
-  <details><summary>Does a no-match mean the domain is safe?</summary><p>No. It means only that this exact domain was not present in the four datasets in the latest snapshot.</p></details>
-  <details><summary>Does a lookup consume AI credits?</summary><p>No. Domain lookups, filtering and ordinary data retrieval do not consume TeamPeach AI credits.</p></details>
-  <details><summary>How often is the data updated?</summary><p>The collection pipeline runs daily at 7:45 a.m. Lagos time. Source update delays or failed provider downloads can affect the latest available snapshot.</p></details>
+  <details><summary>Does a new domain mean a new business?</summary><p>Not necessarily. It may represent a business, personal project, parked name, redirect or another use. Check the live website and other public evidence before drawing a conclusion.</p></details>
+  <details><summary>Is the snapshot date the registration date?</summary><p>No. It is the date of the source snapshot. Webamon records zone-file observations, not guaranteed registrar creation timestamps.</p></details>
+  <details><summary>Does this use AI credits?</summary><p>No. Loading the daily feed, searching, filtering and viewing name-based clues do not consume AI credits. AI-powered research or outreach features, when introduced, will be clearly identified before use.</p></details>
+  <details><summary>Does a removed domain mean I can register it?</summary><p>No. Removal from a monitored zone-file feed does not prove expiry or current availability. Verify with current RDAP data and a registrar.</p></details>
  </div>
  <a class="domain-intel-back-link" href="/tools/">Explore all TeamPeach tools ↗</a>
 </section>
 </main>
 <footer class="site-footer"><div class="page-wrap footer-bottom"><span>© <span id="current-year"></span> TeamPeach. Built with intention.</span><a href="/">Home</a><a href="/tools/">Tools</a><a href="/dashboard/">Workspace</a></div></footer>
 <script src="/js/main.js?v=3" defer></script>
-<script src="/js/domain-intelligence.js?v=1" defer></script>
+<script src="/js/domain-intelligence.js?v=2" defer></script>
 </body>
 </html>
