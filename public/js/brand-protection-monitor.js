@@ -114,6 +114,7 @@
       request.onupgradeneeded=()=>{
         const db=request.result;
         if(!db.objectStoreNames.contains("snapshots"))db.createObjectStore("snapshots",{keyPath:"date"});
+        if(!db.objectStoreNames.contains("siteChecks"))db.createObjectStore("siteChecks",{keyPath:"key"});
       };
       request.onsuccess=()=>resolve(request.result);
       request.onerror=()=>reject(request.error||new Error("Could not open the local domain cache."));
