@@ -61,3 +61,13 @@ test("Premium intent search ranks a bounded browser-generated candidate set and 
  assert.ok(route.indexOf("tp_credit_apply")>route.indexOf("output-validation"),"intent-search credits must be charged after valid AI output");
  assert.doesNotMatch(route,/insert\(|\.from\("tp_/,"intent search must not require a new database table");
 });
+
+test("Domain Intelligence can load the compressed feed when the latest summary endpoint fails",()=>{
+ const page=read("public/tools/domain-intelligence/index.html");
+ const script=read("public/js/domain-intelligence.js");
+ assert.match(page,/domain-intelligence\.js\?v=5/);
+ assert.match(script,/return\{blob,cached:false,date:feedDate\}/);
+ assert.match(script,/const requestedSnapshotDate=summary&&summary\.date\|\|""/);
+ assert.match(script,/if\(!summary\|\|!summary\.date\)summary=\{date:snapshotDate\}/);
+ assert.match(script,/The compressed domain feed can still be loaded separately/);
+});
