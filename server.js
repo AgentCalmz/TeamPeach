@@ -1672,13 +1672,13 @@ app.post("/api/tools/seo-content-brief/generate",csrf,authLimit,authenticated,as
 }));
 
 function domainRadarNormalizeDomain(value) {
- const raw=String(value||"").trim().toLowerCase().replace(/\\.$/,"");
- if(!raw||raw.length>253||/[\\s/:@?#%\\\\]/.test(raw)||/^\\d{1,3}(?:\\.\\d{1,3}){3}$/.test(raw))return "";
+ const raw=String(value||"").trim().toLowerCase().replace(/\.$/,"");
+ if(!raw||raw.length>253||/[\s/:@?#%\\]/.test(raw)||/^\d{1,3}(?:\.\d{1,3}){3}$/.test(raw))return "";
  let hostname;
  try{
   const parsed=new URL("https://"+raw);
   if(parsed.pathname!=="/"||parsed.search||parsed.hash||parsed.username||parsed.password||parsed.port)return "";
-  hostname=parsed.hostname.toLowerCase().replace(/\\.$/,"");
+  hostname=parsed.hostname.toLowerCase().replace(/\.$/,"");
  }catch(_){return "";}
  const labels=hostname.split(".");
  if(labels.length<2||labels[labels.length-1].length<2||hostname.length>253||
