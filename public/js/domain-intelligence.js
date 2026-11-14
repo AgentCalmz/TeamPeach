@@ -10,6 +10,10 @@
   let currentPage=1;
   let loaded=false;
   let filterTimer=null;
+  let csrfToken="";
+  const siteChecks=new Map();
+  const selectedDomains=new Set();
+  let lastResearchResults=[];
 
   const INDUSTRIES=[
     {label:"Technology",terms:["technology","tech","software","app","apps","cloud","digital","data","cyber","developer","code","systems","platform","ai"]},
@@ -117,18 +121,52 @@
       select.append(option);
     });
   }
+  function matchesSiteFilter(domain,filter) {
+    if(filter==="all")return true;
+    const check=siteChecks.get(domain);
+    if(filter==="unchecked")return !check;
+    if(!check)return false;
+    if(filter==="working")return check.status==="working";
+    if(filter==="possibly_parked")return check.status==="possibly_parked";
+    if(filter==="redirect")return check.status==="redirect";
+    if(filter==="unreachable")return check.status==="unreachable";
+    if(filter==="other")return ["http_only","access_restricted","page_error","server_error"].includes(check.status);
+    return true;
+  }
+  function updateSelectionUI() {
+    setText("#di-selection-count",selectedDomains.size+" of 5 domains selected");
+    const button=$("#di-ai-run");
+    if(button)button.disabled=selectedDomains.size===0||button.dataset.loading==="true";
+  }
   function updateFilters(){
     if(!loaded)return;
     const query=String($("#di-new-search")?.value||"").trim().toLowerCase().split(/\s+/).filter(Boolean);
     const extension=$("#di-tld-filter")?.value||"";
     const signal=$("#di-signal-filter")?.value||"all";
+    const websiteFilter=$("#di-site-filter")?.value||"all";
     filtered=domains.filter(domain=>{
       if(extension&&domain.slice(domain.lastIndexOf(".")+1)!==extension)return false;
       if(query.length&&!query.every(term=>domain.includes(term)))return false;
-      return matchesSignal(domain,signal);
+      if(!matchesSignal(domain,signal))return false;
+      return matchesSiteFilter(domain,websiteFilter);
     });
     currentPage=1;
     renderResults();
+  }
+  async function checkWebsite(domain) {
+    const current=siteChecks.get(domain);
+    if(current&&current.status==="checking")return;
+    siteChecks.set(domain,{status:"checking",status_label:"Checking website…"});
+    updateFilters();
+    try{
+      const data=await api("/v1/site-check?domain="+encodeURIComponent(domain));
+      siteChecks.set(domain,data);
+      feedback(domain+" — "+(data.status_label||"Website check complete")+". This is a reachability signal, not business verification.","success");
+    }catch(error){
+      siteChecks.set(domain,{status:"unreachable",status_label:"Check unavailable",note:error.message||""});
+      feedback(domain+" — the website check could not be completed.","error");
+    }
+    updateFilters();
   }
   function renderDomainCard(domain){
     const info=classify(domain);
@@ -142,8 +180,16 @@
     if(info.industry)tags.append(makeNode("span","di-domain-tag",info.industry));
     else if(info.business)tags.append(makeNode("span","di-domain-tag","Business wording"));
     else tags.append(makeNode("span","di-domain-tag di-domain-tag-muted","No clear category clue"));
-    info.fits.forEach(fit=>tags.append(makeNode("span","di-domain-fit", "Possible fit · "+fit)));
+    info.fits.forEach(fit=>tags.append(makeNode("span","di-domain-fit","Possible fit · "+fit)));
     main.append(tags);
+    const check=siteChecks.get(domain);
+    const status=check?check.status:"unchecked";
+    const statusRow=makeNode("div","di-website-row");
+    const statusBadge=makeNode("span","di-website-status di-website-"+status,check?(check.status_label||"Website checked"):"Website not checked");
+    statusRow.append(statusBadge);
+    if(check&&check.http_status)statusRow.append(makeNode("span","di-website-code","HTTP "+check.http_status));
+    if(check&&check.title)statusRow.append(makeNode("span","di-website-title",check.title));
+    main.append(statusRow);
     const explanation=info.industry
       ?"Name-based industry clue only. Verify the website and public evidence before treating this as a business."
       :info.fits.length
@@ -151,6 +197,28 @@
         :"No obvious business or service phrase was identified in the name; it may still be worth reviewing.";
     main.append(makeNode("p","di-domain-note",explanation));
     const actions=makeNode("div","di-domain-actions");
+    const selectLabel=makeNode("label","di-domain-select");
+    const selectBox=document.createElement("input");
+    selectBox.type="checkbox";
+    selectBox.checked=selectedDomains.has(domain);
+    selectBox.disabled=!selectBox.checked&&selectedDomains.size>=5;
+    selectBox.setAttribute("aria-label","Select "+domain+" for Premium AI research");
+    selectBox.addEventListener("change",()=>{
+      if(selectBox.checked){
+        if(selectedDomains.size>=5){selectBox.checked=false;feedback("Premium research is limited to five selected domains per run.","error");return;}
+        selectedDomains.add(domain);
+      }else selectedDomains.delete(domain);
+      updateSelectionUI();
+      const visible=domains.filter(item=>selectedDomains.has(item));
+      if(visible.length)feedback(visible.length+" domain"+(visible.length===1?"":"s")+" selected for AI research.","");
+    });
+    selectLabel.append(selectBox,document.createTextNode("Select for AI"));
+    actions.append(selectLabel);
+    const checkButton=makeNode("button","di-domain-check",check&&check.status!=="checking"?"Check again":check?"Checking…":"Check website");
+    checkButton.type="button";
+    checkButton.disabled=Boolean(check&&check.status==="checking");
+    checkButton.addEventListener("click",()=>checkWebsite(domain));
+    actions.append(checkButton);
     const visit=makeNode("a","di-domain-visit","Visit domain ↗");
     visit.href="https://"+domain;
     visit.target="_blank";
@@ -199,6 +267,134 @@
     const previous=$("#di-prev-page"),next=$("#di-next-page");
     if(previous)previous.disabled=currentPage<=1;
     if(next)next.disabled=currentPage>=pageCount;
+  }
+  async function ensureCsrf(){
+    if(csrfToken)return csrfToken;
+    const response=await fetch("/api/csrf",{credentials:"same-origin",cache:"no-store"});
+    if(!response.ok)throw new Error("Secure request setup failed. Refresh the page and try again.");
+    const data=await response.json();
+    csrfToken=data.token||"";
+    if(!csrfToken)throw new Error("Could not establish a secure request. Refresh the page and try again.");
+    return csrfToken;
+  }
+  async function runAiResearch(){
+    const button=$("#di-ai-run");
+    const criteria=String($("#di-ai-criteria")?.value||"").trim();
+    const domainsToResearch=[...selectedDomains];
+    const output=$("#di-ai-results");
+    if(domainsToResearch.length<1){sayAi("Select at least one domain from the results first.","error");return;}
+    if(criteria.length<12){sayAi("Describe what kind of business or opportunity you want to find.","error");$("#di-ai-criteria")?.focus();return;}
+    if(!button)return;
+    button.disabled=true;
+    button.dataset.loading="true";
+    button.textContent="Researching…";
+    sayAi("Checking available website evidence and comparing the selected listings against your specification…","");
+    output.hidden=true;
+    try{
+      const requestId=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():("di-"+Date.now()+"-"+Math.random().toString(16).slice(2));
+      const csrf=await ensureCsrf();
+      const response=await fetch("/api/tools/domain-intelligence/research",{
+        method:"POST",credentials:"same-origin",cache:"no-store",
+        headers:{"Content-Type":"application/json","X-CSRF-Token":csrf,"X-Idempotency-Key":requestId},
+        body:JSON.stringify({criteria,domains:domainsToResearch,requestId})
+      });
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok||data.ok===false){
+        const error=new Error(data.message||"Business Radar could not complete the research request.");
+        error.code=data.error||"DOMAIN_RADAR_FAILED";
+        error.balance=data.balance;
+        error.estimatedCredits=data.estimatedCredits;
+        throw error;
+      }
+      lastResearchResults=data.results||[];
+      renderAiResearch(data);
+      const usage=data.usage||{};
+      sayAi("Research complete. "+number(usage.creditsCharged||0)+" credits used · "+number(usage.creditsRemaining||0)+" credits remaining. Website and industry conclusions remain evidence-led hypotheses.","success");
+    }catch(error){
+      let message=error.message||"Research could not be completed.";
+      if(error.code==="AUTH_REQUIRED"||error.code==="UNAUTHENTICATED")message="Sign in to use Premium Business Radar research.";
+      if(error.code==="PREMIUM_MEMBERSHIP_REQUIRED")message="An active TeamPeach membership is required for Premium AI research. Ordinary browsing and website checks remain available.";
+      if(error.code==="INSUFFICIENT_CREDITS")message=message+" Current balance: "+number(error.balance)+" credits; estimated requirement: "+number(error.estimatedCredits)+" credits.";
+      sayAi(message,"error");
+    }finally{
+      button.dataset.loading="false";
+      button.innerHTML='Research selected domains <span>↗</span>';
+      updateSelectionUI();
+    }
+  }
+  function sayAi(message,state){
+    const item=$("#di-ai-feedback");
+    if(!item)return;
+    item.textContent=message||"";
+    item.dataset.state=state||"";
+  }
+  function csvCell(value){
+    const textValue=String(value==null?"":value);
+    return '"'+textValue.replace(/"/g,'""')+'"';
+  }
+  function downloadAiCsv(){
+    if(!lastResearchResults.length)return;
+    const rows=[["Domain","Matches specification","Fit score","Industry","Likely business type","Website status","Website title","Website summary","Why it matches","Confidence","Opportunities","Recommended next step"]];
+    lastResearchResults.forEach(item=>rows.push([
+      item.domain,item.matchesSpecification?"Yes":"No",item.fitScore,item.industry,item.likelyBusinessType,
+      item.website&&item.website.statusLabel,item.website&&item.website.title,item.websiteSummary,item.whyItMatches,
+      item.confidence,(item.opportunities||[]).map(o=>o.service+": "+o.rationale).join(" | "),item.recommendedNextStep
+    ]));
+    const blob=new Blob(["\uFEFF"+rows.map(row=>row.map(csvCell).join(",")).join("\r\n")],{type:"text/csv;charset=utf-8"});
+    const url=URL.createObjectURL(blob);
+    const link=document.createElement("a");
+    link.href=url;link.download="teampeach-business-radar-research.csv";
+    document.body.append(link);link.click();link.remove();URL.revokeObjectURL(url);
+  }
+  function renderAiResearch(data){
+    const root=$("#di-ai-results");
+    if(!root)return;
+    root.replaceChildren();
+    root.hidden=false;
+    const header=makeNode("div","di-ai-results-heading");
+    const headText=makeNode("div","");
+    headText.append(makeNode("span","di-ai-kicker","RESEARCH RESULTS"),makeNode("h4","","AI comparison against your specification"));
+    headText.append(makeNode("p","",data.summary||"The selected listings have been reviewed against your criteria."));
+    const download=makeNode("button","di-domain-copy","Download CSV");
+    download.type="button";download.addEventListener("click",downloadAiCsv);
+    header.append(headText,download);
+    root.append(header);
+    (data.results||[]).forEach(item=>{
+      const card=makeNode("article","di-ai-result-card");
+      const top=makeNode("div","di-ai-result-top");
+      const title=makeNode("div","");
+      title.append(makeNode("h4","",item.domain),makeNode("span","di-ai-result-industry",item.industry||item.likelyBusinessType||"Business type unclear"));
+      top.append(title);
+      const status=makeNode("div","di-ai-result-badges");
+      status.append(makeNode("span",item.matchesSpecification?"di-ai-match di-ai-match-yes":"di-ai-match di-ai-match-no",item.matchesSpecification?"Matches your specification":"Weak or uncertain match"));
+      status.append(makeNode("span","di-ai-confidence","Confidence: "+(item.confidence||"low")));
+      status.append(makeNode("span","di-ai-score","Fit "+Number(item.fitScore||0)+"/100"));
+      top.append(status);
+      card.append(top);
+      if(item.website&&item.website.statusLabel){
+        const line=makeNode("p","di-ai-website-line","Website: "+item.website.statusLabel+(item.website.httpStatus?" · HTTP "+item.website.httpStatus:""));
+        card.append(line);
+      }
+      if(item.websiteSummary)card.append(makeNode("p","di-ai-result-summary",item.websiteSummary));
+      if(item.whyItMatches)card.append(makeNode("p","di-ai-result-why",item.whyItMatches));
+      if(item.evidence&&item.evidence.length){
+        const evidence=makeNode("div","di-ai-evidence");
+        evidence.append(makeNode("strong","","Evidence reviewed"));
+        const list=makeNode("ul","");
+        item.evidence.forEach(entry=>list.append(makeNode("li","",(entry.source?entry.source+": ":"")+entry.detail)));
+        evidence.append(list);card.append(evidence);
+      }
+      if(item.opportunities&&item.opportunities.length){
+        const opportunities=makeNode("div","di-ai-opportunities");
+        opportunities.append(makeNode("strong","","Possible TeamPeach opportunities"));
+        const list=makeNode("ul","");
+        item.opportunities.forEach(entry=>list.append(makeNode("li","",entry.service+" — "+entry.rationale+" ("+entry.priority+" priority)")));
+        opportunities.append(list);card.append(opportunities);
+      }
+      if(item.recommendedNextStep)card.append(makeNode("p","di-ai-next-step","Suggested next step: "+item.recommendedNextStep));
+      if(item.confidenceReason)card.append(makeNode("p","di-ai-caveat","Confidence note: "+item.confidenceReason));
+      root.append(card);
+    });
   }
   async function loadDomains(){
     const button=$("#di-load-domains");
@@ -332,8 +528,11 @@
   });
   $("#di-tld-filter")?.addEventListener("change",updateFilters);
   $("#di-signal-filter")?.addEventListener("change",updateFilters);
+  $("#di-site-filter")?.addEventListener("change",updateFilters);
+  $("#di-ai-run")?.addEventListener("click",runAiResearch);
   $("#di-prev-page")?.addEventListener("click",()=>changePage(-1));
   $("#di-next-page")?.addEventListener("click",()=>changePage(1));
+  updateSelectionUI();
   form?.addEventListener("submit",event=>{
     event.preventDefault();
     lookupDomain(input.value);
