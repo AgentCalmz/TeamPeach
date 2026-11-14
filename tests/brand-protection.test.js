@@ -68,6 +68,7 @@ test("Brand Protection Monitor page, local scripts and tool listings are present
  assert.match(page,/Your brand names stay in this browser/i);
  assert.match(page,/does not send email alerts/i);
  assert.match(script,/indexedDB\.open/);
+ assert.match(script,/objectStoreNames\.contains\("siteChecks"\)/);
  assert.match(script,/localStorage/);
  assert.match(script,/\/v1\/new-domains/);
  assert.match(script,/Engine\.analyseDomain/);
