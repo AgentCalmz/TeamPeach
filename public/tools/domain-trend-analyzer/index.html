@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f8f4ee">
+<title>Domain Trend Analyzer | TeamPeach</title>
+<meta name="description" content="Explore daily domain trends, compare popular domain extensions, identify emerging naming patterns and review industry-related keywords from public domain observations.">
+<link rel="canonical" href="https://teampeach.org/tools/domain-trend-analyzer/">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="TeamPeach">
+<meta property="og:title" content="Domain Trend Analyzer | TeamPeach">
+<meta property="og:description" content="Understand newly observed domain trends, popular extensions and naming patterns using public daily domain datasets.">
+<meta property="og:url" content="https://teampeach.org/tools/domain-trend-analyzer/">
+<meta property="og:image" content="https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=85">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Domain Trend Analyzer | TeamPeach">
+<meta name="twitter:description" content="Explore daily domain volume, popular extensions and naming patterns.">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/styles.css?v=7">
+<link rel="stylesheet" href="/css/domain-trend-analyzer.css?v=1">
+<script type="application/ld+json">
+{
+ "@context":"https://schema.org",
+ "@graph":[
+  {"@type":"Organization","@id":"https://teampeach.org/#organization","name":"TeamPeach","url":"https://teampeach.org/"},
+  {"@type":"WebApplication","@id":"https://teampeach.org/tools/domain-trend-analyzer/#application","name":"Domain Trend Analyzer","url":"https://teampeach.org/tools/domain-trend-analyzer/","applicationCategory":"BusinessApplication","operatingSystem":"Web","description":"A browser-side analytics tool for daily newly observed domain counts, top-level domain distribution, changes in extension activity and naming patterns from public domain snapshots.","provider":{"@id":"https://teampeach.org/#organization"},"featureList":["Daily new and removed domain trends","Top-level domain distribution","Extension growth comparison","Latest snapshot naming patterns","Industry-related domain keyword signals","Local browser-side analysis without AI credits"]},
+  {"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://teampeach.org/"},{"@type":"ListItem","position":2,"name":"Tools","item":"https://teampeach.org/tools/"},{"@type":"ListItem","position":3,"name":"Domain Trend Analyzer","item":"https://teampeach.org/tools/domain-trend-analyzer/"}]},
+  {"@type":"FAQPage","mainEntity":[
+   {"@type":"Question","name":"What does the Domain Trend Analyzer measure?","acceptedAnswer":{"@type":"Answer","text":"It compares daily source snapshot counts, domain extension distribution and wording patterns in the latest newly observed domain list. These are trends in public feed observations, not confirmed registrar events or proof of business activity."}},
+   {"@type":"Question","name":"Does this tool use AI credits?","acceptedAnswer":{"@type":"Answer","text":"No. Charts and naming-pattern analysis run in the visitor's browser using published domain snapshot data. No AI credits or TeamPeach database records are required."}},
+   {"@type":"Question","name":"How much history is available?","acceptedAnswer":{"@type":"Answer","text":"The analyzer displays the daily snapshots currently published by the data repository, up to the selected 7, 14 or 30 day window. The available history grows as new daily snapshots are published."}},
+   {"@type":"Question","name":"Do domain trends prove that an industry is growing?","acceptedAnswer":{"@type":"Answer","text":"No. Domain wording and source-feed counts provide directional signals only. They do not prove that companies are operating, that registrations are new, or that a market is growing."}}
+  ]}
+ ]
+}
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header"><div class="nav-wrap">
+<a class="brand" href="/" aria-label="TeamPeach home"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M7 11h20c6 0 9 4 9 9s-3 9-9 9h-8v9M21 38V17h10c7 0 11 4 11 10s-4 10-11 10H21" fill="none" stroke="currentColor" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="31" cy="8" r="4" fill="#ff936f"/></svg></span><span class="brand-name">Team<span>Peach</span></span></a>
+<button class="menu-toggle" aria-label="Open navigation" aria-expanded="false" aria-controls="trend-navigation"><span></span><span></span></button>
+<nav class="nav-links" id="trend-navigation" aria-label="Main navigation"><a href="/">Home</a><a href="/tools/" aria-current="page">Tools</a><a href="/products/">Plans & pricing</a><a href="/journal/">Journal</a><a class="nav-auth-link" href="/dashboard/">Workspace</a><a class="nav-auth-link nav-auth-create" href="/register/">Create account</a></nav>
+</div></header>
+<main id="main" class="domain-trend-page">
+<section class="page-wrap dt-hero">
+ <div class="dt-hero-copy"><p class="eyebrow"><span></span> DOMAIN DATA / MARKET SIGNALS</p><h1>See what is<br><em>emerging across domains.</em></h1><p>Compare daily domain observations, see which extensions are appearing more often and explore the words shaping new domain names. Use these signals to understand naming activity and spot areas worth investigating.</p><div class="dt-trust"><span>Daily public snapshots</span><span>Browser-side analysis</span><span>No AI credits</span></div></div>
+ <aside class="dt-hero-card"><span class="dt-hero-label">LATEST SNAPSHOT</span><strong id="dt-latest-date">Checking…</strong><p id="dt-hero-status">Connecting to the public domain dataset.</p><div class="dt-hero-meta"><span>Snapshots available</span><b id="dt-history-count">—</b></div></aside>
+</section>
+
+<section class="page-wrap dt-workspace" aria-labelledby="dt-workspace-title">
+ <div class="dt-section-heading"><div><p class="eyebrow"><span></span> TREND OVERVIEW</p><h2 id="dt-workspace-title">Domain activity at a glance</h2><p>Choose a period to compare the daily snapshots currently available.</p></div><label class="dt-period-control"><span>Time period</span><select id="dt-period"><option value="7">Last 7 days</option><option value="14">Last 14 days</option><option value="30" selected>Last 30 days</option></select></label></div>
+ <div class="dt-metric-grid">
+  <article class="dt-metric"><span>NEWLY OBSERVED</span><strong id="dt-total-new">—</strong><small id="dt-new-caption">Across available snapshots</small></article>
+  <article class="dt-metric"><span>REMOVED</span><strong id="dt-total-removed">—</strong><small>Removed from monitored zone data</small></article>
+  <article class="dt-metric"><span>TOP EXTENSION</span><strong id="dt-top-tld">—</strong><small id="dt-top-tld-count">Most frequent in new-domain data</small></article>
+  <article class="dt-metric"><span>SNAPSHOTS</span><strong id="dt-total-days">—</strong><small id="dt-days-caption">Daily releases available</small></article>
+ </div>
+ <div id="dt-feedback" class="dt-feedback" role="status" aria-live="polite">Loading historical domain data…</div>
+ <div class="dt-panel-grid">
+  <article class="dt-panel dt-volume-panel"><div class="dt-panel-heading"><div><h3>Newly observed domains</h3><p>Daily counts from published snapshots</p></div><span class="dt-panel-unit">DOMAINS / DAY</span></div><div id="dt-volume-chart" class="dt-volume-chart"><div class="dt-placeholder">Loading chart…</div></div></article>
+  <article class="dt-panel"><div class="dt-panel-heading"><div><h3>Most common extensions</h3><p>Combined new-domain observations in this period</p></div></div><div id="dt-tld-chart" class="dt-rank-chart"><div class="dt-placeholder">Loading extensions…</div></div></article>
+ </div>
+ <div class="dt-panel-grid dt-lower-grid">
+  <article class="dt-panel"><div class="dt-panel-heading"><div><h3>Extension movement</h3><p>Change between the two latest available snapshots</p></div></div><div id="dt-movement-table" class="dt-table-wrap"><div class="dt-placeholder">Loading extension movement…</div></div></article>
+  <article class="dt-panel"><div class="dt-panel-heading"><div><h3>New vs removed</h3><p>Source counts by snapshot date</p></div></div><div id="dt-comparison-chart" class="dt-comparison-chart"><div class="dt-placeholder">Loading comparison…</div></div></article>
+ </div>
+</section>
+
+<section class="page-wrap dt-pattern-section" aria-labelledby="dt-pattern-title">
+ <div class="dt-pattern-intro"><div><p class="eyebrow"><span></span> NAME & INDUSTRY SIGNALS</p><h2 id="dt-pattern-title">Explore the language in new domains.</h2><p>Scan the latest new-domain file locally in your browser to find commonly used words and domain-name clues associated with broad sectors.</p></div><div class="dt-pattern-action"><button id="dt-analyse-names" class="button button-dark" type="button">Analyse latest naming patterns <span>↗</span></button><small>Uses your device to scan the latest snapshot. No names are sent to TeamPeach AI.</small></div></div>
+ <div id="dt-pattern-feedback" class="dt-feedback" role="status" aria-live="polite"></div>
+ <div id="dt-pattern-results" class="dt-pattern-grid" hidden>
+  <article class="dt-panel"><div class="dt-panel-heading"><div><h3>Common words</h3><p>Distinct domains containing each word</p></div></div><div id="dt-keyword-chart" class="dt-rank-chart"></div></article>
+  <article class="dt-panel"><div class="dt-panel-heading"><div><h3>Industry-related clues</h3><p>Broad keyword groups found in domain names</p></div></div><div id="dt-industry-chart" class="dt-rank-chart"></div></article>
+ </div>
+ <p class="dt-data-note">Naming signals are derived from wording in domain names. They do not confirm a company's industry, products, operating status or commercial activity.</p>
+</section>
+
+<section class="page-wrap dt-history-section"><div class="dt-history-heading"><div><p class="eyebrow"><span></span> SNAPSHOT HISTORY</p><h2>Review the underlying counts.</h2></div><p>Each row reflects a published source snapshot. Missing dates are not estimated or filled in.</p></div><div id="dt-history-table" class="dt-panel dt-table-wrap"><div class="dt-placeholder">Loading snapshot history…</div></div></section>
+
+<section class="page-wrap dt-faq-section"><p class="eyebrow"><span></span> INTERPRETING THE DATA</p><h2>Useful signals, not unsupported conclusions.</h2><div class="dt-faq-grid">
+ <details><summary>Does an increase mean more companies are being formed?</summary><p>No. The counts represent domains appearing in monitored source feeds. One person or company can register multiple domains, and observations are not proof of a new operating company.</p></details>
+ <details><summary>What does a rising extension mean?</summary><p>It means that extension appeared more often in the latest available snapshot than in the previous available snapshot. It does not establish long-term popularity or market demand.</p></details>
+ <details><summary>How are industry clues detected?</summary><p>The browser checks domain-name words against a transparent set of sector-related terms. A match is only a naming clue and should be verified using independent evidence.</p></details>
+ <details><summary>Does analysis use AI or my TeamPeach credits?</summary><p>No. Daily charts and naming-pattern analysis are calculated in your browser from the public snapshots. No AI provider or TeamPeach credit balance is involved.</p></details>
+</div><a class="dt-back-link" href="/tools/">Explore all TeamPeach tools ↗</a></section>
+</main>
+<footer class="site-footer"><div class="page-wrap footer-bottom"><span>© <span id="current-year"></span> TeamPeach. Built with intention.</span><a href="/">Home</a><a href="/tools/">Tools</a><a href="/dashboard/">Workspace</a></div></footer>
+<script src="/js/main.js?v=3" defer></script>
+<script src="/js/domain-trend-analyzer.js?v=1" defer></script>
+</body></html>
