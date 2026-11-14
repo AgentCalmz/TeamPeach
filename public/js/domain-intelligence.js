@@ -441,7 +441,7 @@
       domains=domains.filter((domain,index,array)=>index===0||domain!==array[index-1]);
       loaded=true;
       populateExtensions();
-      ["#di-new-search","#di-tld-filter","#di-signal-filter"].forEach(selector=>{const control=$(selector);if(control)control.disabled=false;});
+      ["#di-new-search","#di-tld-filter","#di-signal-filter","#di-site-filter"].forEach(selector=>{const control=$(selector);if(control)control.disabled=false;});
       button.textContent="Snapshot loaded";
       setText("#di-feed-caption",number(domains.length)+" domain names loaded · snapshot "+snapshotDate);
       feedback(number(domains.length)+" newly observed domains are ready to explore.","success");
