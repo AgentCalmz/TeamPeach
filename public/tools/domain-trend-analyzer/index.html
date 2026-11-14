@@ -59,6 +59,7 @@
   <article class="dt-metric"><span>NEWLY OBSERVED</span><strong id="dt-total-new">—</strong><small id="dt-new-caption">Across available snapshots</small></article>
   <article class="dt-metric"><span>REMOVED</span><strong id="dt-total-removed">—</strong><small>Removed from monitored zone data</small></article>
   <article class="dt-metric"><span>TOP EXTENSION</span><strong id="dt-top-tld">—</strong><small id="dt-top-tld-count">Most frequent in new-domain data</small></article>
+  <article class="dt-metric"><span>TOP CATEGORY SIGNAL</span><strong id="dt-top-category">—</strong><small id="dt-top-category-count">Name-based category clues</small></article>
   <article class="dt-metric"><span>SNAPSHOTS</span><strong id="dt-total-days">—</strong><small id="dt-days-caption">Daily releases available</small></article>
  </div>
  <div id="dt-feedback" class="dt-feedback" role="status" aria-live="polite">Loading historical domain data…</div>
@@ -70,14 +71,18 @@
   <article class="dt-panel"><div class="dt-panel-heading"><div><h3>Extension movement</h3><p>Change between the two latest available snapshots</p></div></div><div id="dt-movement-table" class="dt-table-wrap"><div class="dt-placeholder">Loading extension movement…</div></div></article>
   <article class="dt-panel"><div class="dt-panel-heading"><div><h3>New vs removed</h3><p>Source counts by snapshot date</p></div></div><div id="dt-comparison-chart" class="dt-comparison-chart"><div class="dt-placeholder">Loading comparison…</div></div></article>
  </div>
+ <div class="dt-panel-grid dt-lower-grid">
+  <article class="dt-panel"><div class="dt-panel-heading"><div><h3>Website category signals</h3><p>Combined category clues in newly observed domain names</p></div></div><div id="dt-category-chart" class="dt-rank-chart dt-category-rank-chart"><div class="dt-placeholder">Loading category signals…</div></div><p class="dt-category-note">A domain can match multiple categories. These are naming clues, not verified website classifications.</p></article>
+  <article class="dt-panel"><div class="dt-panel-heading"><div><h3>Category movement</h3><p>Change between the two latest available daily snapshots</p></div></div><div id="dt-category-movement" class="dt-table-wrap"><div class="dt-placeholder">Loading category movement…</div></div></article>
+ </div>
 </section>
 
 <section class="page-wrap dt-pattern-section" aria-labelledby="dt-pattern-title">
- <div class="dt-pattern-intro"><div><p class="eyebrow"><span></span> NAME & INDUSTRY SIGNALS</p><h2 id="dt-pattern-title">Explore the language in new domains.</h2><p>Scan the latest new-domain file locally in your browser to find commonly used words and domain-name clues associated with broad sectors.</p></div><div class="dt-pattern-action"><button id="dt-analyse-names" class="button button-dark" type="button">Analyse latest naming patterns <span>↗</span></button><small>Uses your device to scan the latest snapshot. No names are sent to TeamPeach AI.</small></div></div>
+ <div class="dt-pattern-intro"><div><p class="eyebrow"><span></span> NAME & INDUSTRY SIGNALS</p><h2 id="dt-pattern-title">Explore the language in new domains.</h2><p>Scan the latest new-domain file locally in your browser to find commonly used words and a wider set of AI, software, business, finance, health, commerce and industry signals.</p></div><div class="dt-pattern-action"><button id="dt-analyse-names" class="button button-dark" type="button">Analyse latest naming patterns <span>↗</span></button><small>Uses your device to scan the latest snapshot. No names are sent to TeamPeach AI.</small></div></div>
  <div id="dt-pattern-feedback" class="dt-feedback" role="status" aria-live="polite"></div>
  <div id="dt-pattern-results" class="dt-pattern-grid" hidden>
   <article class="dt-panel"><div class="dt-panel-heading"><div><h3>Common words</h3><p>Distinct domains containing each word</p></div></div><div id="dt-keyword-chart" class="dt-rank-chart"></div></article>
-  <article class="dt-panel"><div class="dt-panel-heading"><div><h3>Industry-related clues</h3><p>Broad keyword groups found in domain names</p></div></div><div id="dt-industry-chart" class="dt-rank-chart"></div></article>
+  <article class="dt-panel"><div class="dt-panel-heading"><div><h3>Industry-related clues</h3><p>Overlapping name-based clues across 19 broad categories</p></div></div><div id="dt-industry-chart" class="dt-rank-chart"></div></article>
  </div>
  <p class="dt-data-note">Naming signals are derived from wording in domain names. They do not confirm a company's industry, products, operating status or commercial activity.</p>
 </section>
@@ -87,7 +92,7 @@
 <section class="page-wrap dt-faq-section"><p class="eyebrow"><span></span> INTERPRETING THE DATA</p><h2>Useful signals, not unsupported conclusions.</h2><div class="dt-faq-grid">
  <details><summary>Does an increase mean more companies are being formed?</summary><p>No. The counts represent domains appearing in monitored source feeds. One person or company can register multiple domains, and observations are not proof of a new operating company.</p></details>
  <details><summary>What does a rising extension mean?</summary><p>It means that extension appeared more often in the latest available snapshot than in the previous available snapshot. It does not establish long-term popularity or market demand.</p></details>
- <details><summary>How are industry clues detected?</summary><p>The browser checks domain-name words against a transparent set of sector-related terms. A match is only a naming clue and should be verified using independent evidence.</p></details>
+ <details><summary>How are industry clues detected?</summary><p>The browser checks domain-name words against a transparent set of sector-related terms. A category match is only a name-based clue. Categories can overlap and should be verified using independent evidence.</p></details>
  <details><summary>Does analysis use AI or my TeamPeach credits?</summary><p>No. Daily charts and naming-pattern analysis are calculated in your browser from the public snapshots. No AI provider or TeamPeach credit balance is involved.</p></details>
 </div><a class="dt-back-link" href="/tools/">Explore all TeamPeach tools ↗</a></section>
 </main>
