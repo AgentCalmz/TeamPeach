@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f8f4ee">
+<title>Brand Protection Monitor | TeamPeach</title>
+<meta name="description" content="Monitor protected brand names against newly observed domains. Find possible typosquats, suspicious lookalikes and brand-related domain variations with private browser-side scanning.">
+<link rel="canonical" href="https://teampeach.org/tools/brand-protection-monitor/">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="TeamPeach">
+<meta property="og:title" content="Brand Protection Monitor | TeamPeach">
+<meta property="og:description" content="Check daily newly observed domains for possible brand-name lookalikes, spelling variations and suspicious account-related wording.">
+<meta property="og:url" content="https://teampeach.org/tools/brand-protection-monitor/">
+<meta property="og:image" content="https://teampeach.org/assets/brand-protection-hero.svg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Brand Protection Monitor | TeamPeach">
+<meta name="twitter:description" content="Monitor protected brand names for possible lookalike domains with private browser-side scanning.">
+<meta name="twitter:image" content="https://teampeach.org/assets/brand-protection-hero.svg">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/styles.css?v=7">
+<link rel="stylesheet" href="/css/brand-protection-monitor.css?v=1">
+<script type="application/ld+json">
+{
+ "@context":"https://schema.org",
+ "@graph":[
+  {"@type":"Organization","@id":"https://teampeach.org/#organization","name":"TeamPeach","url":"https://teampeach.org/"},
+  {"@type":"WebApplication","@id":"https://teampeach.org/tools/brand-protection-monitor/#application","name":"Brand Protection Monitor","url":"https://teampeach.org/tools/brand-protection-monitor/","applicationCategory":"SecurityApplication","operatingSystem":"Web","description":"A browser-side brand monitoring tool that compares user-supplied protected brand names against newly observed public domain snapshots to identify possible spelling variations and brand-related domain names. It does not verify ownership, infringement or malicious intent.","provider":{"@id":"https://teampeach.org/#organization"},"featureList":["Add up to 20 protected brand names","Optionally exclude official domains","Scan newly observed domain names locally in the browser","Detect possible spelling variations and character substitutions","Highlight account, login and verification wording","Export scan results to CSV","Keep the watchlist in the current browser without sending it to TeamPeach"]},
+  {"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://teampeach.org/"},{"@type":"ListItem","position":2,"name":"Tools","item":"https://teampeach.org/tools/"},{"@type":"ListItem","position":3,"name":"Brand Protection Monitor","item":"https://teampeach.org/tools/brand-protection-monitor/"}]},
+  {"@type":"FAQPage","mainEntity":[
+   {"@type":"Question","name":"What does the Brand Protection Monitor check?","acceptedAnswer":{"@type":"Answer","text":"It compares names you add to a local watchlist against the latest newly observed public domain snapshot and flags exact name matches, spelling variations, character substitutions and domains that combine a brand name with other wording."}},
+   {"@type":"Question","name":"Does a match prove that a domain is impersonating my brand?","acceptedAnswer":{"@type":"Answer","text":"No. A name match is a lead for investigation, not proof of ownership, infringement, fraud or malicious intent. Review registration records, the website and independent evidence before taking action."}},
+   {"@type":"Question","name":"Are my protected brand names sent to TeamPeach?","acceptedAnswer":{"@type":"Answer","text":"No. Your watchlist is stored in your current browser and the name comparison runs locally. The public domain dataset is downloaded directly for local scanning."}},
+   {"@type":"Question","name":"Does the tool send alerts automatically?","acceptedAnswer":{"@type":"Answer","text":"No. The current version runs a scan when you open the tool and request one. It does not send email alerts, run background checks or synchronise your watchlist across devices."}},
+   {"@type":"Question","name":"Does this check every domain on the internet?","acceptedAnswer":{"@type":"Answer","text":"No. It checks the latest newly observed domain snapshot available through TeamPeach's public data feed. It does not scan every registered domain or historical registration record."}}
+  ]}
+ ]
+}
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header"><div class="nav-wrap">
+<a class="brand" href="/" aria-label="TeamPeach home"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M7 11h20c6 0 9 4 9 9s-3 9-9 9h-8v9M21 38V17h10c7 0 11 4 11 10s-4 10-11 10H21" fill="none" stroke="currentColor" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="31" cy="8" r="4" fill="#ff936f"/></svg></span><span class="brand-name">Team<span>Peach</span></span></a>
+<button class="menu-toggle" aria-label="Open navigation" aria-expanded="false" aria-controls="bp-navigation"><span></span><span></span></button>
+<nav class="nav-links" id="bp-navigation" aria-label="Main navigation"><a href="/">Home</a><a href="/tools/" aria-current="page">Tools</a><a href="/products/">Plans & pricing</a><a href="/journal/">Journal</a><a class="nav-auth-link" href="/dashboard/">Workspace</a><a class="nav-auth-link nav-auth-create" href="/register/">Create account</a></nav>
+</div></header>
+<main id="main" class="bp-page">
+<section class="page-wrap bp-hero">
+ <div class="bp-hero-copy"><p class="eyebrow"><span></span> BRAND SECURITY / DOMAIN WATCH</p><h1>Know when a name<br><em>starts to look like yours.</em></h1><p>Compare the brands you protect against newly observed domain names. Spot close spellings, character substitutions and domains that pair your brand with account or verification wording.</p><div class="bp-trust"><span>Private browser-side scan</span><span>Daily public snapshots</span><span>No AI credits</span></div></div>
+ <aside class="bp-hero-card"><img src="/assets/brand-protection-hero.svg" alt="" width="270" height="210"><span class="bp-hero-label">YOUR WATCHLIST</span><strong id="bp-watchlist-count">0</strong><p id="bp-watchlist-caption">0 of 20 protected names</p><div class="bp-hero-meta"><span>Latest scan</span><b id="bp-latest-date">Not scanned</b></div></aside>
+</section>
+
+<section class="page-wrap bp-workspace" aria-labelledby="bp-workspace-title">
+ <div class="bp-section-heading"><div><p class="eyebrow"><span></span> PROTECTED NAMES</p><h2 id="bp-workspace-title">Build your brand watchlist.</h2><p>Add a brand name and, optionally, its official domain to exclude your own website from the results.</p></div><span class="bp-limit-label">Up to 20 brands · saved in this browser</span></div>
+ <div class="bp-workspace-grid">
+  <article class="bp-panel bp-add-panel">
+   <div class="bp-panel-heading"><div><h3>Add a brand</h3><p>Start with the name people recognise.</p></div><span class="bp-panel-step">01</span></div>
+   <form id="bp-brand-form" class="bp-brand-form">
+    <label for="bp-brand-name">Brand or organisation name</label>
+    <input id="bp-brand-name" name="brand" type="text" maxlength="70" autocomplete="organization" placeholder="e.g. TeamPeach" required>
+    <label for="bp-official-domain">Official website <span>(optional)</span></label>
+    <input id="bp-official-domain" name="official-domain" type="text" maxlength="253" inputmode="url" autocomplete="url" autocapitalize="none" spellcheck="false" placeholder="e.g. teampeach.org">
+    <button class="button button-dark" type="submit">Add to watchlist <span>↗</span></button>
+   </form>
+   <p class="bp-private-note"><span aria-hidden="true">◈</span> Your brand names stay in this browser. They are not uploaded to TeamPeach.</p>
+  </article>
+  <article class="bp-panel bp-watchlist-panel">
+   <div class="bp-panel-heading"><div><h3>Protected brands</h3><p>Names included in your next scan.</p></div><span class="bp-panel-step">02</span></div>
+   <div id="bp-watchlist" class="bp-watchlist"><div class="bp-empty-inline">Your watchlist is empty. Add a brand name above to begin.</div></div>
+  </article>
+ </div>
+ <div class="bp-scan-bar">
+  <div><strong>Check the latest snapshot</strong><p>Scan runs on your device. The public dataset is downloaded directly from the domain data service.</p></div>
+  <div class="bp-scan-actions"><button id="bp-export" class="button button-light" type="button" disabled>Export CSV</button><button id="bp-run-scan" class="button button-dark" type="button" disabled>Scan latest snapshot <span>↗</span></button></div>
+ </div>
+ <div id="bp-status" class="bp-status" role="status" aria-live="polite">Add at least one brand name to create your local protection watchlist.</div>
+ <div id="bp-progress" class="bp-progress" aria-live="polite"></div>
+</section>
+
+<section class="page-wrap bp-results-section">
+ <div class="bp-section-heading"><div><p class="eyebrow"><span></span> SCAN RESULTS</p><h2>Review possible lookalikes.</h2><p>Matches are prioritised by name similarity and account-related wording. Every result needs independent verification.</p></div><label class="bp-filter"><span>Show</span><select id="bp-priority-filter"><option value="all">All matches</option><option value="high">High priority</option><option value="possible">Possible matches</option><option value="review">Direct brand matches</option></select></label></div>
+ <div class="bp-metric-grid">
+  <article class="bp-metric"><span>DOMAINS SCANNED</span><strong id="bp-scanned-count">0</strong><small>From the latest published snapshot</small></article>
+  <article class="bp-metric"><span>POSSIBLE MATCHES</span><strong id="bp-results-count">0</strong><small>Matches across all protected names</small></article>
+  <article class="bp-metric bp-metric-alert"><span>HIGH PRIORITY</span><strong id="bp-high-count">0</strong><small>Close spelling or credential-related signals</small></article>
+ </div>
+ <div id="bp-results-empty" class="bp-results-empty">Your scan results will appear here. Add a brand and scan the latest snapshot to begin.</div>
+ <div id="bp-results" class="bp-results" aria-live="polite"></div>
+ <p id="bp-results-note" class="bp-results-note"></p>
+ <p class="bp-data-caution"><strong>Important:</strong> A match is not proof of impersonation, infringement or malicious intent. This tool does not verify registrants, inspect website content, check trademarks or perform a full internet-wide scan.</p>
+</section>
+
+<section class="page-wrap bp-faq-section"><p class="eyebrow"><span></span> UNDERSTANDING THE RESULTS</p><h2>Useful alerts, careful conclusions.</h2><div class="bp-faq-grid">
+ <details><summary>What makes a domain appear as a possible lookalike?</summary><p>The scanner looks for exact brand-name matches, close spelling changes, common digit substitutions and names that combine a protected brand with other words. Some matches will be legitimate, unrelated or false positives.</p></details>
+ <details><summary>What does “High priority” mean?</summary><p>It means the name is very close to a protected brand or includes wording commonly associated with sign-in, accounts, verification, wallets or payments. It is a review priority, not a finding of fraud.</p></details>
+ <details><summary>Are my brands saved to my TeamPeach account?</summary><p>No. The current version stores your watchlist in the browser you are using. It is not synced to your account or to other devices. Clearing browser data can remove it.</p></details>
+ <details><summary>Will I receive an email when a match is found?</summary><p>Not in this version. Open the tool and run a scan against the latest available daily snapshot. Automatic monitoring and notifications are not included yet.</p></details>
+ <details><summary>Does it check all registered domains?</summary><p>No. It checks the latest newly observed domain feed available through TeamPeach. It does not cover every registered domain, every TLD or the full history of registrations.</p></details>
+ <details><summary>What should I do when a match appears?</summary><p>Visit the domain carefully, review current registration data through RDAP, preserve relevant evidence and consult qualified legal or security professionals before making an enforcement decision.</p></details>
+</div><a class="bp-back-link" href="/tools/">Explore all TeamPeach tools ↗</a></section>
+</main>
+<footer class="site-footer"><div class="page-wrap footer-bottom"><span>© <span id="current-year"></span> TeamPeach. Built with intention.</span><a href="/">Home</a><a href="/tools/">Tools</a><a href="/dashboard/">Workspace</a></div></footer>
+<script src="/js/main.js?v=3" defer></script>
+<script src="/js/brand-protection-engine.js?v=1" defer></script>
+<script src="/js/brand-protection-monitor.js?v=1" defer></script>
+</body>
+</html>
