@@ -132,7 +132,7 @@
   }
   async function loadSnapshotBlob(snapshotDate){
     const cached=await cacheGet("snapshots",snapshotDate);
-    if(cached&&cached.blob instanceof Blob)return{blob:cached.blob,cached:true};
+    if(cached&&cached.blob instanceof Blob)return{blob:cached.blob,cached:true,date:cached.date||snapshotDate};
     await Promise.all([cacheClear("snapshots"),cacheClear("siteChecks")]);
     const response=await fetch(API+"/v1/new-domains",{method:"GET",mode:"cors",credentials:"omit",cache:"no-store",headers:{Accept:"application/gzip"}});
     if(!response.ok){
@@ -143,7 +143,7 @@
     if(snapshotDate&&feedDate!==snapshotDate)throw new Error("The feed date does not match the latest summary. Reload the page and try again.");
     const blob=await response.blob();
     await cachePut("snapshots",{date:feedDate,blob,savedAt:Date.now()});
-    return{blob,cached:false};
+    return{blob,cached:false,date:feedDate};
   }
   function currentSnapshotDate(){return summary&&summary.date||"latest";}
   function siteCacheKey(domain){return currentSnapshotDate()+":"+domain;}
@@ -273,8 +273,9 @@
     }catch(error){
       setText("#di-snapshot-date","Unavailable");
       setText("#di-data-status","Connection issue");
-      setText("#di-updated-note","The latest data summary could not be retrieved.");
-      setText("#di-feed-caption","The latest snapshot summary is temporarily unavailable.");
+      summary=null;
+      setText("#di-updated-note","The latest data summary could not be retrieved: "+(error.message||"Unknown connection error"));
+      setText("#di-feed-caption","The summary is unavailable. The compressed domain feed can still be loaded separately.");
     }
   }
   function domainWords(domain){
@@ -707,8 +708,10 @@
     feedback("Checking the browser cache and preparing the latest domain snapshot locally.","");
     try{
       domains=[];
-      const snapshotDate=summary&&summary.date||"";
-      const stored=await loadSnapshotBlob(snapshotDate);
+      const requestedSnapshotDate=summary&&summary.date||"";
+      const stored=await loadSnapshotBlob(requestedSnapshotDate);
+      const snapshotDate=stored.date||requestedSnapshotDate||"latest";
+      if(!summary||!summary.date)summary={date:snapshotDate};
       const count=await parseCompressedDomainBlob(stored.blob);
       if(!count)throw new Error("The downloaded snapshot did not contain any valid domain rows.");
       domains=domains.filter((domain,index,array)=>index===0||domain!==array[index-1]);
