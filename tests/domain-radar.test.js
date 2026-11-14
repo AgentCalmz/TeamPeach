@@ -40,7 +40,7 @@ test("Premium Business Radar requires membership and charges credits only after 
  assert.ok(route.indexOf("tp_credit_apply")>route.indexOf("output-validation"),"credits must be charged after output validation");
  assert.match(route,/rawDomains\.length>5/);
  assert.match(route,/untrusted public page content/);
- assert.match(route,/homepageContent/);
+ assert.match(server,/homepageContent:cleanText\(data\.page_content\|\|data\.text_excerpt,8000\)/);
  assert.match(route,/full-site crawl/);
  assert.match(route,/No credits were deducted/);
  assert.doesNotMatch(route,/insert\(|\.from\("tp_/,"research results should not require a new database table");
