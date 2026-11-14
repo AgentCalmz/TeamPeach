@@ -35,7 +35,7 @@
     const labels=host.split(".").filter(Boolean);
     if(labels.length<2)return "";
     const suffix2=labels.slice(-2).join(".");
-    const nameLabels=COMPOUND_SUFFIXES.has(suffix2)?labels.slice(0,-2):labels.slice(0,-1);
+    const nameLabels=COMPOUND_SUFFIXES.has(suffix2)?labels.slice(-3,-2):labels.slice(-2,-1);
     return nameLabels.filter(label=>label!=="www").join("");
   }
 
