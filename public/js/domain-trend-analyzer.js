@@ -360,7 +360,9 @@
     seen.forEach(word=>tokenCounts.set(word,(tokenCounts.get(word)||0)+1));
     const searchable=root.replace(/[^a-z0-9]/g,"");
     INDUSTRIES.forEach(group=>{
-      if(group.terms.some(term=>parts.includes(term)||(term.length>=5&&searchable.includes(term)))){
+      const aiProductPrefix=group.label==="AI & machine learning"&&
+        /^ai(?:assistant|agent|bot|platform|tools?|app|model|writer|chat|image|video|data|search)/.test(searchable);
+      if(aiProductPrefix||group.terms.some(term=>parts.includes(term)||(term.length>=5&&searchable.includes(term)))){
         industryCounts.set(group.label,(industryCounts.get(group.label)||0)+1);
       }
     });
