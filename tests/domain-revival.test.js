@@ -49,8 +49,8 @@ test("Domain Revival page wires the lifecycle feeds, archive and RDAP research l
  assert.match(script,/\/v1\/revival-domains\?source=/);
  assert.match(script,/indexedDB\.open/);
  assert.match(script,/DecompressionStream\("gzip"\)/);
- assert.ok(script.includes("web.archive.org"));
- assert.ok(script.includes("rdap.org/domain"));
+ assert.ok(script.includes("archive.href="));
+ assert.ok(script.includes("rdap.href="));
  assert.match(script,/filterRows/);
  assert.match(css,/dr-result-card/);
  assert.match(catalogue,/Domain Revival/);
