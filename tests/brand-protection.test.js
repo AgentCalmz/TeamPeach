@@ -66,7 +66,7 @@ test("Brand Protection Monitor page, local scripts and tool listings are present
  const dashboard=read("public/dashboard/tools/index.html");
  for(const id of ["bp-brand-form","bp-brand-name","bp-official-domain","bp-watchlist","bp-run-scan","bp-results","bp-export","bp-priority-filter"])assert.ok(page.includes('id="'+id+'"'),"missing "+id);
  assert.match(page,/Your brand names stay in this browser/i);
- assert.match(page,/does not send automatic alerts/i);
+ assert.match(page,/does not send email alerts/i);
  assert.match(script,/indexedDB\.open/);
  assert.match(script,/localStorage/);
  assert.match(script,/\/v1\/new-domains/);
