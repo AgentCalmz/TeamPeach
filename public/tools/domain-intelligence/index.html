@@ -79,7 +79,17 @@
   <label class="di-keyword-field"><span>Search domain names</span><input id="di-new-search" type="search" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Try: clinic, logistics, agency, AI…" disabled></label>
   <label><span>Domain extension</span><select id="di-tld-filter" disabled><option value="">All extensions</option></select></label>
   <label><span>Name signals</span><select id="di-signal-filter" disabled><option value="all">All new domains</option><option value="business">Business-related wording</option><option value="customer">Customer-service wording</option><option value="automation">Operations and automation wording</option></select></label>
+  <label><span>Website status</span><select id="di-site-filter" disabled><option value="all">All statuses</option><option value="unchecked">Not checked</option><option value="working">Website responds</option><option value="possibly_parked">Possibly parked / for sale</option><option value="redirect">Redirects elsewhere</option><option value="unreachable">No response</option><option value="other">Other response</option></select></label>
  </div>
+ <section class="di-ai-panel" aria-labelledby="di-ai-title">
+  <div class="di-ai-panel-heading"><div><span class="di-ai-kicker">PREMIUM BUSINESS RADAR</span><h3 id="di-ai-title">Research your shortlist against a specification</h3><p>Describe the type of businesses or opportunities you are looking for. Select up to five domains from the results and let AI compare the available evidence.</p></div><span class="di-ai-premium-tag">Membership + credits</span></div>
+  <label class="di-ai-criteria-label" for="di-ai-criteria">What should the research look for?</label>
+  <textarea id="di-ai-criteria" rows="3" maxlength="700" placeholder="Example: Find likely healthcare or education businesses with a responding website. Prioritise those that may benefit from online bookings, customer enquiries or workflow automation."></textarea>
+  <div class="di-ai-action-row"><span id="di-selection-count">0 of 5 domains selected</span><button id="di-ai-run" class="button button-dark" type="button" disabled>Research selected domains <span>↗</span></button></div>
+  <p class="di-ai-credit-note">AI research is available to accounts with an active TeamPeach membership and enough credits. Each run analyses up to five selected listings; credits are charged according to actual AI usage. No credits are used for normal browsing or website checks.</p>
+  <div id="di-ai-feedback" class="domain-intel-feedback" role="status" aria-live="polite"></div>
+  <div id="di-ai-results" class="di-ai-results" hidden></div>
+ </section>
  <div id="di-explorer-feedback" class="domain-intel-feedback" role="status" aria-live="polite">Load the latest snapshot to begin.</div>
  <div id="di-explorer-results" class="di-explorer-results" aria-live="polite">
   <div class="di-empty-state"><span class="di-empty-icon">⌕</span><strong>Your discovery workspace is ready.</strong><p>Load the latest new-domain snapshot to search and review possible business signals.</p></div>
