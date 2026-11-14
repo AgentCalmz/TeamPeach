@@ -5,13 +5,13 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#f8f4ee">
 <title>New Domain Discovery & Business Radar | TeamPeach</title>
-<meta name="description" content="Explore newly observed domains, check website reachability, filter by name and extension, and use Premium AI to research shortlisted business opportunities.">
+<meta name="description" content="Explore newly observed domains, check website reachability, filter by starting character and extension, and use Premium AI to discover and research business opportunities.">
 <link rel="canonical" href="https://teampeach.org/tools/domain-intelligence/">
 <meta name="robots" content="index,follow,max-image-preview:large">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="TeamPeach">
 <meta property="og:title" content="New Domain Discovery & Business Radar | TeamPeach">
-<meta property="og:description" content="Search newly observed domains, check working website signals and use Premium AI to compare selected listings against business specifications.">
+<meta property="og:description" content="Search newly observed domains, filter by starting character, check website reachability and use Premium AI to discover businesses by intent and research selected homepages.">
 <meta property="og:url" content="https://teampeach.org/tools/domain-intelligence/">
 <meta property="og:image" content="https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=85">
 <meta name="twitter:card" content="summary_large_image">
@@ -23,7 +23,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/styles.css?v=7">
-<link rel="stylesheet" href="/css/domain-intelligence.css?v=3">
+<link rel="stylesheet" href="/css/domain-intelligence.css?v=4">
 <script type="application/ld+json">
 {
  "@context":"https://schema.org",
@@ -36,7 +36,7 @@
    {"@type":"Question","name":"Does a newly observed domain prove that a business has launched?","acceptedAnswer":{"@type":"Answer","text":"No. It means the domain appeared in Webamon's monitored zone-file data. A domain name or keyword clue does not confirm that a business exists, is operating, or needs a particular service."}},
    {"@type":"Question","name":"Is the observation date the domain's registration date?","acceptedAnswer":{"@type":"Answer","text":"No. The snapshot date is when the domain appears in the source feed. It is not a guaranteed registrar creation timestamp."}},
    {"@type":"Question","name":"Do discovery searches use TeamPeach AI credits?","acceptedAnswer":{"@type":"Answer","text":"No. Loading the feed, searching, filtering and checking website reachability do not consume AI credits. Premium AI listing research uses credits based on actual AI usage and requires an active membership."}},
-   {"@type":"Question","name":"What does Premium AI Business Radar research do?","acceptedAnswer":{"@type":"Answer","text":"Premium users can select up to five newly observed domains, describe the type of businesses or opportunities they want to find, and receive an AI comparison with website evidence, confidence notes and possible TeamPeach service opportunities. Research uses credits according to actual AI usage."}},
+   {"@type":"Question","name":"What does Premium AI Business Radar research do?","acceptedAnswer":{"@type":"Answer","text":"Premium users can describe a business intent, use AI to rank candidate domain names, then select up to five domains for homepage reachability checks and evidence-led AI research. Website research reads a bounded amount of visible homepage text; it is not a full-site crawl or proof of business ownership. Each AI action uses credits."}},
    {"@type":"Question","name":"Does a website responding mean the domain belongs to an operating business?","acceptedAnswer":{"@type":"Answer","text":"No. Website status is a lightweight reachability check. A responding website, redirect, parked page or unavailable site does not prove business identity, ownership, legitimacy or purchasing intent."}},
    {"@type":"Question","name":"Does a removed domain mean it is available to register?","acceptedAnswer":{"@type":"Answer","text":"No. Removal from a monitored zone-file feed does not prove expiry or current registration availability. Verify current status with RDAP and a registrar."}}
   ]}
@@ -70,7 +70,7 @@
 
 <section class="page-wrap domain-intel-workspace" aria-labelledby="di-explorer-title">
  <div class="domain-intel-workspace-heading">
-  <div><p class="eyebrow"><span></span> NEW DOMAIN EXPLORER</p><h2 id="di-explorer-title">Find names worth investigating</h2><p>Search the latest newly observed domain list by keyword, extension or business-related wording. The source list is loaded only when you choose to start.</p></div>
+  <div><p class="eyebrow"><span></span> NEW DOMAIN EXPLORER</p><h2 id="di-explorer-title">Find names worth investigating</h2><p>Search the latest newly observed domain list by keyword, first character, extension or business-related wording. The latest source list is downloaded once and cached in your browser for reuse. It can be filtered locally without using Render processing.</p></div>
   <span class="domain-intel-free-note">Browsing and filtering are free of AI-credit charges.</span>
  </div>
  <div class="di-load-row">
@@ -79,16 +79,23 @@
  </div>
  <div class="di-explorer-controls" aria-label="New domain search filters">
   <label class="di-keyword-field"><span>Search domain names</span><input id="di-new-search" type="search" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Try: clinic, logistics, agency, AI…" disabled></label>
+  <label><span>Starting character</span><select id="di-start-filter" disabled><option value="">Any starting character</option><option value="0-9">0–9</option><option value="a">A</option><option value="b">B</option><option value="c">C</option><option value="d">D</option><option value="e">E</option><option value="f">F</option><option value="g">G</option><option value="h">H</option><option value="i">I</option><option value="j">J</option><option value="k">K</option><option value="l">L</option><option value="m">M</option><option value="n">N</option><option value="o">O</option><option value="p">P</option><option value="q">Q</option><option value="r">R</option><option value="s">S</option><option value="t">T</option><option value="u">U</option><option value="v">V</option><option value="w">W</option><option value="x">X</option><option value="y">Y</option><option value="z">Z</option></select></label>
   <label><span>Domain extension</span><select id="di-tld-filter" disabled><option value="">All extensions</option></select></label>
   <label><span>Name signals</span><select id="di-signal-filter" disabled><option value="all">All new domains</option><option value="business">Business-related wording</option><option value="customer">Customer-service wording</option><option value="automation">Operations and automation wording</option></select></label>
   <label><span>Website status</span><select id="di-site-filter" disabled><option value="all">All statuses</option><option value="unchecked">Not checked</option><option value="working">Website responds</option><option value="possibly_parked">Possibly parked / for sale</option><option value="redirect">Redirects elsewhere</option><option value="unreachable">No response</option><option value="other">Other response</option></select></label>
  </div>
  <section class="di-ai-panel" aria-labelledby="di-ai-title">
-  <div class="di-ai-panel-heading"><div><span class="di-ai-kicker">PREMIUM BUSINESS RADAR</span><h3 id="di-ai-title">Research your shortlist against a specification</h3><p>Describe the type of businesses or opportunities you are looking for. Select up to five domains from the results and let AI compare the available evidence.</p></div><span class="di-ai-premium-tag">Membership + credits</span></div>
-  <label class="di-ai-criteria-label" for="di-ai-criteria">What should the research look for?</label>
-  <textarea id="di-ai-criteria" rows="3" maxlength="700" placeholder="Example: Find likely healthcare or education businesses with a responding website. Prioritise those that may benefit from online bookings, customer enquiries or workflow automation."></textarea>
-  <div class="di-ai-action-row"><span id="di-selection-count">0 of 5 domains selected</span><button id="di-ai-run" class="button button-dark" type="button" disabled>Research selected domains <span>↗</span></button></div>
-  <p class="di-ai-credit-note">AI research is available to accounts with an active TeamPeach membership and enough credits. Each run analyses up to five selected listings; credits are charged according to actual AI usage. No credits are used for normal browsing or website checks.</p>
+  <div class="di-ai-panel-heading"><div><span class="di-ai-kicker">PREMIUM BUSINESS RADAR</span><h3 id="di-ai-title">Find businesses by intent</h3><p>Describe the sector or type of business you want to discover. TeamPeach scans the loaded domain names in your browser, then AI reviews the strongest name-based candidates and ranks the likely matches.</p></div><span class="di-ai-premium-tag">Membership + credits</span></div>
+  <label class="di-ai-criteria-label" for="di-ai-criteria">What kind of businesses are you looking for?</label>
+  <textarea id="di-ai-criteria" rows="3" maxlength="700" placeholder="Example: Businesses in the oil and gas sector, including petroleum services, drilling, energy, pipeline and offshore companies."></textarea>
+  <div class="di-ai-action-row"><span id="di-selection-count">0 of 5 domains selected for website research</span><button id="di-ai-search" class="button button-dark" type="button" disabled>Search with AI <span>↗</span></button></div>
+  <p class="di-ai-credit-note">AI intent search uses credits. Select the results you want to investigate, then run website research; that second AI analysis also uses credits. Loading, filtering and automatic website reachability checks do not use AI credits. Results are leads to verify, not confirmed businesses.</p>
+  <div id="di-ai-search-feedback" class="domain-intel-feedback" role="status" aria-live="polite"></div>
+  <div id="di-ai-search-results" class="di-ai-results di-ai-intent-results" hidden></div>
+  <div class="di-ai-detail-action">
+   <button id="di-ai-run" class="button button-dark" type="button" disabled>Research selected websites <span>↗</span></button>
+   <span>Choose up to five domains. TeamPeach checks each homepage before AI analysis.</span>
+  </div>
   <div id="di-ai-feedback" class="domain-intel-feedback" role="status" aria-live="polite"></div>
   <div id="di-ai-results" class="di-ai-results" hidden></div>
  </section>
@@ -156,7 +163,7 @@
  <div class="domain-intel-faq-grid">
   <details><summary>Does a new domain mean a new business?</summary><p>Not necessarily. It may represent a business, personal project, parked name, redirect or another use. Check the live website and other public evidence before drawing a conclusion.</p></details>
   <details><summary>Is the snapshot date the registration date?</summary><p>No. It is the date of the source snapshot. Webamon records zone-file observations, not guaranteed registrar creation timestamps.</p></details>
-  <details><summary>Does this use AI credits?</summary><p>No. Loading the daily feed, searching, filtering and viewing name-based clues do not consume AI credits. Premium AI research requires an active membership and available credits. The research is limited to selected listings and does not perform a full website crawl or verify ownership.</p></details>
+  <details><summary>Does this use AI credits?</summary><p>No. Loading the daily feed, searching, filtering and viewing name-based clues do not consume AI credits. Premium AI research requires an active membership and available credits. Premium first ranks candidate names against your intent. It then checks each selected homepage and analyses available title, description and visible page text. It does not crawl the rest of the website or verify ownership.</p></details>
   <details><summary>Does a removed domain mean I can register it?</summary><p>No. Removal from a monitored zone-file feed does not prove expiry or current availability. Verify with current RDAP data and a registrar.</p></details>
  </div>
  <a class="domain-intel-back-link" href="/tools/">Explore all TeamPeach tools ↗</a>
@@ -164,6 +171,6 @@
 </main>
 <footer class="site-footer"><div class="page-wrap footer-bottom"><span>© <span id="current-year"></span> TeamPeach. Built with intention.</span><a href="/">Home</a><a href="/tools/">Tools</a><a href="/dashboard/">Workspace</a></div></footer>
 <script src="/js/main.js?v=3" defer></script>
-<script src="/js/domain-intelligence.js?v=3" defer></script>
+<script src="/js/domain-intelligence.js?v=4" defer></script>
 </body>
 </html>
