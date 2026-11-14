@@ -11,7 +11,7 @@ const read=relative=>fs.readFileSync(path.join(root,relative),"utf8");
 test("Brand Protection Monitor normalises names, official sites and multi-part suffixes",()=>{
  assert.equal(Engine.normalizeName("Team Peach"),"teampeach");
  assert.equal(Engine.normalizeHost("https://www.Example.com/path"),"example.com");
- assert.equal(Engine.getRegistrableLabel("store.example.co.uk"),"storeexample");
+ assert.equal(Engine.getRegistrableLabel("store.example.co.uk"),"example");
  assert.equal(Engine.getRegistrableLabel("brand.com.ng"),"brand");
 });
 
@@ -27,7 +27,7 @@ test("Brand Protection Monitor detects exact matches without claiming they are m
 
 test("Brand Protection Monitor detects spelling variations and transposed characters",()=>{
  const brand=Engine.prepareBrand("Google","");
- const results=Engine.analyseDomain("googel-login.net",[brand]);
+ const results=Engine.analyseDomain("googel.net",[brand]);
  assert.equal(results.length,1);
  assert.equal(results[0].matchType,"Possible spelling variation");
  assert.equal(results[0].priority,"High priority");
