@@ -1742,13 +1742,9 @@ app.post("/api/tools/domain-intelligence/intent-search",csrf,authLimit,authentic
    "Use the domain wording and industry knowledge to identify plausible matches. Prefer direct sector relevance over generic words. A domain may be ambiguous; assign a low score or omit it when evidence is weak.",
    "Return one valid JSON object and no markdown. Return at most 25 results, ordered by fitScore descending. Every result domain must be copied exactly from the candidate list. Do not invent domain names.",
    "Schema: {summary:string,results:[{domain:string,fitScore:number,industry:string,likelyBusinessType:string,reason:string}]}",
-   "USER INTENT:
-"+criteria,
-   "CANDIDATE DOMAIN NAMES (JSON):
-"+JSON.stringify(candidates)
-  ].join("
-
-");
+   "USER INTENT:\n"+criteria,
+   "CANDIDATE DOMAIN NAMES (JSON):\n"+JSON.stringify(candidates)
+  ].join("\n\n");
   stage="credit-check";
   const estimatedTokens=estimateChatbotTokens(prompt)+2400;
   const estimatedCredits=chatbotCreditsForTokens(estimatedTokens);
