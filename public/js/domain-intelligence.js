@@ -14,6 +14,12 @@
   const siteChecks=new Map();
   const selectedDomains=new Set();
   let lastResearchResults=[];
+  let lastIntentResults=[];
+  const siteCheckQueue=[];
+  const siteCheckQueued=new Set();
+  let siteCheckActive=0;
+  const SITE_CHECK_CONCURRENCY=2;
+  const SITE_CHECK_TTL_MS=4*60*60*1000;
 
   const INDUSTRIES=[
     {label:"Technology",terms:["technology","tech","software","app","apps","cloud","digital","data","cyber","developer","code","systems","platform","ai"]},
@@ -30,6 +36,187 @@
   const BUSINESS_TERMS=["business","company","companies","group","groups","ventures","enterprise","enterprises","services","solutions","agency","agencies","shop","store","market","clinic","school","academy","studio","consult","logistics","restaurant","hotel","salon","property","realty","finance","software","technology","tech"];
   const CUSTOMER_TERMS=["support","help","contact","customer","customers","care","chat","booking","appointment","service","reservation","feedback"];
   const AUTOMATION_TERMS=["book","booking","order","orders","delivery","dispatch","manage","management","schedule","appointment","invoice","pay","payment","crm","workflow","automate","automation","operations","inventory","tracking"];
+  const INTENT_ALIASES=[
+    ["oil","gas","petroleum","petro","oilfield","oilfields","energy","crude","refinery","refining","drilling","rig","rigs","offshore","pipeline","fuel","lubricant","hydrocarbon","lng","lpg"],
+    ["agriculture","agricultural","farm","farms","farming","agribusiness","crop","crops","livestock","poultry","dairy","irrigation","seed","tractor"],
+    ["construction","contractor","contractors","building","builder","builders","civil","engineering","cement","concrete","architect","architecture"],
+    ["bank","banking","finance","financial","fintech","payment","payments","wallet","credit","loan","lending","insurance","investment","capital","accounting"],
+    ["health","healthcare","medical","clinic","clinics","hospital","doctor","dental","dentist","pharma","pharmacy","wellness","diagnostic","laboratory"],
+    ["education","school","schools","academy","academies","college","university","learning","training","tutor","course","courses"],
+    ["logistics","transport","transportation","freight","cargo","shipping","delivery","courier","dispatch","warehouse","warehousing","haulage"],
+    ["property","realty","realestate","estate","estates","housing","rental","rentals","mortgage","propertymanagement"],
+    ["telecom","telecommunications","internet","broadband","network","networks","fiber","fibre","mobile","wireless"],
+    ["automotive","auto","vehicle","vehicles","car","cars","motor","motors","garage","mechanic","spare","parts","electricvehicle","ev"],
+    ["hospitality","hotel","hotels","restaurant","restaurants","food","catering","tourism","travel","resort","resorts"],
+    ["manufacturing","factory","factories","industrial","industry","production","fabrication","machinery","equipment"]
+  ];
+  const INTENT_STOP_WORDS=new Set(["i","we","a","an","the","and","or","for","of","in","on","to","with","that","are","is","am","want","looking","find","search","business","businesses","company","companies","sector","industry","industries","likely","operating","based","services","service"]);
+
+
+  let cacheDbPromise=null;
+  function openDomainCache(){
+    if(!("indexedDB" in window))return Promise.reject(new Error("IndexedDB is not available"));
+    if(cacheDbPromise)return cacheDbPromise;
+    cacheDbPromise=new Promise((resolve,reject)=>{
+      const request=window.indexedDB.open("teampeach-domain-intelligence",1);
+      request.onupgradeneeded=()=>{
+        const db=request.result;
+        if(!db.objectStoreNames.contains("snapshots"))db.createObjectStore("snapshots",{keyPath:"date"});
+        if(!db.objectStoreNames.contains("siteChecks"))db.createObjectStore("siteChecks",{keyPath:"key"});
+      };
+      request.onsuccess=()=>resolve(request.result);
+      request.onerror=()=>reject(request.error||new Error("Could not open browser cache"));
+      request.onblocked=()=>reject(new Error("Browser cache is busy"));
+    });
+    return cacheDbPromise;
+  }
+  async function cacheGet(storeName,key){
+    try{
+      const db=await openDomainCache();
+      return await new Promise((resolve,reject)=>{
+        const request=db.transaction(storeName,"readonly").objectStore(storeName).get(key);
+        request.onsuccess=()=>resolve(request.result||null);
+        request.onerror=()=>reject(request.error||new Error("Cache read failed"));
+      });
+    }catch(_){return null;}
+  }
+  async function cachePut(storeName,value){
+    try{
+      const db=await openDomainCache();
+      await new Promise((resolve,reject)=>{
+        const transaction=db.transaction(storeName,"readwrite");
+        transaction.objectStore(storeName).put(value);
+        transaction.oncomplete=()=>resolve(true);
+        transaction.onerror=()=>reject(transaction.error||new Error("Cache write failed"));
+        transaction.onabort=()=>reject(transaction.error||new Error("Cache write aborted"));
+      });
+      return true;
+    }catch(_){return false;}
+  }
+  async function parseCompressedDomainBlob(blob){
+    const reader=blob.stream().pipeThrough(new DecompressionStream("gzip")).getReader();
+    const decoder=new TextDecoder();
+    let remainder="",count=0;
+    while(true){
+      const chunk=await reader.read();
+      if(chunk.done)break;
+      const combined=remainder+decoder.decode(chunk.value,{stream:true});
+      const lastBreak=combined.lastIndexOf("\n");
+      if(lastBreak<0){remainder=combined;continue;}
+      const lines=combined.slice(0,lastBreak).split("\n");
+      for(const line of lines){
+        const domain=line.trim().toLowerCase();
+        if(domain&&domain.length<=253&&domain.includes(".")){domains.push(domain);count++;}
+      }
+      remainder=combined.slice(lastBreak+1);
+    }
+    remainder+=decoder.decode();
+    if(remainder.trim()){
+      const domain=remainder.trim().toLowerCase();
+      if(domain&&domain.length<=253&&domain.includes(".")){domains.push(domain);count++;}
+    }
+    return count;
+  }
+  async function loadSnapshotBlob(snapshotDate){
+    const cached=await cacheGet("snapshots",snapshotDate);
+    if(cached&&cached.blob instanceof Blob)return{blob:cached.blob,cached:true};
+    const response=await fetch(API+"/v1/new-domains",{method:"GET",mode:"cors",credentials:"omit",cache:"no-store",headers:{Accept:"application/gzip"}});
+    if(!response.ok){
+      const problem=await response.json().catch(()=>({}));
+      throw new Error(problem.detail||problem.error||"The new-domain feed could not be downloaded.");
+    }
+    const feedDate=response.headers.get("X-Snapshot-Date")||snapshotDate||"latest";
+    if(snapshotDate&&feedDate!==snapshotDate)throw new Error("The feed date does not match the latest summary. Reload the page and try again.");
+    const blob=await response.blob();
+    await cachePut("snapshots",{date:feedDate,blob,savedAt:Date.now()});
+    return{blob,cached:false};
+  }
+  function currentSnapshotDate(){return summary&&summary.date||"latest";}
+  function siteCacheKey(domain){return currentSnapshotDate()+":"+domain;}
+  function scheduleVisibleSiteChecks(items){
+    if(!loaded)return;
+    items.forEach(domain=>scheduleSiteCheck(domain));
+  }
+  async function scheduleSiteCheck(domain){
+    if(siteChecks.has(domain)||siteCheckQueued.has(domain))return;
+    const cached=await cacheGet("siteChecks",siteCacheKey(domain));
+    if(siteChecks.has(domain)||siteCheckQueued.has(domain))return;
+    if(cached&&cached.data&&Date.now()-Number(cached.checkedAtMs||0)<SITE_CHECK_TTL_MS){
+      siteChecks.set(domain,cached.data);
+      updateFilters();
+      return;
+    }
+    enqueueSiteCheck(domain,false);
+  }
+  function enqueueSiteCheck(domain,force){
+    if(siteCheckQueued.has(domain))return;
+    const existing=siteChecks.get(domain);
+    if(existing&&existing.status==="checking")return;
+    if(existing&&!force)return;
+    siteCheckQueued.add(domain);
+    siteChecks.set(domain,{status:"checking",status_label:"Checking website…"});
+    siteCheckQueue.push({domain,force:Boolean(force)});
+    updateFilters();
+    pumpSiteCheckQueue();
+  }
+  function pumpSiteCheckQueue(){
+    while(siteCheckActive<SITE_CHECK_CONCURRENCY&&siteCheckQueue.length){
+      const task=siteCheckQueue.shift();
+      siteCheckActive++;
+      (async()=>{
+        try{
+          const data=await api("/v1/site-check?domain="+encodeURIComponent(task.domain));
+          siteChecks.set(task.domain,data);
+          await cachePut("siteChecks",{key:siteCacheKey(task.domain),checkedAtMs:Date.now(),data});
+        }catch(error){
+          siteChecks.set(task.domain,{status:"check_error",status_label:"Check unavailable",note:error.message||""});
+        }finally{
+          siteCheckActive=Math.max(0,siteCheckActive-1);
+          siteCheckQueued.delete(task.domain);
+          updateFilters();
+          pumpSiteCheckQueue();
+        }
+      })();
+    }
+  }
+  function setDomainSelected(domain,checked){
+    if(checked){
+      if(selectedDomains.size>=5&&!selectedDomains.has(domain)){
+        feedback("Premium research is limited to five selected domains per run.","error");
+        return false;
+      }
+      selectedDomains.add(domain);
+    }else selectedDomains.delete(domain);
+    updateSelectionUI();
+    return true;
+  }
+  function intentTerms(criteria){
+    const lower=String(criteria||"").toLowerCase();
+    const direct=(lower.match(/[a-z0-9]+/g)||[]).filter(term=>term.length>=2&&!INTENT_STOP_WORDS.has(term));
+    const terms=new Set(direct);
+    INTENT_ALIASES.forEach(group=>{
+      if(group.some(term=>lower.includes(term)))group.forEach(term=>terms.add(term));
+    });
+    return Array.from(terms).slice(0,100);
+  }
+  function collectIntentCandidates(criteria){
+    const terms=intentTerms(criteria);
+    if(!terms.length)return[];
+    const direct=new Set((String(criteria||"").toLowerCase().match(/[a-z0-9]+/g)||[]));
+    const ranked=[];
+    for(const domain of domains){
+      const name=domain.slice(0,domain.lastIndexOf("."));
+      const parts=name.split(/[.-]+/).filter(Boolean);
+      let score=0,matched=0;
+      for(const term of terms){
+        const hit=parts.some(part=>part===term||(term.length>=4&&part.includes(term))||(part.length>=4&&term.length>=5&&term.includes(part)));
+        if(hit){score+=direct.has(term)?5:(term.length>=6?3:2);matched++;}
+      }
+      if(score)ranked.push({domain,score,matched});
+    }
+    ranked.sort((a,b)=>b.score-a.score||b.matched-a.matched||a.domain.localeCompare(b.domain));
+    return ranked.slice(0,80).map(item=>item.domain);
+  }
 
   function setText(selector,value){
     const item=$(selector);
@@ -124,28 +311,33 @@
   function matchesSiteFilter(domain,filter) {
     if(filter==="all")return true;
     const check=siteChecks.get(domain);
-    if(filter==="unchecked")return !check;
+    if(filter==="unchecked")return !check||check.status==="check_error";
     if(!check)return false;
     if(filter==="working")return check.status==="working";
     if(filter==="possibly_parked")return check.status==="possibly_parked";
     if(filter==="redirect")return check.status==="redirect";
     if(filter==="unreachable")return check.status==="unreachable";
-    if(filter==="other")return ["http_only","access_restricted","page_error","server_error"].includes(check.status);
+    if(filter==="other")return ["http_only","access_restricted","page_error","server_error","check_error"].includes(check.status);
     return true;
   }
   function updateSelectionUI() {
-    setText("#di-selection-count",selectedDomains.size+" of 5 domains selected");
+    setText("#di-selection-count",selectedDomains.size+" of 5 domains selected for website research");
     const button=$("#di-ai-run");
     if(button)button.disabled=selectedDomains.size===0||button.dataset.loading==="true";
+    const search=$("#di-ai-search");
+    if(search)search.disabled=!loaded||search.dataset.loading==="true";
   }
   function updateFilters(){
     if(!loaded)return;
     const query=String($("#di-new-search")?.value||"").trim().toLowerCase().split(/\s+/).filter(Boolean);
     const extension=$("#di-tld-filter")?.value||"";
+    const startsWith=$("#di-start-filter")?.value||"";
     const signal=$("#di-signal-filter")?.value||"all";
     const websiteFilter=$("#di-site-filter")?.value||"all";
     filtered=domains.filter(domain=>{
       if(extension&&domain.slice(domain.lastIndexOf(".")+1)!==extension)return false;
+      if(startsWith==="0-9"&&!/^[0-9]/.test(domain))return false;
+      if(startsWith&&startsWith!=="0-9"&&!domain.startsWith(startsWith))return false;
       if(query.length&&!query.every(term=>domain.includes(term)))return false;
       if(!matchesSignal(domain,signal))return false;
       return matchesSiteFilter(domain,websiteFilter);
@@ -154,20 +346,9 @@
     renderResults();
   }
   async function checkWebsite(domain) {
-    const current=siteChecks.get(domain);
-    if(current&&current.status==="checking")return;
-    siteChecks.set(domain,{status:"checking",status_label:"Checking website…"});
-    updateFilters();
-    try{
-      const data=await api("/v1/site-check?domain="+encodeURIComponent(domain));
-      siteChecks.set(domain,data);
-      feedback(domain+" — "+(data.status_label||"Website check complete")+". This is a reachability signal, not business verification.","success");
-    }catch(error){
-      siteChecks.set(domain,{status:"unreachable",status_label:"Check unavailable",note:error.message||""});
-      feedback(domain+" — the website check could not be completed.","error");
-    }
-    updateFilters();
+    enqueueSiteCheck(domain,true);
   }
+
   function renderDomainCard(domain){
     const info=classify(domain);
     const card=makeNode("article","di-domain-card");
@@ -204,11 +385,7 @@
     selectBox.disabled=!selectBox.checked&&selectedDomains.size>=5;
     selectBox.setAttribute("aria-label","Select "+domain+" for Premium AI research");
     selectBox.addEventListener("change",()=>{
-      if(selectBox.checked){
-        if(selectedDomains.size>=5){selectBox.checked=false;feedback("Premium research is limited to five selected domains per run.","error");return;}
-        selectedDomains.add(domain);
-      }else selectedDomains.delete(domain);
-      updateSelectionUI();
+      if(!setDomainSelected(domain,selectBox.checked))selectBox.checked=false;
       const visible=domains.filter(item=>selectedDomains.has(item));
       if(visible.length)feedback(visible.length+" domain"+(visible.length===1?"":"s")+" selected for AI research.","");
     });
@@ -262,6 +439,7 @@
       ?("Showing "+number(start+1)+"–"+number(Math.min(start+PAGE_SIZE,total))+" of "+number(total)+" matching domains in the "+number(domains.length)+"-domain snapshot.")
       :"No matches in the current snapshot. Adjust the filters to broaden your search.","");
     pagination.hidden=total<=PAGE_SIZE;
+    scheduleVisibleSiteChecks(pageItems);
     setText("#di-page-summary",number(total)+" matches");
     setText("#di-page-number","Page "+currentPage+" of "+pageCount);
     const previous=$("#di-prev-page"),next=$("#di-next-page");
@@ -276,6 +454,113 @@
     csrfToken=data.token||"";
     if(!csrfToken)throw new Error("Could not establish a secure request. Refresh the page and try again.");
     return csrfToken;
+  }
+  function renderIntentSearch(data){
+    const root=$("#di-ai-search-results");
+    if(!root)return;
+    root.replaceChildren();
+    root.hidden=false;
+    const header=makeNode("div","di-ai-results-heading");
+    const intro=makeNode("div","");
+    intro.append(makeNode("span","di-ai-kicker","AI INTENT MATCHES"));
+    intro.append(makeNode("h4","","Domains matching your business intent"));
+    intro.append(makeNode("p","",data.summary||"AI ranked the strongest candidates from the locally scanned domain names."));
+    header.append(intro);
+    root.append(header);
+    const results=Array.isArray(data.results)?data.results:[];
+    if(!results.length){
+      const empty=makeNode("div","di-empty-state");
+      empty.append(makeNode("strong","","No strong matches were returned."),makeNode("p","","Try a broader business description or include related industry terms."));
+      root.append(empty);
+      return;
+    }
+    results.forEach(item=>{
+      const card=makeNode("article","di-ai-result-card di-ai-intent-card");
+      const top=makeNode("div","di-ai-result-top");
+      const title=makeNode("div","");
+      title.append(makeNode("h4","",item.domain),makeNode("span","di-ai-result-industry",item.industry||item.likelyBusinessType||"Possible business match"));
+      const badges=makeNode("div","di-ai-result-badges");
+      badges.append(makeNode("span","di-ai-score","Intent fit "+Number(item.fitScore||0)+"/100"));
+      top.append(title,badges);
+      card.append(top);
+      if(item.reason)card.append(makeNode("p","di-ai-result-why",item.reason));
+      const selectLabel=makeNode("label","di-ai-intent-select");
+      const checkbox=document.createElement("input");
+      checkbox.type="checkbox";
+      checkbox.checked=selectedDomains.has(item.domain);
+      checkbox.disabled=!checkbox.checked&&selectedDomains.size>=5;
+      checkbox.dataset.domain=item.domain;
+      checkbox.addEventListener("change",()=>{
+        if(!setDomainSelected(item.domain,checkbox.checked))checkbox.checked=false;
+        root.querySelectorAll('input[type="checkbox"]').forEach(control=>{
+          const domain=control.dataset.domain||"";
+          control.checked=selectedDomains.has(domain);
+          control.disabled=!control.checked&&selectedDomains.size>=5;
+        });
+      });
+      selectLabel.append(checkbox,document.createTextNode("Select for homepage research"));
+      card.append(selectLabel);
+      root.append(card);
+    });
+  }
+  async function runAiIntentSearch(){
+    const button=$("#di-ai-search");
+    const criteria=String($("#di-ai-criteria")?.value||"").trim();
+    if(!loaded){sayAiSearch("Load the latest domain snapshot before using Premium intent search.","error");return;}
+    if(criteria.length<8){sayAiSearch("Describe the sector or type of business you want to discover.","error");$("#di-ai-criteria")?.focus();return;}
+    const candidates=collectIntentCandidates(criteria);
+    if(!candidates.length){
+      selectedDomains.clear();
+      updateSelectionUI();
+      renderIntentSearch({summary:"The local scan did not find candidate names containing the requested terms or related industry wording.",results:[]});
+      sayAiSearch("No name-based candidates were found. Try a sector synonym or a broader description.","error");
+      return;
+    }
+    if(!button)return;
+    selectedDomains.clear();
+    updateSelectionUI();
+    button.disabled=true;
+    button.dataset.loading="true";
+    button.textContent="Searching…";
+    sayAiSearch("Scanning "+number(domains.length)+" domain names locally and asking AI to rank up to "+candidates.length+" relevant candidates…","");
+    $("#di-ai-search-results").hidden=true;
+    try{
+      const requestId=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():("di-search-"+Date.now()+"-"+Math.random().toString(16).slice(2));
+      const csrf=await ensureCsrf();
+      const response=await fetch("/api/tools/domain-intelligence/intent-search",{
+        method:"POST",credentials:"same-origin",cache:"no-store",
+        headers:{"Content-Type":"application/json","X-CSRF-Token":csrf,"X-Idempotency-Key":requestId},
+        body:JSON.stringify({criteria,candidates,requestId})
+      });
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok||data.ok===false){
+        const error=new Error(data.message||"AI intent search could not be completed.");
+        error.code=data.error||"DOMAIN_INTENT_SEARCH_FAILED";
+        error.balance=data.balance;
+        error.estimatedCredits=data.estimatedCredits;
+        throw error;
+      }
+      lastIntentResults=data.results||[];
+      renderIntentSearch(data);
+      const usage=data.usage||{};
+      sayAiSearch("AI search complete. "+number(lastIntentResults.length)+" likely matches found from "+number(candidates.length)+" candidates · "+number(usage.creditsCharged||0)+" credits used · "+number(usage.creditsRemaining||0)+" remaining.","success");
+    }catch(error){
+      let message=error.message||"AI intent search could not be completed.";
+      if(error.code==="AUTH_REQUIRED"||error.code==="UNAUTHENTICATED")message="Sign in to use Premium Business Radar.";
+      if(error.code==="PREMIUM_MEMBERSHIP_REQUIRED")message="An active TeamPeach membership is required for AI intent search.";
+      if(error.code==="INSUFFICIENT_CREDITS")message=message+" Balance: "+number(error.balance)+" credits; estimated requirement: "+number(error.estimatedCredits)+" credits.";
+      sayAiSearch(message,"error");
+    }finally{
+      button.dataset.loading="false";
+      button.innerHTML='Search with AI <span>↗</span>';
+      updateSelectionUI();
+    }
+  }
+  function sayAiSearch(message,state){
+    const item=$("#di-ai-search-feedback");
+    if(!item)return;
+    item.textContent=message||"";
+    item.dataset.state=state||"";
   }
   async function runAiResearch(){
     const button=$("#di-ai-run");
@@ -405,47 +690,22 @@
     }
     button.disabled=true;
     button.textContent="Loading snapshot…";
-    feedback("Downloading and preparing the latest new-domain list. The feed is processed in your browser.","");
+    feedback("Checking the browser cache and preparing the latest domain snapshot locally.","");
     try{
-      const response=await fetch(API+"/v1/new-domains",{method:"GET",mode:"cors",credentials:"omit",cache:"no-store",headers:{Accept:"application/gzip"}});
-      if(!response.ok){
-        const problem=await response.json().catch(()=>({}));
-        throw new Error(problem.detail||problem.error||"The new-domain feed could not be downloaded.");
-      }
-      const reader=response.body.pipeThrough(new DecompressionStream("gzip")).getReader();
-      const decoder=new TextDecoder();
-      let remainder="";
-      let count=0;
-      while(true){
-        const chunk=await reader.read();
-        if(chunk.done)break;
-        const text=decoder.decode(chunk.value,{stream:true});
-        const combined=remainder+text;
-        const lastBreak=combined.lastIndexOf("\n");
-        if(lastBreak<0){remainder=combined;continue;}
-        const lines=combined.slice(0,lastBreak).split("\n");
-        for(const line of lines){
-          const domain=line.trim();
-          if(domain&&domain.length<=253&&domain.includes(".")){domains.push(domain);count++;}
-        }
-        remainder=combined.slice(lastBreak+1);
-      }
-      remainder+=decoder.decode();
-      if(remainder.trim()){domains.push(remainder.trim());count++;}
+      domains=[];
+      const snapshotDate=summary&&summary.date||"";
+      const stored=await loadSnapshotBlob(snapshotDate);
+      const count=await parseCompressedDomainBlob(stored.blob);
       if(!count)throw new Error("The downloaded snapshot did not contain any valid domain rows.");
-      const snapshotDate=response.headers.get("X-Snapshot-Date")|| (summary&&summary.date)||"latest";
-      if(summary&&summary.date&&snapshotDate!==summary.date){
-        domains=[];
-        throw new Error("The feed date does not match the latest summary. Reload the page and try again.");
-      }
       domains=domains.filter((domain,index,array)=>index===0||domain!==array[index-1]);
       loaded=true;
       populateExtensions();
-      ["#di-new-search","#di-tld-filter","#di-signal-filter","#di-site-filter"].forEach(selector=>{const control=$(selector);if(control)control.disabled=false;});
-      button.textContent="Snapshot loaded";
+      ["#di-new-search","#di-start-filter","#di-tld-filter","#di-signal-filter","#di-site-filter"].forEach(selector=>{const control=$(selector);if(control)control.disabled=false;});
+      button.textContent=stored.cached?"Snapshot ready from this browser":"Snapshot downloaded and cached";
       setText("#di-feed-caption",number(domains.length)+" domain names loaded · snapshot "+snapshotDate);
-      feedback(number(domains.length)+" newly observed domains are ready to explore.","success");
+      feedback(number(domains.length)+" newly observed domains are ready. "+(stored.cached?"The browser reused its local dataset cache.":"The dataset has been cached in this browser for next time."),"success");
       updateFilters();
+      updateSelectionUI();
     }catch(error){
       domains=[];
       button.disabled=false;
@@ -453,6 +713,7 @@
       feedback(error.message||"The new-domain feed could not be loaded.","error");
     }
   }
+
   function changePage(direction){
     const count=Math.max(1,Math.ceil(filtered.length/PAGE_SIZE));
     currentPage=Math.max(1,Math.min(count,currentPage+direction));
@@ -526,9 +787,11 @@
     window.clearTimeout(filterTimer);
     filterTimer=window.setTimeout(updateFilters,120);
   });
+  $("#di-start-filter")?.addEventListener("change",updateFilters);
   $("#di-tld-filter")?.addEventListener("change",updateFilters);
   $("#di-signal-filter")?.addEventListener("change",updateFilters);
   $("#di-site-filter")?.addEventListener("change",updateFilters);
+  $("#di-ai-search")?.addEventListener("click",runAiIntentSearch);
   $("#di-ai-run")?.addEventListener("click",runAiResearch);
   $("#di-prev-page")?.addEventListener("click",()=>changePage(-1));
   $("#di-next-page")?.addEventListener("click",()=>changePage(1));
