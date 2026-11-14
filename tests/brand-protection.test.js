@@ -42,7 +42,7 @@ test("Brand Protection Monitor detects lookalike digits and account-related word
  const login=Engine.analyseDomain("teampeach-login.com",[brand]);
  assert.equal(login.length,1);
  assert.equal(login[0].priority,"High priority");
- assert.match(login[0].reason,/account access or verification/i);
+ assert.match(login[0].reason,/account access, verification or payments/i);
 });
 
 test("Brand Protection Monitor excludes the official domain and ignores unrelated domains",()=>{
@@ -65,7 +65,7 @@ test("Brand Protection Monitor page, local scripts and tool listings are present
  const catalogue=read("public/tools/index.html");
  const dashboard=read("public/dashboard/tools/index.html");
  for(const id of ["bp-brand-form","bp-brand-name","bp-official-domain","bp-watchlist","bp-run-scan","bp-results","bp-export","bp-priority-filter"])assert.ok(page.includes('id="'+id+'"'),"missing "+id);
- assert.match(page,/local browser/i);
+ assert.match(page,/Your brand names stay in this browser/i);
  assert.match(page,/does not send automatic alerts/i);
  assert.match(script,/indexedDB\.open/);
  assert.match(script,/localStorage/);
