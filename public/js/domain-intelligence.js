@@ -93,6 +93,19 @@
       return true;
     }catch(_){return false;}
   }
+  async function cacheClear(storeName){
+    try{
+      const db=await openDomainCache();
+      await new Promise((resolve,reject)=>{
+        const transaction=db.transaction(storeName,"readwrite");
+        transaction.objectStore(storeName).clear();
+        transaction.oncomplete=()=>resolve(true);
+        transaction.onerror=()=>reject(transaction.error||new Error("Cache cleanup failed"));
+        transaction.onabort=()=>reject(transaction.error||new Error("Cache cleanup aborted"));
+      });
+      return true;
+    }catch(_){return false;}
+  }
   async function parseCompressedDomainBlob(blob){
     const reader=blob.stream().pipeThrough(new DecompressionStream("gzip")).getReader();
     const decoder=new TextDecoder();
@@ -120,6 +133,7 @@
   async function loadSnapshotBlob(snapshotDate){
     const cached=await cacheGet("snapshots",snapshotDate);
     if(cached&&cached.blob instanceof Blob)return{blob:cached.blob,cached:true};
+    await Promise.all([cacheClear("snapshots"),cacheClear("siteChecks")]);
     const response=await fetch(API+"/v1/new-domains",{method:"GET",mode:"cors",credentials:"omit",cache:"no-store",headers:{Accept:"application/gzip"}});
     if(!response.ok){
       const problem=await response.json().catch(()=>({}));
