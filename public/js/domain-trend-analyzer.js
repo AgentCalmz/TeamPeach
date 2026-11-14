@@ -15,19 +15,26 @@
     "info","site","web","website","app","apps","hub","pro","plus","now","go","the","to","in","of","on","at","by","as","is","it","a","an"
   ]);
   const INDUSTRIES=[
-    {label:"Oil, gas & energy",terms:["petroleum","oilfield","oilfields","drilling","offshore","pipeline","refinery","refining","hydrocarbon","energy","lng","lpg","crude","lubricant","fuel","oil","gas"]},
-    {label:"Agriculture",terms:["agriculture","agricultural","agribusiness","farming","farm","farms","livestock","poultry","dairy","irrigation","crops","agro","seeds","tractor"]},
-    {label:"Technology",terms:["software","saas","cybersecurity","cyber","cloud","developer","coding","programming","artificialintelligence","machinelearning","data","tech","digital","app","apps","ai"]},
-    {label:"Finance & insurance",terms:["fintech","banking","bank","finance","financial","payment","payments","wallet","credit","loan","lending","insurance","investment","capital","accounting"]},
-    {label:"Healthcare",terms:["healthcare","health","medical","clinic","clinics","hospital","doctor","dental","dentist","pharma","pharmacy","wellness","diagnostic","laboratory"]},
-    {label:"Education",terms:["education","school","schools","academy","academies","college","university","learning","training","tutor","course","courses"]},
-    {label:"Construction & property",terms:["construction","contractor","building","builder","civil","engineering","cement","concrete","architect","property","realty","realestate","estate","housing"]},
-    {label:"Logistics & transport",terms:["logistics","transport","transportation","freight","cargo","shipping","delivery","courier","dispatch","warehouse","warehousing","haulage"]},
-    {label:"Retail & commerce",terms:["ecommerce","ecom","retail","shopping","shop","shops","store","stores","market","marketplace","fashion","boutique","commerce"]},
-    {label:"Food & hospitality",terms:["hospitality","hotel","hotels","restaurant","restaurants","food","catering","tourism","travel","resort","resorts","cafe","coffee","bakery"]},
-    {label:"Automotive",terms:["automotive","vehicle","vehicles","motor","motors","garage","mechanic","auto","car","cars","spareparts"]},
-    {label:"Manufacturing",terms:["manufacturing","factory","factories","industrial","industry","production","fabrication","machinery","equipment"]}
-  ];
+    {label:"AI & machine learning",terms:["artificialintelligence","machinelearning","generativeai","genai","aiplatform","aiassistant","aiagent","aibot","chatbot","chatbots","llm","neural","promptengineering","ai"]},
+    {label:"Software & SaaS",terms:["software","saas","platform","cloud","api","developer","development","coding","code","crm","erp","hosting","webdesign","website","technology","tech","app","apps"]},
+    {label:"Cybersecurity & IT",terms:["cybersecurity","cyber","infosec","security","secure","firewall","antivirus","malware","privacy","vpn","encryption","identity"]},
+    {label:"Business & professional services",terms:["business","consulting","consultant","consultancy","agency","agencies","accounting","accountant","legal","lawyer","law","advisory","management","recruitment","staffing","outsourcing","corporate","enterprise","enterprises"]},
+    {label:"E-commerce & retail",terms:["ecommerce","ecom","retail","shopping","shop","shops","store","stores","marketplace","market","fashion","boutique","commerce","wholesale"]},
+    {label:"Finance & fintech",terms:["fintech","finance","financial","bank","banking","payment","payments","wallet","credit","loan","lending","insurance","investment","investing","capital","accounting"]},
+    {label:"Crypto & blockchain",terms:["crypto","cryptocurrency","blockchain","bitcoin","ethereum","web3","defi","token","tokens","nft"]},
+    {label:"Healthcare & wellness",terms:["healthcare","health","medical","clinic","clinics","hospital","doctor","dental","dentist","pharma","pharmacy","wellness","fitness","diagnostic","laboratory","therapy"]},
+    {label:"Education & learning",terms:["education","school","schools","academy","academies","college","university","learning","training","tutor","course","courses","elearning","edtech"]},
+    {label:"Real estate & construction",terms:["construction","contractor","building","builder","civil","engineering","cement","concrete","architect","property","properties","realty","realestate","estate","housing","mortgage"]},
+    {label:"Energy & sustainability",terms:["energy","solar","renewable","sustainability","sustainable","battery","petroleum","oilfield","drilling","offshore","pipeline","refinery","fuel","climate","greenenergy"]},
+    {label:"Agriculture & agribusiness",terms:["agriculture","agricultural","agribusiness","farming","farm","farms","livestock","poultry","dairy","irrigation","crops","agro","seeds","tractor","harvest","fertilizer"]},
+    {label:"Food & hospitality",terms:["food","catering","hotel","hotels","restaurant","restaurants","hospitality","tourism","resort","resorts","cafe","coffee","bakery","kitchen","chef"]},
+    {label:"Logistics & transport",terms:["logistics","transport","transportation","freight","cargo","shipping","delivery","courier","dispatch","warehouse","warehousing","haulage","trucking","fleet"]},
+    {label:"Media & marketing",terms:["marketing","media","advertising","advert","branding","brand","content","creative","design","studio","video","podcast","socialmedia","seo","publicrelations"]},
+    {label:"Automotive & mobility",terms:["automotive","vehicle","vehicles","motor","motors","garage","mechanic","auto","cars","carparts","spareparts","mobility"]},
+    {label:"Gaming & entertainment",terms:["gaming","games","game","esports","entertainment","music","cinema","streaming","arcade","animation","events","sports"]},
+    {label:"Beauty & lifestyle",terms:["beauty","salon","spa","barber","hair","skincare","cosmetics","nails","lifestyle","fashion"]},
+    {label:"Nonprofit & community",terms:["charity","foundation","nonprofit","ngo","community","volunteer","donation","socialimpact","association"]}
+  ];;
 
   function setText(selector,value){
     const node=$(selector);
@@ -60,15 +67,27 @@
     });
     return totals;
   }
+  function aggregateCategories(rows){
+    const totals=new Map();
+    rows.forEach(row=>{
+      const counts=row.by_category&&row.by_category.new_domains||{};
+      Object.entries(counts).forEach(([category,count])=>totals.set(category,(totals.get(category)||0)+Number(count||0)));
+    });
+    return totals;
+  }
   function renderMetrics(rows){
     const newTotal=rows.reduce((sum,row)=>sum+Number(row.counts.new_domains||0),0);
     const removedTotal=rows.reduce((sum,row)=>sum+Number(row.counts.removed_domains||0),0);
     const tlds=aggregateTlds(rows,"new_domains");
     const top=[...tlds.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]))[0];
+    const categories=aggregateCategories(rows);
+    const topCategory=[...categories.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]))[0];
     setText("#dt-total-new",number(newTotal));
     setText("#dt-total-removed",number(removedTotal));
     setText("#dt-top-tld",top?"."+top[0]:"—");
     setText("#dt-top-tld-count",top?number(top[1])+" observations in selected snapshots":"No extension counts available");
+    setText("#dt-top-category",topCategory?topCategory[0]:"—");
+    setText("#dt-top-category-count",topCategory?number(topCategory[1])+" name-based signals":"No category counts available");
     setText("#dt-total-days",number(rows.length));
     setText("#dt-days-caption",rows.length===1?"One published snapshot":"Published snapshots");
     setText("#dt-new-caption",rows.length===1?"Latest available daily snapshot":"Across "+rows.length+" available snapshots");
@@ -145,6 +164,49 @@
     });
     table.append(body);root.append(table);
   }
+  function renderCategoryChart(rows){
+    const entries=[...aggregateCategories(rows).entries()]
+      .sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
+    renderRankChart("#dt-category-chart",entries,14,false);
+    const root=$("#dt-category-chart");
+    if(root&&entries.length===0){
+      root.replaceChildren(make("div","dt-placeholder","Category counts are not available in these snapshots yet."));
+    }
+  }
+  function renderCategoryMovement(rows){
+    const root=$("#dt-category-movement");
+    if(!root)return;
+    root.replaceChildren();
+    if(rows.length<2){
+      root.append(make("div","dt-placeholder","At least two daily snapshots are needed for category movement."));
+      return;
+    }
+    const previous=rows[rows.length-2].by_category?.new_domains||{};
+    const current=rows[rows.length-1].by_category?.new_domains||{};
+    if(!Object.keys(previous).length||!Object.keys(current).length){
+      root.append(make("div","dt-placeholder","Category history is not available for both latest snapshots yet."));
+      return;
+    }
+    const categories=new Set([...Object.keys(previous),...Object.keys(current)]);
+    const changes=[...categories].map(category=>{
+      const before=Number(previous[category]||0),after=Number(current[category]||0);
+      return{category,before,after,change:after-before};
+    }).sort((a,b)=>Math.abs(b.change)-Math.abs(a.change)||a.category.localeCompare(b.category)).slice(0,9);
+    const table=make("table","dt-table");
+    const head=make("thead","");
+    const header=make("tr","");
+    ["Category","Previous","Latest","Change"].forEach(label=>header.append(make("th","",label)));
+    head.append(header);table.append(head);
+    const body=make("tbody","");
+    changes.forEach(item=>{
+      const row=make("tr","");
+      row.append(make("td","",item.category),make("td","",number(item.before)),make("td","",number(item.after)));
+      row.append(make("td",item.change>0?"dt-change-up":item.change<0?"dt-change-down":"dt-change-flat",
+        (item.change>0?"+":"")+number(item.change)));
+      body.append(row);
+    });
+    table.append(body);root.append(table);
+  }
   function renderComparison(rows){
     const root=$("#dt-comparison-chart");
     if(!root)return;
@@ -199,12 +261,14 @@
     renderRankChart("#dt-tld-chart",[...tlds.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])),10);
     renderMovement(rows);
     renderComparison(rows);
+    renderCategoryChart(rows);
+    renderCategoryMovement(rows);
     renderHistoryTable(rows);
   }
   async function loadTrends(){
     const period=Number($("#dt-period")?.value||30);
     showFeedback("Retrieving published daily snapshots…","");
-    ["#dt-volume-chart","#dt-tld-chart","#dt-movement-table","#dt-comparison-chart","#dt-history-table"].forEach(selector=>{
+    ["#dt-volume-chart","#dt-tld-chart","#dt-movement-table","#dt-comparison-chart","#dt-category-chart","#dt-category-movement","#dt-history-table"].forEach(selector=>{
       const node=$(selector);
       if(node)node.setAttribute("aria-busy","true");
     });
@@ -224,11 +288,11 @@
       showFeedback(error.message||"Historical domain trends could not be loaded.","error");
       setText("#dt-latest-date","Unavailable");
       setText("#dt-hero-status","The daily trend service could not be reached.");
-      ["#dt-volume-chart","#dt-tld-chart","#dt-movement-table","#dt-comparison-chart","#dt-history-table"].forEach(selector=>{
+      ["#dt-volume-chart","#dt-tld-chart","#dt-movement-table","#dt-comparison-chart","#dt-category-chart","#dt-category-movement","#dt-history-table"].forEach(selector=>{
         const node=$(selector);if(node)node.setAttribute("aria-busy","false");
       });
     }finally{
-      ["#dt-volume-chart","#dt-tld-chart","#dt-movement-table","#dt-comparison-chart","#dt-history-table"].forEach(selector=>{
+      ["#dt-volume-chart","#dt-tld-chart","#dt-movement-table","#dt-comparison-chart","#dt-category-chart","#dt-category-movement","#dt-history-table"].forEach(selector=>{
         const node=$(selector);if(node)node.setAttribute("aria-busy","false");
       });
     }
