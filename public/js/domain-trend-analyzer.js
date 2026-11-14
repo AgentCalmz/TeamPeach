@@ -98,14 +98,14 @@
     });
     if(!rows.length)root.append(make("div","dt-placeholder","No daily snapshots are available for this period."));
   }
-  function renderRankChart(rootSelector,entries,limit){
+  function renderRankChart(rootSelector,entries,limit,prefixTld=true){
     const root=$(rootSelector);
     if(!root)return;
     root.replaceChildren();
     const max=Math.max(1,...entries.slice(0,limit).map(item=>Number(item[1]||0)));
     entries.slice(0,limit).forEach(([label,count])=>{
       const row=make("div","dt-rank-row");
-      row.append(make("span","dt-rank-label",label.startsWith(".")?label:"."+label));
+      row.append(make("span","dt-rank-label",prefixTld?(label.startsWith(".")?label:"."+label):label));
       const track=make("div","dt-rank-track");
       const fill=make("div","dt-rank-fill");
       fill.style.width=Math.max(1,(Number(count||0)/max)*100)+"%";
@@ -348,8 +348,8 @@
         industries:[...industries.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).slice(0,12),
         cached:stored.cached
       };
-      renderRankChart("#dt-keyword-chart",patternResults.tokens,14);
-      renderRankChart("#dt-industry-chart",patternResults.industries,12);
+      renderRankChart("#dt-keyword-chart",patternResults.tokens,14,false);
+      renderRankChart("#dt-industry-chart",patternResults.industries,12,false);
       results.hidden=false;
       feedback.textContent=number(patternResults.scanned)+" domain names scanned in your browser. "+(patternResults.cached?"The existing local dataset cache was reused.":"The dataset was downloaded and saved in the browser cache.");
       feedback.dataset.state="success";
