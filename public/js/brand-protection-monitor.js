@@ -55,6 +55,22 @@
     const runButton=$("#bp-run-scan");
     if(runButton)runButton.disabled=!watchlist.length||scanRunning;
   }
+  function clearScanResults(){
+    matches=[];
+    matchTotals={all:0,high:0,possible:0,review:0};
+    scannedCount=0;
+    latestDate="";
+    const root=$("#bp-results");
+    if(root)root.replaceChildren();
+    const empty=$("#bp-results-empty");
+    if(empty){
+      empty.hidden=false;
+      empty.textContent="Your watchlist changed. Run a new scan to refresh the results.";
+    }
+    setText("#bp-results-note","");
+    setText("#bp-progress","");
+    updateMetrics();
+  }
   function renderWatchlist(){
     const root=$("#bp-watchlist");
     if(!root)return;
@@ -70,9 +86,12 @@
         const remove=make("button","bp-remove-brand","Remove");
         remove.type="button";
         remove.setAttribute("aria-label","Remove "+item.name+" from the watchlist");
+        remove.disabled=scanRunning;
         remove.addEventListener("click",()=>{
+          if(scanRunning)return;
           watchlist.splice(index,1);
           saveWatchlist();
+          clearScanResults();
           renderWatchlist();
           updateMetrics();
           showStatus("Brand removed from this browser's watchlist.","success");
@@ -82,6 +101,8 @@
       });
     }
     setText("#bp-watchlist-caption",watchlist.length+" of "+MAX_BRANDS+" protected names");
+    const form=$("#bp-brand-form");
+    if(form)form.querySelectorAll("input,button").forEach(control=>control.disabled=scanRunning);
     updateMetrics();
   }
 
@@ -262,6 +283,7 @@
     scannedCount=0;
     const button=$("#bp-run-scan");
     if(button){button.disabled=true;button.textContent="Scanning locally…";}
+    renderWatchlist();
     const progress=$("#bp-progress");
     if(progress)progress.textContent="Retrieving the latest compressed domain snapshot…";
     showStatus("Your protected brand names stay in this browser. The public domain feed is downloaded directly for local analysis.","");
@@ -296,11 +318,13 @@
     const name=$("#bp-brand-name")?.value||"";
     const official=$("#bp-official-domain")?.value||"";
     try{
+      if(scanRunning)throw new Error("Wait for the current scan to finish before changing the watchlist.");
       const item=Engine.prepareBrand(name,official);
       if(watchlist.length>=MAX_BRANDS)throw new Error("Your browser watchlist can contain up to "+MAX_BRANDS+" brands.");
       if(watchlist.some(saved=>saved.normalized===item.normalized))throw new Error("That brand is already in your watchlist.");
       watchlist.push(item);
       saveWatchlist();
+      clearScanResults();
       renderWatchlist();
       $("#bp-brand-name").value="";
       $("#bp-official-domain").value="";
