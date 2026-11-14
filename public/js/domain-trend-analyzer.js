@@ -34,7 +34,7 @@
     {label:"Gaming & entertainment",terms:["gaming","games","game","esports","entertainment","music","cinema","streaming","arcade","animation","events","sports"]},
     {label:"Beauty & lifestyle",terms:["beauty","salon","spa","barber","hair","skincare","cosmetics","nails","lifestyle","fashion"]},
     {label:"Nonprofit & community",terms:["charity","foundation","nonprofit","ngo","community","volunteer","donation","socialimpact","association"]}
-  ];;
+  ];
 
   function setText(selector,value){
     const node=$(selector);
