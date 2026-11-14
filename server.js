@@ -1696,7 +1696,7 @@ async function domainRadarSiteSignal(domain) {
    return {
     status:cleanText(data.status,40)||"not_checked",
     statusLabel:cleanText(data.status_label,100)||"Status unavailable",
-    httpStatus:Number.isInteger(Number(data.http_status))?Number(data.http_status):null,
+    httpStatus:data.http_status!==null&&data.http_status!==undefined&&Number.isInteger(Number(data.http_status))?Number(data.http_status):null,
     finalUrl:cleanText(data.final_url,500),
     title:cleanText(data.title,300),
     description:cleanText(data.description,500),
