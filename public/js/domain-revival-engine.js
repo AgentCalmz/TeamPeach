@@ -8,11 +8,17 @@
   const TLD_POINTS={com:20,org:14,net:12,co:12,io:11,ai:11,app:9,dev:9,me:8,uk:7,ng:8};
   function normalizeDomain(input){
     let raw=String(input||"").trim().toLowerCase();
-    if(!raw||raw.length>253||/[\s/@?#%\\]/.test(raw))return "";
+    if(!raw||raw.length>2048)return "";
     try{
-      const parsed=new URL(raw.includes("://")?raw:"https://"+raw);
-      if(parsed.username||parsed.password||parsed.port||parsed.pathname!=="/"||parsed.search||parsed.hash)return "";
-      raw=parsed.hostname.replace(/\.$/,"");
+      if(raw.includes("://")){
+        const parsed=new URL(raw);
+        if(!["http:","https:"].includes(parsed.protocol)||parsed.username||parsed.password||parsed.port||
+           (parsed.pathname!=="/"&&parsed.pathname!=="")||parsed.search||parsed.hash)return "";
+        raw=parsed.hostname;
+      }else{
+        if(/[\\s/:@?#%\\\\]/.test(raw))return "";
+      }
+      raw=raw.replace(/\\.$/,"");
     }catch(_){return "";}
     if(raw.length>253||raw.split(".").length<2)return "";
     const labels=raw.split(".");
