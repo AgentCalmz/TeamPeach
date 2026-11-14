@@ -325,7 +325,7 @@
   function matchesSiteFilter(domain,filter) {
     if(filter==="all")return true;
     const check=siteChecks.get(domain);
-    if(filter==="unchecked")return !check||check.status==="check_error";
+    if(filter==="unchecked")return !check||check.status==="check_error"||check.status==="checking";
     if(!check)return false;
     if(filter==="working")return check.status==="working";
     if(filter==="possibly_parked")return check.status==="possibly_parked";
