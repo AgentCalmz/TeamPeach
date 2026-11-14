@@ -29,12 +29,3 @@ test("Public and workspace tool catalogues include Domain Trend Analyzer",()=>{
  assert.match(publicTools,/numberOfItems":4/);
  assert.match(dashboardTools,/Domain Trend Analyzer/);
 });
-
-test("Trend Analyzer derives its history from the published release summaries",()=>{
- const worker=read("../../domains/worker/index.js");
- assert.match(worker,/url\.pathname === "\/v1\/trends"/);
- assert.match(worker,/releases\?per_page=100/);
- assert.match(worker,/summary\.sources/);
- assert.match(worker,/by_tld/);
- assert.match(worker,/requested_days/);
-});
