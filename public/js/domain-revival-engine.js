@@ -16,9 +16,9 @@
            (parsed.pathname!=="/"&&parsed.pathname!=="")||parsed.search||parsed.hash)return "";
         raw=parsed.hostname;
       }else{
-        if(/[\\s/:@?#%\\\\]/.test(raw))return "";
+        if(/[\s/:@?#%\\]/.test(raw))return "";
       }
-      raw=raw.replace(/\\.$/,"");
+      raw=raw.replace(/\.$/,"");
     }catch(_){return "";}
     if(raw.length>253||raw.split(".").length<2)return "";
     const labels=raw.split(".");
