@@ -23,20 +23,19 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/styles.css?v=7">
-<link rel="stylesheet" href="/css/domain-intelligence.css?v=4"><link rel="stylesheet" href="/css/business-radar.css?v=1">
+<link rel="stylesheet" href="/css/domain-intelligence.css?v=4">
 <script type="application/ld+json">
 {
  "@context":"https://schema.org",
  "@graph":[
   {"@type":"Organization","@id":"https://teampeach.org/#organization","name":"TeamPeach","url":"https://teampeach.org/"},
-  {"@type":"WebApplication","@id":"https://teampeach.org/tools/domain-intelligence/#application","name":"Domain Intelligence Engine","url":"https://teampeach.org/tools/domain-intelligence/","applicationCategory":"BusinessApplication","operatingSystem":"Web","description":"A new-domain discovery and business-research tool that helps users explore Webamon's newly observed feed, check website reachability, filter listings and use Premium AI to compare selected domains against business specifications.","provider":{"@id":"https://teampeach.org/#organization"},"featureList":["Search newly observed domains","Filter by keyword and top-level domain","Check website reachability and identify possible parked pages","Review name-based business and industry clues","Premium AI specification matching for shortlisted domains","Evidence-led AI business research and opportunity suggestions","Export AI research results to CSV","Exact checks against the latest domain lifecycle feeds"]},
+  {"@type":"WebApplication","@id":"https://teampeach.org/tools/domain-intelligence/#application","name":"Domain Intelligence Engine","url":"https://teampeach.org/tools/domain-intelligence/","applicationCategory":"BusinessApplication","operatingSystem":"Web","description":"A public-data domain discovery tool for exploring Webamon's newly observed feed, filtering domain names, checking website reachability and reviewing domain lifecycle signals across public datasets.","provider":{"@id":"https://teampeach.org/#organization"},"featureList":["Search newly observed domains","Filter by keyword, first character and top-level domain","Filter name-based business, customer-service and automation signals","Check website reachability and identify possible parked pages","Review domain lifecycle statistics across public feeds","Run exact domain checks against new, removed, expired and dropped datasets","Explore the public snapshot locally in the browser"]},
   {"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://teampeach.org/"},{"@type":"ListItem","position":2,"name":"Tools","item":"https://teampeach.org/tools/"},{"@type":"ListItem","position":3,"name":"Domain Intelligence Engine","item":"https://teampeach.org/tools/domain-intelligence/"}]},
   {"@type":"FAQPage","mainEntity":[
-   {"@type":"Question","name":"What can I discover with the Domain Intelligence Engine?","acceptedAnswer":{"@type":"Answer","text":"You can explore domains in the latest newly observed Webamon feed, search by name or extension, and review possible industry and service signals based on words in each domain name."}},
+   {"@type":"Question","name":"What can I discover with the Domain Intelligence Engine?","acceptedAnswer":{"@type":"Answer","text":"You can search the latest newly observed Webamon domain feed by keyword, first character and extension, filter name-based business or service wording, check website reachability and look up exact domains across public lifecycle datasets."}},
    {"@type":"Question","name":"Does a newly observed domain prove that a business has launched?","acceptedAnswer":{"@type":"Answer","text":"No. It means the domain appeared in Webamon's monitored zone-file data. A domain name or keyword clue does not confirm that a business exists, is operating, or needs a particular service."}},
    {"@type":"Question","name":"Is the observation date the domain's registration date?","acceptedAnswer":{"@type":"Answer","text":"No. The snapshot date is when the domain appears in the source feed. It is not a guaranteed registrar creation timestamp."}},
-   {"@type":"Question","name":"Do discovery searches use TeamPeach AI credits?","acceptedAnswer":{"@type":"Answer","text":"No. Loading the feed, searching, filtering and checking website reachability do not consume AI credits. Premium AI listing research uses credits based on actual AI usage and requires an active membership."}},
-   {"@type":"Question","name":"What does Premium AI Business Radar research do?","acceptedAnswer":{"@type":"Answer","text":"Premium users can describe a business intent, use AI to rank candidate domain names, then select up to five domains for homepage reachability checks and evidence-led AI research. Website research reads a bounded amount of visible homepage text; it is not a full-site crawl or proof of business ownership. Each AI action uses credits."}},
+   {"@type":"Question","name":"Do discovery searches use TeamPeach AI credits?","acceptedAnswer":{"@type":"Answer","text":"No. Domain Intelligence feed loading, local searching, filtering and routine website reachability checks do not consume AI credits. AI intent matching and selected-website research are available separately in TeamPeach Business Radar."}},
    {"@type":"Question","name":"Does a website responding mean the domain belongs to an operating business?","acceptedAnswer":{"@type":"Answer","text":"No. Website status is a lightweight reachability check. A responding website, redirect, parked page or unavailable site does not prove business identity, ownership, legitimacy or purchasing intent."}},
    {"@type":"Question","name":"Does a removed domain mean it is available to register?","acceptedAnswer":{"@type":"Answer","text":"No. Removal from a monitored zone-file feed does not prove expiry or current registration availability. Verify current status with RDAP and a registrar."}}
   ]}
@@ -57,7 +56,7 @@
   <p class="eyebrow"><span></span> DOMAIN INTELLIGENCE / NEW-DOMAIN DISCOVERY</p>
   <h1>Explore new domains<br><em>emerging across the web.</em></h1>
   <p class="domain-intel-lede">Search newly observed domain names, filter by keyword and extension, check website reachability and compare domain lifecycle signals from public datasets. Use the feed as a starting point for independent research.</p>
-  <div class="domain-intel-trust"><span><i></i> Daily new-domain observations</span><span><i></i> Keyword and extension discovery</span><span><i></i> No AI credits for browsing</span></div>
+  <div class="domain-intel-trust"><span><i></i> Daily new-domain observations</span><span><i></i> Keyword and extension discovery</span><span><i></i> Local browser-side exploration</span></div>
  </div>
  <aside class="domain-intel-hero-panel" aria-label="Latest new-domain snapshot">
   <div class="domain-intel-panel-top"><span>LATEST NEW-DOMAIN SNAPSHOT</span><span class="domain-intel-pulse"></span></div>
@@ -71,7 +70,7 @@
 <section class="page-wrap domain-intel-workspace" aria-labelledby="di-explorer-title">
  <div class="domain-intel-workspace-heading">
   <div><p class="eyebrow"><span></span> NEW DOMAIN EXPLORER</p><h2 id="di-explorer-title">Find names worth investigating</h2><p>Search the latest newly observed domain list by keyword, first character, extension or business-related wording. The latest source list is downloaded once and cached in your browser for reuse. It can be filtered locally without using Render processing.</p></div>
-  <span class="domain-intel-free-note">Browsing and filtering are free of AI-credit charges.</span>
+  <span class="domain-intel-free-note">Local exploration uses no AI credits.</span>
  </div>
  <div class="di-load-row">
   <div><strong>Latest daily feed</strong><p id="di-feed-caption">Connect to the current snapshot to begin exploring.</p></div>
@@ -84,21 +83,6 @@
   <label><span>Name signals</span><select id="di-signal-filter" disabled><option value="all">All new domains</option><option value="business">Business-related wording</option><option value="customer">Customer-service wording</option><option value="automation">Operations and automation wording</option></select></label>
   <label><span>Website status</span><select id="di-site-filter" disabled><option value="all">All statuses</option><option value="unchecked">Not checked</option><option value="working">Website responds</option><option value="possibly_parked">Possibly parked / for sale</option><option value="redirect">Redirects elsewhere</option><option value="unreachable">No response</option><option value="other">Other response</option></select></label>
  </div>
- <section class="di-ai-panel" aria-labelledby="di-ai-title">
-  <div class="di-ai-panel-heading"><div><span class="di-ai-kicker">PREMIUM BUSINESS RADAR</span><h3 id="di-ai-title">Find businesses by intent</h3><p>Describe the sector or type of business you want to discover. TeamPeach scans the loaded domain names in your browser, then AI reviews the strongest name-based candidates and ranks the likely matches.</p><a class="di-radar-standalone-link" href="/tools/business-radar/">Open the dedicated Business Radar workspace ↗</a></div><span class="di-ai-premium-tag">Membership + credits</span></div>
-  <label class="di-ai-criteria-label" for="di-ai-criteria">What kind of businesses are you looking for?</label>
-  <textarea id="di-ai-criteria" rows="3" maxlength="700" placeholder="Example: Businesses in the oil and gas sector, including petroleum services, drilling, energy, pipeline and offshore companies."></textarea>
-  <div class="di-ai-action-row"><span id="di-selection-count">0 of 5 domains selected for website research</span><button id="di-ai-search" class="button button-dark" type="button" disabled>Search with AI <span>↗</span></button></div>
-  <p class="di-ai-credit-note">AI intent search and website research require an active TeamPeach membership and credits. Select the results you want to investigate, then run website research; both AI actions use credits based on actual usage. Loading, filtering and automatic website reachability checks do not use AI credits. Results are leads to verify, not confirmed businesses.</p>
-  <div id="di-ai-search-feedback" class="domain-intel-feedback" role="status" aria-live="polite"></div>
-  <div id="di-ai-search-results" class="di-ai-results di-ai-intent-results" hidden></div>
-  <div class="di-ai-detail-action">
-   <button id="di-ai-run" class="button button-dark" type="button" disabled>Research selected websites <span>↗</span></button>
-   <span>Choose up to five domains. TeamPeach checks each homepage before AI analysis.</span>
-  </div>
-  <div id="di-ai-feedback" class="domain-intel-feedback" role="status" aria-live="polite"></div>
-  <div id="di-ai-results" class="di-ai-results" hidden></div>
- </section>
  <div id="di-explorer-feedback" class="domain-intel-feedback" role="status" aria-live="polite">Load the latest snapshot to begin.</div>
  <div id="di-explorer-results" class="di-explorer-results" aria-live="polite">
   <div class="di-empty-state"><span class="di-empty-icon">⌕</span><strong>Your discovery workspace is ready.</strong><p>Load the latest new-domain snapshot to search and review possible business signals.</p></div>
@@ -108,17 +92,9 @@
   <div><button id="di-prev-page" type="button" disabled>Previous</button><span id="di-page-number">Page 1</span><button id="di-next-page" type="button" disabled>Next</button></div>
  </div>
  <p class="di-data-note">Source: <a href="https://codeberg.org/webamon/newly_registered_domains" target="_blank" rel="noopener noreferrer">Webamon public dataset</a>. Records are newly observed in monitored zone-file data, not guaranteed registrar creation dates. A domain name is not proof that an operating business exists.</p>
+ <p class="di-data-note">For AI-led business discovery and evidence-based research of selected websites, visit <a href="/tools/business-radar/">TeamPeach Business Radar</a>.</p>
 </section>
 
-<section class="page-wrap domain-intel-radar">
- <div class="di-radar-heading"><p class="eyebrow"><span></span> BUSINESS RADAR</p><h2>From a new name to a research lead.</h2><p>Use domain wording to identify possible sectors and reasons to investigate further. Treat every signal as a starting point, not a verified company profile or a claim that a business needs a service.</p></div>
- <div class="di-radar-grid">
-  <article><span class="di-radar-index">01</span><h3>Industry clues</h3><p>Words such as “clinic”, “academy”, “shop” or “logistics” can help organise names into possible markets for further research.</p></article>
-  <article><span class="di-radar-index">02</span><h3>Possible service fit</h3><p>Some names may suggest a reason to explore website development, content, customer support or workflow automation opportunities.</p></article>
-  <article><span class="di-radar-index">03</span><h3>Verify before outreach</h3><p>Visit promising domains and check public evidence before treating them as businesses, deciding they are prospects or contacting their owners.</p></article>
- </div>
- <p class="di-radar-caution"><strong>Evidence standard:</strong> the first release classifies wording found in domain names only. It does not yet verify ownership, live websites, company status, location, products, purchasing intent or service needs.</p>
-</section>
 
 <section class="page-wrap domain-intel-stats-section" aria-labelledby="di-dataset-title">
  <div class="domain-intel-section-heading"><div><p class="eyebrow"><span></span> THE WIDER DATASET</p><h2 id="di-dataset-title">Other domain lifecycle signals</h2></div><p id="di-updated-note">Retrieving the latest dataset summary.</p></div>
@@ -163,7 +139,8 @@
  <div class="domain-intel-faq-grid">
   <details><summary>Does a new domain mean a new business?</summary><p>Not necessarily. It may represent a business, personal project, parked name, redirect or another use. Check the live website and other public evidence before drawing a conclusion.</p></details>
   <details><summary>Is the snapshot date the registration date?</summary><p>No. It is the date of the source snapshot. Webamon records zone-file observations, not guaranteed registrar creation timestamps.</p></details>
-  <details><summary>Does this use AI credits?</summary><p>No. Loading the daily feed, searching, filtering and viewing name-based clues do not consume AI credits. Premium AI research requires an active membership and available credits. Premium first ranks candidate names against your intent. It then checks each selected homepage and analyses available title, description and visible page text. It does not crawl the rest of the website or verify ownership.</p></details>
+  <details><summary>Does this use AI credits?</summary><p>No. Loading the daily feed, searching, filtering and routine website reachability checks do not consume AI credits. Domain Intelligence does not run AI intent matching or selected-website research; those capabilities are available in <a href="/tools/business-radar/">Business Radar</a>.</p></details>
+  <details><summary>Does Domain Intelligence provide AI lead research?</summary><p>No. This tool is focused on public domain discovery and lifecycle data. For intent-based candidate matching and evidence-led research of selected websites, use <a href="/tools/business-radar/">Business Radar</a>.</p></details>
   <details><summary>Does a removed domain mean I can register it?</summary><p>No. Removal from a monitored zone-file feed does not prove expiry or current availability. Verify with current RDAP data and a registrar.</p></details>
  </div>
  <a class="domain-intel-back-link" href="/tools/">Explore all TeamPeach tools ↗</a>

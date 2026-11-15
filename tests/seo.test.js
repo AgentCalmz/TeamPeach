@@ -90,8 +90,9 @@ test("domain intelligence prioritises new-domain discovery with transparent busi
   assert.ok(page.includes('id="'+id+'"'),"missing discovery control "+id);
  }
  assert.match(page,/NEW DOMAIN EXPLORER/i);
- assert.match(page,/BUSINESS RADAR/i);
- assert.match(page,/not a verified company profile/i);
+ assert.match(page,/AI lead research/i);
+ assert.match(page,/public domain discovery and lifecycle data/i);
+ assert.match(page,/Business Radar/);
  assert.match(script,/\/v1\/new-domains/);
  assert.match(script,/DecompressionStream/);
  assert.match(script,/PAGE_SIZE=30/);

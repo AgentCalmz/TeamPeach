@@ -393,19 +393,21 @@
         :"No obvious business or service phrase was identified in the name; it may still be worth reviewing.";
     main.append(makeNode("p","di-domain-note",explanation));
     const actions=makeNode("div","di-domain-actions");
-    const selectLabel=makeNode("label","di-domain-select");
-    const selectBox=document.createElement("input");
-    selectBox.type="checkbox";
-    selectBox.checked=selectedDomains.has(domain);
-    selectBox.disabled=!selectBox.checked&&selectedDomains.size>=5;
-    selectBox.setAttribute("aria-label","Select "+domain+" for Premium AI research");
-    selectBox.addEventListener("change",()=>{
-      if(!setDomainSelected(domain,selectBox.checked))selectBox.checked=false;
-      const visible=domains.filter(item=>selectedDomains.has(item));
-      if(visible.length)feedback(visible.length+" domain"+(visible.length===1?"":"s")+" selected for AI research.","");
-    });
-    selectLabel.append(selectBox,document.createTextNode("Select for AI"));
-    actions.append(selectLabel);
+    if($(".business-radar-ai-panel")){
+      const selectLabel=makeNode("label","di-domain-select");
+      const selectBox=document.createElement("input");
+      selectBox.type="checkbox";
+      selectBox.checked=selectedDomains.has(domain);
+      selectBox.disabled=!selectBox.checked&&selectedDomains.size>=5;
+      selectBox.setAttribute("aria-label","Select "+domain+" for homepage research");
+      selectBox.addEventListener("change",()=>{
+        if(!setDomainSelected(domain,selectBox.checked))selectBox.checked=false;
+        const visible=domains.filter(item=>selectedDomains.has(item));
+        if(visible.length)feedback(visible.length+" domain"+(visible.length===1?"":"s")+" selected for homepage research.","");
+      });
+      selectLabel.append(selectBox,document.createTextNode("Select for research"));
+      actions.append(selectLabel);
+    }
     const checkButton=makeNode("button","di-domain-check",check&&check.status!=="checking"?"Check again":check?"Checking…":"Check website");
     checkButton.type="button";
     checkButton.disabled=Boolean(check&&check.status==="checking");
