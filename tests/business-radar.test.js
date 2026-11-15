@@ -14,7 +14,7 @@ test("Business Radar has a dedicated, indexable public page with direct-answer m
  assert.match(page,/"@type":"WebApplication"/);
  assert.match(page,/"@type":"FAQPage"/);
  assert.match(page,/What is TeamPeach Business Radar\?/);
- assert.match(page,/does not prove that a business has launched/);
+ assert.match(page,/does not prove a company has launched/);
  assert.match(page,/Webamon public newly observed domain dataset/);
 });
 
