@@ -75,7 +75,7 @@ test("Brand Protection Monitor page, local scripts and tool listings are present
  assert.doesNotMatch(script,/api\.deepseek\.com|DEEPSEEK_API_KEY|\/api\/tools\//);
  assert.match(engine,/damerauLevenshtein/);
  assert.match(css,/bp-result-card/);
- assert.match(catalogue,/numberOfItems":6/);
+ assert.match(catalogue,/numberOfItems":7/);
  assert.match(catalogue,/Brand Protection Monitor/);
  assert.match(dashboard,/\/tools\/brand-protection-monitor\//);
 });
