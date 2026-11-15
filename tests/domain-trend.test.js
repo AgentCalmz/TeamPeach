@@ -30,6 +30,6 @@ test("Public and workspace tool catalogues include Domain Trend Analyzer",()=>{
  const publicTools=read("public/tools/index.html");
  const dashboardTools=read("public/dashboard/tools/index.html");
  assert.match(publicTools,/Domain Trend Analyzer/);
- assert.match(publicTools,/numberOfItems":6/);
+ assert.match(publicTools,/numberOfItems":7/);
  assert.match(dashboardTools,/Domain Trend Analyzer/);
 });
