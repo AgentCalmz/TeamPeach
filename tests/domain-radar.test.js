@@ -6,13 +6,16 @@ const path=require("node:path");
 const root=path.join(__dirname,"..");
 const read=relative=>fs.readFileSync(path.join(root,relative),"utf8");
 
-test("Domain Intelligence exposes website evidence and Premium Business Radar controls",()=>{
+test("Domain Intelligence discovery is separate from Business Radar AI research",()=>{
  const page=read("public/tools/domain-intelligence/index.html");
+ const radarPage=read("public/tools/business-radar/index.html");
  const script=read("public/js/domain-intelligence.js");
  const css=read("public/css/domain-intelligence.css");
- for(const id of ["di-site-filter","di-start-filter","di-ai-criteria","di-ai-search","di-ai-search-results","di-ai-run","di-ai-results","di-selection-count"])assert.ok(page.includes('id="'+id+'"'),"missing "+id);
- assert.match(page,/PREMIUM BUSINESS RADAR/i);
- assert.match(page,/active TeamPeach membership/i);
+ for(const id of ["di-site-filter","di-start-filter","di-signal-filter","di-explorer-results","di-pagination","di-search-form"])assert.ok(page.includes('id="'+id+'"'),"missing Domain Intelligence control "+id);
+ for(const id of ["di-ai-criteria","di-ai-search","di-ai-search-results","di-ai-run","di-ai-results","di-selection-count"])assert.ok(!page.includes('id="'+id+'"'),"AI research control must not appear in Domain Intelligence: "+id);
+ for(const id of ["di-ai-criteria","di-ai-search","di-ai-search-results","di-ai-run","di-ai-results"])assert.ok(radarPage.includes('id="'+id+'"'),"missing Business Radar control "+id);
+ assert.match(radarPage,/PREMIUM BUSINESS RADAR/i);
+ assert.match(radarPage,/active TeamPeach membership/i);
  assert.match(script,/\/v1\/site-check/);
  assert.match(script,/\/api\/tools\/domain-intelligence\/intent-search/);
  assert.match(script,/\/api\/tools\/domain-intelligence\/research/);
