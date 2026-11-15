@@ -1,0 +1,24 @@
+/* Standalone Business Radar page refinements */
+.business-radar-page .business-radar-hero{padding-bottom:42px}
+.business-radar-page .business-radar-hero .domain-intel-hero-copy h1{max-width:720px}
+.business-radar-page .business-radar-workspace{margin-top:4px}
+.business-radar-page .business-radar-ai-panel{margin-top:18px}
+.business-radar-page .business-radar-browse-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-top:32px}
+.business-radar-page .business-radar-browse-heading h3{margin:7px 0 6px;color:#2f3c4f;font:800 clamp(19px,2.2vw,25px)/1.2 var(--display)}
+.business-radar-page .business-radar-browse-heading p:last-child{margin:0;color:#7d8792;font-size:10px;line-height:1.7}
+.business-radar-page .business-radar-controls{margin-top:14px}
+.business-radar-page .business-radar-method{padding-top:64px}
+.business-radar-page .business-radar-method-heading{max-width:680px;margin-bottom:22px}
+.business-radar-page .business-radar-method-heading h2{margin:7px 0 10px;color:#263144;font:800 clamp(27px,3.3vw,39px)/1.12 var(--display);letter-spacing:-1.3px}
+.business-radar-page .business-radar-method-heading>p:last-child{max-width:600px;margin:0;color:#7c8591;font-size:11px;line-height:1.85}
+.business-radar-page .business-radar-faq{padding-top:58px;padding-bottom:64px}
+.business-radar-page .business-radar-faq h2{margin:7px 0 20px;color:#263144;font:800 clamp(26px,3vw,35px)/1.15 var(--display);letter-spacing:-1px}
+.business-radar-page .business-radar-faq .domain-intel-back-link{margin-right:18px}
+@media(max-width:850px){.business-radar-page .business-radar-method{padding-top:48px}}
+@media(max-width:650px){
+ .business-radar-page .business-radar-hero{padding-bottom:30px}
+ .business-radar-page .business-radar-browse-heading{display:block;margin-top:24px}
+ .business-radar-page .business-radar-workspace{padding:18px 14px}
+ .business-radar-page .business-radar-method{padding-top:42px}
+ .business-radar-page .business-radar-faq{padding-top:42px;padding-bottom:48px}
+}
