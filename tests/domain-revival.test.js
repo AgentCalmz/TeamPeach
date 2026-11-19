@@ -54,7 +54,7 @@ test("Domain Revival page wires the lifecycle feeds, archive and RDAP research l
  assert.match(script,/filterRows/);
  assert.match(css,/dr-result-card/);
  assert.match(catalogue,/Domain Revival/);
- assert.match(catalogue,/numberOfItems":7/);
+ assert.match(catalogue,/numberOfItems":8/);
  assert.match(dashboard,/\/tools\/domain-revival\//);
 });
 
