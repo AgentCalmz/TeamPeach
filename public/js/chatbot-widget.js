@@ -12,6 +12,8 @@ const shadow=root.attachShadow?root.attachShadow({mode:"open"}):root;
 const style=document.createElement("style");
 style.textContent=":host{all:initial}*{box-sizing:border-box}.tp-launch{position:fixed;right:22px;bottom:22px;z-index:2147483000;width:60px;height:60px;border:0;border-radius:50%;background:var(--tp-chat-color,#253047);color:#fff;box-shadow:0 12px 35px #18203340;display:grid;place-items:center;font:600 25px/1 system-ui,sans-serif;cursor:pointer}.tp-launch:focus-visible,.tp-send:focus-visible,.tp-input:focus-visible,.tp-action:focus-visible{outline:3px solid #f0a17f;outline-offset:3px}.tp-panel{position:fixed;right:22px;bottom:94px;z-index:2147483000;width:min(380px,calc(100vw - 28px));height:min(570px,calc(100dvh - 125px));min-height:340px;display:none;flex-direction:column;overflow:hidden;border:1px solid #dfe3e9;border-radius:19px;background:#fff;color:#222b3b;box-shadow:0 22px 70px #17203335;font:14px/1.5 system-ui,-apple-system,BlinkMacSystemFont,\\\"Segoe UI\\\",sans-serif}.tp-panel.tp-open{display:flex}.tp-header{display:flex;align-items:center;gap:11px;padding:15px;background:var(--tp-chat-color,#253047);color:#fff}.tp-avatar{display:grid;place-items:center;width:38px;height:38px;flex:0 0 auto;border-radius:12px;background:#ffffff24;font-size:19px}.tp-headcopy{min-width:0;flex:1}.tp-title{font-size:14px;font-weight:750;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.tp-subtitle{font-size:11px;opacity:.78;margin-top:2px}.tp-action{border:0;background:transparent;color:#fff;border-radius:8px;padding:7px;font-size:18px;cursor:pointer}.tp-stream{flex:1;min-height:0;overflow:auto;padding:15px;background:#f7f8fa;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth}.tp-bubble{max-width:88%;padding:10px 12px;border-radius:14px;font-size:13px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}.tp-bubble.tp-assistant{align-self:flex-start;border:1px solid #e8ebef;background:#fff;color:#283246;border-bottom-left-radius:5px}.tp-bubble.tp-user{align-self:flex-end;background:var(--tp-chat-color,#253047);color:#fff;border-bottom-right-radius:5px}.tp-error{padding:10px 12px;border:1px solid #f2d6c9;border-radius:11px;background:#fff7f2;color:#96523e;font-size:12px}.tp-typing{display:flex;gap:4px;align-items:center;padding:12px;width:58px}.tp-typing i{width:6px;height:6px;border-radius:50%;background:#8d96a4;animation:tp-pulse 1s infinite alternate}.tp-typing i:nth-child(2){animation-delay:.2s}.tp-typing i:nth-child(3){animation-delay:.4s}@keyframes tp-pulse{to{opacity:.25;transform:translateY(-3px)}}.tp-form{display:flex;align-items:flex-end;gap:8px;padding:11px;border-top:1px solid #e9ebef;background:#fff}.tp-input{flex:1;min-width:0;max-height:100px;min-height:43px;resize:none;border:1px solid #dfe3e8;border-radius:12px;padding:11px 12px;color:#202b3b;background:#fff;font:13px/1.4 system-ui,sans-serif;outline:none}.tp-send{width:43px;height:43px;flex:0 0 auto;border:0;border-radius:12px;background:var(--tp-chat-color,#253047);color:#fff;font-size:17px;font-weight:800;cursor:pointer}.tp-send:disabled{opacity:.5;cursor:wait}.tp-footer{padding:6px 10px;text-align:center;background:#fff;color:#9098a5;font-size:10px}.tp-footer a{color:inherit;text-decoration:none;font-weight:750}.tp-footer a:hover{text-decoration:underline}@media(max-width:560px){.tp-launch{right:16px;bottom:16px;width:56px;height:56px}.tp-panel{right:8px;bottom:82px;width:calc(100vw - 16px);height:min(72dvh,600px);min-height:310px;border-radius:17px}}@media(prefers-reduced-motion:reduce){.tp-stream{scroll-behavior:auto}.tp-typing i{animation:none}}";
 style.textContent+=".tp-rich p{margin:0}.tp-rich p+p{margin-top:7px}.tp-rich h4,.tp-rich h5,.tp-rich h6{margin:3px 0 0;color:#243147;font-size:13px;font-weight:800;line-height:1.4}.tp-rich ul,.tp-rich ol{margin:1px 0;padding-left:20px}.tp-rich li{padding-left:2px;margin:2px 0}.tp-rich strong{font-weight:800;color:#202b3d}.tp-rich a{color:#2566a8;text-decoration:underline;text-underline-offset:2px}.tp-rich code{padding:1px 4px;border-radius:4px;background:#eef1f5;color:#334155;font:12px/1.4 ui-monospace,monospace}.tp-rich blockquote{margin:2px 0;padding:4px 9px;border-left:3px solid #d8a087;color:#687487}.tp-rich hr{width:100%;border:0;border-top:1px solid #e3e7ec}";
+style.textContent+=".tp-mic{width:43px;height:43px;flex:0 0 auto;display:grid;place-items:center;border:1px solid #dfe3e8;border-radius:12px;background:#fff;color:#46546a;font:17px/1 system-ui,sans-serif;cursor:pointer}.tp-mic[aria-pressed=true]{border-color:#dc9a80;background:#fff1eb;color:#a94f36}.tp-mic:disabled{opacity:.45;cursor:not-allowed}.tp-speak{display:inline-flex;align-items:center;gap:5px;margin-top:8px;padding:5px 9px;border:1px solid #e2e7ec;border-radius:8px;background:#f8fafc;color:#566477;font:650 10px/1.2 system-ui,sans-serif;cursor:pointer}.tp-speak:hover{background:#eef2f6}.tp-voice-note{align-self:stretch;padding:8px 10px;border:1px solid #e4e9ef;border-radius:10px;background:#fff;color:#657184;font:11px/1.5 system-ui,sans-serif}.tp-mic:focus-visible,.tp-speak:focus-visible{outline:3px solid #f0a17f;outline-offset:3px}";
+
 shadow.appendChild(style);
 const launch=document.createElement("button");launch.className="tp-launch";launch.type="button";launch.setAttribute("aria-label","Open chat assistant");launch.setAttribute("aria-expanded","false");launch.textContent="✦";
 const panel=document.createElement("section");panel.className="tp-panel";panel.setAttribute("role","dialog");panel.setAttribute("aria-label","Business assistant chat");panel.setAttribute("aria-modal","false");
@@ -26,9 +28,110 @@ header.append(avatar,headcopy,newChat,close);
 const stream=document.createElement("div");stream.className="tp-stream";stream.setAttribute("aria-live","polite");stream.setAttribute("aria-relevant","additions text");
 const form=document.createElement("form");form.className="tp-form";
 const input=document.createElement("textarea");input.className="tp-input";input.rows=1;input.maxLength=2000;input.placeholder="Type your message…";input.setAttribute("aria-label","Your message");
-const send=document.createElement("button");send.className="tp-send";send.type="submit";send.textContent="➤";send.setAttribute("aria-label","Send message");form.append(input,send);
+const mic=document.createElement("button");mic.className="tp-mic";mic.type="button";mic.textContent="🎙";mic.title="Speak your message";mic.setAttribute("aria-label","Speak your message");mic.setAttribute("aria-pressed","false");
+const send=document.createElement("button");send.className="tp-send";send.type="submit";send.textContent="➤";send.setAttribute("aria-label","Send message");form.append(input,mic,send);
 const footer=document.createElement("div");footer.className="tp-footer";panel.append(header,stream,form,footer);shadow.append(launch,panel);
 let config=null,loading=false,csrfToken="",history=[],visitorKey="",welcomeShown=false;
+let recognition=null,listening=false,voicePrivacyNoteShown=false,activeSpeakButton=null,activeUtterance=null;
+function setMicState(active){
+ listening=Boolean(active);
+ mic.setAttribute("aria-pressed",String(listening));
+ mic.textContent=listening?"■":"🎙";
+ mic.title=listening?"Stop voice input":"Speak your message";
+ mic.setAttribute("aria-label",listening?"Stop voice input":"Speak your message");
+}
+function stopVoiceInput(){
+ const current=recognition;recognition=null;setMicState(false);
+ if(current){try{current.stop();}catch(_){}}
+}
+function stopSpeech(){
+ const button=activeSpeakButton;activeSpeakButton=null;activeUtterance=null;
+ if(button){button.textContent="▶ Listen";button.setAttribute("aria-label","Listen to assistant reply");}
+ if(window.speechSynthesis){try{window.speechSynthesis.cancel();}catch(_){}}
+}
+function cleanSpeechText(value){
+ return String(value||"")
+  .replace(/```[\s\S]*?```/g," ")
+  .replace(/\[([^\]]+)\]\(https?:\/\/[^)]+\)/g,"$1")
+  .replace(/https?:\/\/\S+/g," ")
+  .replace(/^\s*#{1,6}\s*/gm,"")
+  .replace(/^\s*(?:[-*•]|\d+[.)])\s+/gm,"")
+  .replace(/[>*_~`#]/g,"")
+  .replace(/\s+/g," ").trim().slice(0,6000);
+}
+function chooseSpeechVoice(){
+ if(!window.speechSynthesis)return null;
+ const voices=window.speechSynthesis.getVoices()||[];
+ if(!voices.length)return null;
+ const preferred=String(navigator.language||document.documentElement.lang||"en-US").toLowerCase();
+ const base=preferred.split("-")[0];
+ return voices.find(v=>/google/i.test(v.name)&&String(v.lang||"").toLowerCase()===preferred)
+  ||voices.find(v=>/google/i.test(v.name)&&String(v.lang||"").toLowerCase().split("-")[0]===base)
+  ||voices.find(v=>String(v.lang||"").toLowerCase()===preferred)
+  ||voices.find(v=>String(v.lang||"").toLowerCase().split("-")[0]===base)
+  ||voices.find(v=>v.default)||null;
+}
+function speakReply(value,button){
+ const text=cleanSpeechText(value);
+ if(!text)return;
+ if(!window.speechSynthesis||!window.SpeechSynthesisUtterance){addError("Spoken replies are not supported by this browser.");return;}
+ if(activeSpeakButton===button){stopSpeech();return;}
+ stopSpeech();
+ const utterance=new window.SpeechSynthesisUtterance(text);
+ const voice=chooseSpeechVoice();
+ if(voice){utterance.voice=voice;utterance.lang=voice.lang;}
+ else utterance.lang=String(navigator.language||document.documentElement.lang||"en-US");
+ utterance.rate=1;utterance.pitch=1;utterance.volume=1;
+ activeSpeakButton=button;activeUtterance=utterance;button.textContent="■ Stop";button.setAttribute("aria-label","Stop spoken reply");
+ const finish=()=>{if(activeUtterance!==utterance)return;activeUtterance=null;activeSpeakButton=null;button.textContent="▶ Listen";button.setAttribute("aria-label","Listen to assistant reply");};
+ utterance.onend=finish;
+ utterance.onerror=event=>{finish();if(event&&event.error!=="canceled"&&event.error!=="interrupted")addError("Your browser could not play this voice. You can still read the reply.");};
+ try{window.speechSynthesis.speak(utterance);}catch(_){finish();addError("Your browser could not start spoken playback.");}
+}
+function addVoicePrivacyNote(){
+ if(voicePrivacyNoteShown)return;
+ voicePrivacyNoteShown=true;
+ const note=document.createElement("div");note.className="tp-voice-note";
+ note.textContent="Voice input is handled by your browser's speech-recognition service. Depending on your browser, microphone audio may be sent to its provider for transcription. Review the words here before sending; TeamPeach receives only the text you submit.";
+ stream.appendChild(note);stream.scrollTop=stream.scrollHeight;
+}
+function startVoiceInput(){
+ if(listening){stopVoiceInput();return;}
+ if(loading)return;
+ const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(typeof SpeechRecognition!=="function"){addError("Voice input is not supported by this browser. Try a browser with speech recognition or type your message instead.");return;}
+ if(window.isSecureContext===false){addError("Microphone access requires a secure HTTPS website.");return;}
+ addVoicePrivacyNote();
+ let instance;
+ try{instance=new SpeechRecognition();}catch(_){addError("Your browser could not start voice input.");return;}
+ instance.lang=String(navigator.language||document.documentElement.lang||"en-US");
+ instance.interimResults=false;instance.continuous=false;instance.maxAlternatives=1;
+ recognition=instance;
+ instance.onstart=()=>{if(recognition===instance)setMicState(true);};
+ instance.onresult=event=>{
+  const result=event.results&&event.results[event.resultIndex];
+  const transcript=result&&result[0]&&result[0].transcript?String(result[0].transcript).trim():"";
+  if(transcript){
+   input.value=(input.value.trim()?input.value.trim()+" ":"")+transcript;
+   input.dispatchEvent(new Event("input",{bubbles:true}));
+   input.focus();
+  }
+ };
+ instance.onerror=event=>{
+  if(recognition!==instance)return;
+  const messages={
+   "not-allowed":"Microphone access was blocked. Allow microphone access for this website in your browser settings.",
+   "service-not-allowed":"Your browser's speech-recognition service is unavailable.",
+   "no-speech":"No speech was detected. Please try speaking again.",
+   "audio-capture":"No microphone was detected. Check your device's microphone.",
+   "network":"Your browser could not reach its speech-recognition service. Check your connection and try again.",
+   "language-not-supported":"Your browser does not support speech recognition for this language."
+  };
+  if(event.error!=="aborted")addError(messages[event.error]||"Voice input stopped. You can type your message instead.");
+ };
+ instance.onend=()=>{if(recognition===instance){recognition=null;setMicState(false);}};
+ try{instance.start();}catch(_){recognition=null;setMicState(false);addError("The microphone could not be started. Check its permission and try again.");}
+}
 function uuid(){if(window.crypto&&typeof window.crypto.randomUUID==="function")return window.crypto.randomUUID();return"xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==="x"?r:(r&3|8)).toString(16);});}
 function loadStored(){history=[];}
 function selectVisitorKey(){
@@ -89,7 +192,13 @@ function renderAssistantMessage(container,value){
 }
 function addBubble(role,content){
  const node=document.createElement("div");node.className="tp-bubble "+(role==="user"?"tp-user":"tp-assistant");
- if(role==="assistant"){node.classList.add("tp-rich");renderAssistantMessage(node,content);}
+ if(role==="assistant"){
+  node.classList.add("tp-rich");renderAssistantMessage(node,content);
+  if(window.speechSynthesis&&window.SpeechSynthesisUtterance){
+   const speak=document.createElement("button");speak.className="tp-speak";speak.type="button";speak.textContent="▶ Listen";speak.setAttribute("aria-label","Listen to assistant reply");
+   speak.addEventListener("click",()=>speakReply(content,speak));node.append(speak);
+  }
+ }
  else node.textContent=String(content||"");
  stream.appendChild(node);stream.scrollTop=stream.scrollHeight;return node;
 }
@@ -112,7 +221,7 @@ function paintConfig(value){
  footer.replaceChildren();if(config.showBranding!==false){footer.append(document.createTextNode("Powered by "));const link=document.createElement("a");link.href="https://teampeach.org/tools/ai-chatbot/";link.target="_blank";link.rel="noopener noreferrer";link.textContent="TeamPeach";footer.append(link);}
  if(!welcomeShown){if(history.length)history.forEach(item=>addBubble(item.role,item.content));else addBubble("assistant",config.welcomeMessage||"Hello! How can I help you today?");welcomeShown=true;}
 }
-function resetConversation(){history=[];visitorKey=uuid();if(config&&config.saveConversations===true){try{localStorage.setItem(visitorKeyName,visitorKey);}catch(_){}}stream.replaceChildren();welcomeShown=false;if(config)addBubble("assistant",config.welcomeMessage||"Hello! How can I help you today?");}
+function resetConversation(){stopVoiceInput();stopSpeech();history=[];visitorKey=uuid();if(config&&config.saveConversations===true){try{localStorage.setItem(visitorKeyName,visitorKey);}catch(_){}}stream.replaceChildren();welcomeShown=false;if(config)addBubble("assistant",config.welcomeMessage||"Hello! How can I help you today?");}
 async function ensureCsrf(){if(csrfToken)return csrfToken;const response=await fetch(apiBase+"/api/csrf",{credentials:"same-origin",cache:"no-store"});if(!response.ok)throw new Error("Your secure preview session has expired. Refresh this page and sign in again.");const body=await response.json();csrfToken=body.token||"";if(!csrfToken)throw new Error("Secure request setup failed.");return csrfToken;}
 async function loadConfig(){
  if(config)return config;
@@ -125,6 +234,7 @@ async function loadConfig(){
 }
 async function sendMessage(message){
  if(loading)return;const value=String(message||"").trim();if(!value)return;if(value.length>2000){addError("Please keep your message under 2,000 characters.");return;}
+ stopVoiceInput();stopSpeech();
  loading=true;send.disabled=true;input.disabled=true;addBubble("user",value);const typing=addTyping();
  try{
   await loadConfig();const payload={message:value,history:history.slice(-8),visitorKey,requestId:uuid()};let response;
@@ -138,8 +248,9 @@ async function sendMessage(message){
  finally{loading=false;send.disabled=false;input.disabled=false;input.focus();}
 }
 launch.addEventListener("click",async()=>{const isOpen=panel.classList.toggle("tp-open");launch.setAttribute("aria-expanded",String(isOpen));if(isOpen){loadStored();try{await loadConfig();}catch(error){addError(error.message||"The assistant could not be loaded.");}if(!history.length&&config&&!welcomeShown){addBubble("assistant",config.welcomeMessage||"Hello! How can I help you today?");welcomeShown=true;}input.focus();}});
-close.addEventListener("click",()=>{panel.classList.remove("tp-open");launch.setAttribute("aria-expanded","false");launch.focus();});
+close.addEventListener("click",()=>{stopVoiceInput();stopSpeech();panel.classList.remove("tp-open");launch.setAttribute("aria-expanded","false");launch.focus();});
 newChat.addEventListener("click",resetConversation);
+mic.addEventListener("click",startVoiceInput);
 form.addEventListener("submit",event=>{event.preventDefault();const value=input.value;input.value="";input.style.height="auto";sendMessage(value);});
 input.addEventListener("input",()=>{input.style.height="auto";input.style.height=Math.min(input.scrollHeight,100)+"px";});
 input.addEventListener("keydown",event=>{if(event.key==="Enter"&&!event.shiftKey){event.preventDefault();form.requestSubmit();}});
