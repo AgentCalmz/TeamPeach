@@ -68,6 +68,19 @@ test("server chatbot endpoints keep credits, membership and public-origin checks
  assert.match(server,/chatbotSchemaReady/);
  assert.match(server,/chatbotAIConfigured/);
 });
+test("PeachChat website widget supports visitor microphone input and optional spoken replies without a cloud TTS API",()=>{
+ const widget=read("public/js/chatbot-widget.js");
+ assert.doesNotThrow(()=>new Function(widget));
+ assert.match(widget,/window\.SpeechRecognition\|\|window\.webkitSpeechRecognition/);
+ assert.match(widget,/window\.speechSynthesis/);
+ assert.match(widget,/tp-mic/);
+ assert.match(widget,/tp-speak/);
+ assert.match(widget,/Review the words here before sending/);
+ assert.match(widget,/TeamPeach receives only the text you submit/);
+ assert.match(widget,/stopVoiceInput\(\);stopSpeech\(\)/);
+ assert.match(widget,/voices\.find\(v=>\/google\/i\.test\(v\.name\)/);
+ assert.doesNotMatch(widget,/texttospeech\.googleapis\.com|cloud\.google\.com\/text-to-speech/i);
+});
 test("chatbot widget stores browser history locally but never injects chat text as HTML",()=>{
  const widget=read("public/js/chatbot-widget.js");
  assert.doesNotThrow(()=>new Function(widget));
@@ -168,8 +181,8 @@ test("assistant preview uses a CSP-compatible external bootstrap and reports rea
  assert.match(bootstrap,/AbortController/);
  assert.match(bootstrap,/classList\.contains\("tp-open"\)/);
  assert.match(bootstrap,/did not finish loading/);
- assert.ok(bootstrap.includes("/js/chatbot-widget.js?v=4"));
- assert.ok(read("server.js").includes("/js/chatbot-widget.js?v=4"));
+ assert.ok(bootstrap.includes("/js/chatbot-widget.js?v=5"));
+ assert.ok(read("server.js").includes("/js/chatbot-widget.js?v=5"));
 });
 test("chatbot hero includes visible external photography with alternative text",()=>{
  const html=read("public/tools/peachchat/index.html");
@@ -326,4 +339,15 @@ test("PeachBrief does not offer workspace saving or restore saved workspace proj
  assert.match(page,/Copy as Markdown/);
  assert.match(page,/Download \.md/);
  assert.match(page,/Nothing is saved to your workspace/);
+});
+
+test("PeachChat voice options are documented on the public page and shared assistant entry",()=>{
+ const page=read("public/tools/peachchat/index.html");
+ const schema=page.slice(page.indexOf("<script type=\"application/ld+json\">"),page.indexOf("</script>"));
+ assert.match(schema,/spoken assistant replies using available browser voices/i);
+ assert.match(schema,/speech recognition/i);
+ assert.match(page,/Can visitors talk to PeachChat or listen to replies/);
+ assert.match(page,/browser's speech-recognition provider/);
+ const share=read("public/assistant/index.html");
+ assert.match(share,/chatbot-widget\.js\?v=5/);
 });
