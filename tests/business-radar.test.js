@@ -38,7 +38,7 @@ test("Business Radar is discoverable from public and signed-in tool catalogues",
  const workspace=read("public/dashboard/tools/index.html");
  assert.match(publicTools,/Business Radar/);
  assert.match(publicTools,/href="\/tools\/business-radar\//);
- assert.match(publicTools,/numberOfItems":7/);
+ assert.match(publicTools,/numberOfItems":8/);
  assert.match(workspace,/Business Radar/);
  assert.match(workspace,/href="\/tools\/business-radar\//);
 });
