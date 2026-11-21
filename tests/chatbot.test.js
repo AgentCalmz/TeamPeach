@@ -78,7 +78,10 @@ test("PeachChat website widget supports visitor microphone input and optional sp
  assert.match(widget,/Review the words here before sending/);
  assert.match(widget,/TeamPeach receives only the text you submit/);
  assert.match(widget,/stopVoiceInput\(\);stopSpeech\(\)/);
- assert.match(widget,/voices\.find\(v=>\/google\/i\.test\(v\.name\)/);
+ assert.match(widget,/voice\.localService===true/);
+ assert.match(widget,/splitSpeechChunks/);
+ assert.match(widget,/synth\.resume\(\)/);
+ assert.doesNotMatch(widget,/voices\.find\(v=>\/google\/i\.test\(v\.name\)/);
  assert.doesNotMatch(widget,/texttospeech\.googleapis\.com|cloud\.google\.com\/text-to-speech/i);
 });
 test("chatbot widget stores browser history locally but never injects chat text as HTML",()=>{
@@ -181,8 +184,8 @@ test("assistant preview uses a CSP-compatible external bootstrap and reports rea
  assert.match(bootstrap,/AbortController/);
  assert.match(bootstrap,/classList\.contains\("tp-open"\)/);
  assert.match(bootstrap,/did not finish loading/);
- assert.ok(bootstrap.includes("/js/chatbot-widget.js?v=5"));
- assert.ok(read("server.js").includes("/js/chatbot-widget.js?v=5"));
+ assert.ok(bootstrap.includes("/js/chatbot-widget.js?v=6"));
+ assert.ok(read("server.js").includes("/js/chatbot-widget.js?v=6"));
 });
 test("chatbot hero includes visible external photography with alternative text",()=>{
  const html=read("public/tools/peachchat/index.html");
@@ -349,5 +352,5 @@ test("PeachChat voice options are documented on the public page and shared assis
  assert.match(page,/Can visitors talk to PeachChat or listen to replies/);
  assert.match(page,/browser's speech-recognition provider/);
  const share=read("public/assistant/index.html");
- assert.match(share,/chatbot-widget\.js\?v=5/);
+ assert.match(share,/chatbot-widget\.js\?v=6/);
 });

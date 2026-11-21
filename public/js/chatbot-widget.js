@@ -32,7 +32,7 @@ const mic=document.createElement("button");mic.className="tp-mic";mic.type="butt
 const send=document.createElement("button");send.className="tp-send";send.type="submit";send.textContent="➤";send.setAttribute("aria-label","Send message");form.append(input,mic,send);
 const footer=document.createElement("div");footer.className="tp-footer";panel.append(header,stream,form,footer);shadow.append(launch,panel);
 let config=null,loading=false,csrfToken="",history=[],visitorKey="",welcomeShown=false;
-let recognition=null,listening=false,voicePrivacyNoteShown=false,activeSpeakButton=null,activeUtterance=null;
+let recognition=null,listening=false,voicePrivacyNoteShown=false,activeSpeakButton=null,activeUtterance=null,activeSpeechQueue=null;
 function setMicState(active){
  listening=Boolean(active);
  mic.setAttribute("aria-pressed",String(listening));
@@ -45,9 +45,12 @@ function stopVoiceInput(){
  if(current){try{current.stop();}catch(_){}}
 }
 function stopSpeech(){
- const button=activeSpeakButton;activeSpeakButton=null;activeUtterance=null;
+ const button=activeSpeakButton;
+ const hadActiveSpeech=Boolean(activeSpeechQueue||activeUtterance||activeSpeakButton);
+ activeSpeechQueue=null;activeUtterance=null;activeSpeakButton=null;
  if(button){button.textContent="▶ Listen";button.setAttribute("aria-label","Listen to assistant reply");}
- if(window.speechSynthesis){try{window.speechSynthesis.cancel();}catch(_){}}
+ const synth=window.speechSynthesis;
+ if(synth&&(hadActiveSpeech||synth.speaking||synth.pending)){try{synth.cancel();}catch(_){}}
 }
 function cleanSpeechText(value){
  return String(value||"")
@@ -60,16 +63,80 @@ function cleanSpeechText(value){
   .replace(/\s+/g," ").trim().slice(0,6000);
 }
 function chooseSpeechVoice(){
- if(!window.speechSynthesis)return null;
- const voices=window.speechSynthesis.getVoices()||[];
+ const synth=window.speechSynthesis;
+ if(!synth)return null;
+ const voices=synth.getVoices()||[];
  if(!voices.length)return null;
  const preferred=String(navigator.language||document.documentElement.lang||"en-US").toLowerCase();
  const base=preferred.split("-")[0];
- return voices.find(v=>/google/i.test(v.name)&&String(v.lang||"").toLowerCase()===preferred)
-  ||voices.find(v=>/google/i.test(v.name)&&String(v.lang||"").toLowerCase().split("-")[0]===base)
-  ||voices.find(v=>String(v.lang||"").toLowerCase()===preferred)
-  ||voices.find(v=>String(v.lang||"").toLowerCase().split("-")[0]===base)
-  ||voices.find(v=>v.default)||null;
+ const language=(voice)=>String(voice.lang||"").toLowerCase();
+ const firstPreferred=(pool)=>pool.find(voice=>voice.default)||pool[0]||null;
+ const local=voices.filter(voice=>voice.localService===true);
+ const exactLocal=local.filter(voice=>language(voice)===preferred);
+ const baseLocal=local.filter(voice=>language(voice).split("-")[0]===base);
+ const exact=voices.filter(voice=>language(voice)===preferred);
+ const baseMatches=voices.filter(voice=>language(voice).split("-")[0]===base);
+ return firstPreferred(exactLocal)
+  ||firstPreferred(baseLocal)
+  ||firstPreferred(exact)
+  ||firstPreferred(baseMatches)
+  ||firstPreferred(local)
+  ||voices.find(voice=>voice.default)
+  ||voices[0]
+  ||null;
+}
+function splitSpeechChunks(value){
+ const maxLength=180;
+ const sentences=String(value||"").match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[String(value||"")];
+ const chunks=[];let current="";
+ const addPart=(part)=>{
+  const candidate=current?current+" "+part:part;
+  if(candidate.length<=maxLength){current=candidate;return;}
+  if(current){chunks.push(current);current="";}
+  if(part.length<=maxLength){current=part;return;}
+  const words=part.split(/\s+/);let segment="";
+  for(const word of words){
+   const next=segment?segment+" "+word:word;
+   if(next.length>maxLength&&segment){chunks.push(segment);segment=word;}
+   else segment=next;
+  }
+  current=segment;
+ };
+ for(const sentence of sentences){
+  const part=sentence.trim();if(part)addPart(part);
+ }
+ if(current)chunks.push(current);
+ return chunks;
+}
+function finishSpeechQueue(queue){
+ if(activeSpeechQueue!==queue)return;
+ const button=activeSpeakButton;
+ activeSpeechQueue=null;activeUtterance=null;activeSpeakButton=null;
+ if(button){button.textContent="▶ Listen";button.setAttribute("aria-label","Listen to assistant reply");}
+}
+function speakNextChunk(queue){
+ if(activeSpeechQueue!==queue)return;
+ if(queue.index>=queue.chunks.length){finishSpeechQueue(queue);return;}
+ const utterance=new window.SpeechSynthesisUtterance(queue.chunks[queue.index++]);
+ if(queue.voice){utterance.voice=queue.voice;utterance.lang=queue.voice.lang;}
+ else utterance.lang=String(navigator.language||document.documentElement.lang||"en-US");
+ utterance.rate=1;utterance.pitch=1;utterance.volume=1;
+ activeUtterance=utterance;
+ utterance.onend=()=>{
+  if(activeSpeechQueue!==queue||activeUtterance!==utterance)return;
+  activeUtterance=null;speakNextChunk(queue);
+ };
+ utterance.onerror=event=>{
+  if(activeSpeechQueue!==queue||activeUtterance!==utterance)return;
+  const error=event&&event.error;
+  finishSpeechQueue(queue);
+  if(error!=="canceled"&&error!=="interrupted")addError("Your browser could not play this voice. Check your device's speech settings or try another browser.");
+ };
+ try{
+  const synth=window.speechSynthesis;
+  if(synth.paused)synth.resume();
+  synth.speak(utterance);
+ }catch(_){finishSpeechQueue(queue);addError("Your browser could not start spoken playback.");}
 }
 function speakReply(value,button){
  const text=cleanSpeechText(value);
@@ -77,16 +144,17 @@ function speakReply(value,button){
  if(!window.speechSynthesis||!window.SpeechSynthesisUtterance){addError("Spoken replies are not supported by this browser.");return;}
  if(activeSpeakButton===button){stopSpeech();return;}
  stopSpeech();
- const utterance=new window.SpeechSynthesisUtterance(text);
- const voice=chooseSpeechVoice();
- if(voice){utterance.voice=voice;utterance.lang=voice.lang;}
- else utterance.lang=String(navigator.language||document.documentElement.lang||"en-US");
- utterance.rate=1;utterance.pitch=1;utterance.volume=1;
- activeSpeakButton=button;activeUtterance=utterance;button.textContent="■ Stop";button.setAttribute("aria-label","Stop spoken reply");
- const finish=()=>{if(activeUtterance!==utterance)return;activeUtterance=null;activeSpeakButton=null;button.textContent="▶ Listen";button.setAttribute("aria-label","Listen to assistant reply");};
- utterance.onend=finish;
- utterance.onerror=event=>{finish();if(event&&event.error!=="canceled"&&event.error!=="interrupted")addError("Your browser could not play this voice. You can still read the reply.");};
- try{window.speechSynthesis.speak(utterance);}catch(_){finish();addError("Your browser could not start spoken playback.");}
+ const queue={chunks:splitSpeechChunks(text),index:0,voice:chooseSpeechVoice()};
+ if(!queue.chunks.length)return;
+ activeSpeechQueue=queue;activeSpeakButton=button;
+ button.textContent="■ Stop";button.setAttribute("aria-label","Stop spoken reply");
+ const synth=window.speechSynthesis;
+ try{
+  // Some desktop browsers can leave the speech engine paused after an interrupted
+  // utterance. Resume before speaking, but avoid cancelling an idle speech queue.
+  if(synth.paused)synth.resume();
+  speakNextChunk(queue);
+ }catch(_){finishSpeechQueue(queue);addError("Your browser could not start spoken playback.");}
 }
 function addVoicePrivacyNote(){
  if(voicePrivacyNoteShown)return;
