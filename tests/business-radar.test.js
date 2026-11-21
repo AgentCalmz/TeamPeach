@@ -8,7 +8,7 @@ const read=relative=>fs.readFileSync(path.join(root,relative),"utf8");
 
 test("Business Radar has a dedicated, indexable public page with direct-answer metadata",()=>{
  const page=read("public/tools/business-radar/index.html");
- assert.match(page,/<title>Business Radar \| Discover and Research Business Opportunities \| TeamPeach<\/title>/);
+ assert.match(page,/<title>Business Radar: Domain-Based Lead Research \| TeamPeach<\/title>/);
  assert.match(page,/rel="canonical" href="https:\/\/teampeach\.org\/tools\/business-radar\//);
  assert.match(page,/name="robots" content="index,follow/);
  assert.match(page,/"@type":"WebApplication"/);
@@ -38,7 +38,7 @@ test("Business Radar is discoverable from public and signed-in tool catalogues",
  const workspace=read("public/dashboard/tools/index.html");
  assert.match(publicTools,/Business Radar/);
  assert.match(publicTools,/href="\/tools\/business-radar\//);
- assert.match(publicTools,/numberOfItems":8/);
+ assert.match(publicTools,/"numberOfItems"\s*:\s*8/);
  assert.match(workspace,/Business Radar/);
  assert.match(workspace,/href="\/tools\/business-radar\//);
 });
