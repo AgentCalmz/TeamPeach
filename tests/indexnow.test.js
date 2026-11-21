@@ -1,7 +1,7 @@
 "use strict";
 const test=require("node:test");
 const assert=require("node:assert/strict");
-const {parseSitemapUrls,pageUrlFromFile,urlsForChanges,getIndexNowKey}=require("../scripts/submit-indexnow");
+const {decodeXml,parseSitemapUrls,pageUrlFromFile,urlsForChanges,getIndexNowKey}=require("../scripts/submit-indexnow");
 
 test("IndexNow converts public HTML files to canonical TeamPeach URLs",()=>{
  assert.equal(pageUrlFromFile("public/index.html"),"https://teampeach.org/");
@@ -12,9 +12,11 @@ test("IndexNow converts public HTML files to canonical TeamPeach URLs",()=>{
 });
 test("IndexNow refreshes collection pages and preserves deleted public URLs",()=>{
  const urls=urlsForChanges(["public/tools/peachjobs/index.html","public/tools/retired-tool/index.html"],"",false);
- assert.ok(urls.includes("https://teampeach.org/tools/peachjobs/"));
- assert.ok(urls.includes("https://teampeach.org/tools/retired-tool/"));
- assert.ok(urls.includes("https://teampeach.org/tools/"));
+ assert.deepEqual(urls,["https://teampeach.org/tools/peachjobs/","https://teampeach.org/tools/","https://teampeach.org/tools/retired-tool/"]);
+});
+test("XML entities are decoded once so nested entity text is not reinterpreted",()=>{
+ assert.equal(decodeXml("&amp;lt;"),"&lt;");
+ assert.equal(decodeXml("&lt;"),"<");
 });
 test("IndexNow uses only same-host URLs from the sitemap",()=>{
  const urls=parseSitemapUrls('<url><loc>https://teampeach.org/tools/</loc></url><url><loc>https://evil.example/spam</loc></url><url><loc>not-a-url</loc></url>');
