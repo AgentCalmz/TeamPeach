@@ -1,0 +1,33 @@
+name: IndexNow URL notifications
+on:
+  push:
+    branches: [main]
+    paths:
+      - "public/**/*.html"
+      - "public/sitemap.xml"
+      - "sitemap.xml"
+      - "public/robots.txt"
+      - "scripts/generate-sitemap.js"
+      - ".github/workflows/indexnow.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  notify-search-engines:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out full history
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Notify IndexNow
+        env:
+          INDEXNOW_BASE_SHA: ${{ github.event.before }}
+          INDEXNOW_HEAD_SHA: ${{ github.sha }}
+          INDEXNOW_FULL_SITEMAP: ${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}
+        run: node scripts/submit-indexnow.js

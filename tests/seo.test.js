@@ -12,6 +12,11 @@ const indexablePages=[
  ["public/tools/peachchat/index.html","https://teampeach.org/tools/peachchat/"],
  ["public/tools/peachbrief/index.html","https://teampeach.org/tools/peachbrief/"],
  ["public/tools/domain-intelligence/index.html","https://teampeach.org/tools/domain-intelligence/"],
+ ["public/tools/peachjobs/index.html","https://teampeach.org/tools/peachjobs/"],
+ ["public/tools/business-radar/index.html","https://teampeach.org/tools/business-radar/"],
+ ["public/tools/domain-trend-analyzer/index.html","https://teampeach.org/tools/domain-trend-analyzer/"],
+ ["public/tools/brand-protection-monitor/index.html","https://teampeach.org/tools/brand-protection-monitor/"],
+ ["public/tools/domain-revival/index.html","https://teampeach.org/tools/domain-revival/"],
  ["public/products/index.html","https://teampeach.org/products/"],
  ["public/journal/index.html","https://teampeach.org/journal/"],
  ["public/journal/what-is-an-ai-agent/index.html","https://teampeach.org/journal/what-is-an-ai-agent/"],
@@ -97,4 +102,26 @@ test("domain intelligence prioritises new-domain discovery with transparent busi
  assert.match(script,/DecompressionStream/);
  assert.match(script,/PAGE_SIZE=30/);
  assert.match(script,/\/v1\/domain\?domain=/,"the secondary exact-domain lookup should remain available");
+});
+
+test("the public tools catalogue consistently reports eight published tools",()=>{
+ const page=read("public/tools/index.html");
+ assert.ok(page.includes("<strong>08</strong>"));
+ assert.match(page,/"numberOfItems"\s*:\s*8/);
+ for(const route of [
+  "/tools/peachchat/","/tools/peachbrief/","/tools/peachjobs/",
+  "/tools/domain-intelligence/","/tools/business-radar/",
+  "/tools/domain-trend-analyzer/","/tools/brand-protection-monitor/","/tools/domain-revival/"
+ ])assert.ok(page.includes(route),"catalogue should list "+route);
+});
+test("all eight tool pages expose WebApplication and FAQ structured data",()=>{
+ for(const slug of ["peachchat","peachbrief","peachjobs","domain-intelligence","business-radar","domain-trend-analyzer","brand-protection-monitor","domain-revival"]){
+  const html=read("public/tools/"+slug+"/index.html");
+  const schemas=[...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
+  const graph=schemas.flatMap(match=>{const json=JSON.parse(match[1]);return json["@graph"]||[json];});
+  const app=graph.find(item=>item["@type"]==="WebApplication");
+  assert.ok(app,slug+" needs WebApplication schema");
+  assert.ok(graph.some(item=>item["@type"]==="FAQPage"),slug+" needs FAQPage schema");
+  assert.equal(app.inLanguage,"en-NG",slug+" should declare its content language");
+ }
 });
