@@ -10,7 +10,7 @@ const read = file => fs.readFileSync(path.join(root, file), "utf8");
 
 test("PeachJobs page is discoverable and declares the 30-day employer-sourced product", () => {
   const html = read("public/tools/peachjobs/index.html");
-  assert.match(html, /<title>PeachJobs \| Search Jobs Published in the Last 30 Days/);
+  assert.match(html, /<title>PeachJobs: Recent Employer-Posted Jobs \| TeamPeach/);
   assert.match(html, /rel="canonical" href="https:\/\/teampeach\.org\/tools\/peachjobs\//);
   assert.match(html, /"name":"PeachJobs"/);
   assert.match(html, /public job-posting APIs used by employer career pages/);
@@ -44,7 +44,7 @@ test("PeachJobs is linked from public and workspace tool directories and the sit
   const directory = read("public/tools/index.html");
   const workspace = read("public/dashboard/tools/index.html");
   const sitemap = read("public/sitemap.xml");
-  assert.match(directory, /"numberOfItems":8/);
+  assert.match(directory, /"numberOfItems"\s*:\s*8/);
   assert.match(directory, /href="\/tools\/peachjobs\//);
   assert.match(workspace, /href="\/tools\/peachjobs\//);
   assert.match(sitemap, /https:\/\/teampeach\.org\/tools\/peachjobs\//);
