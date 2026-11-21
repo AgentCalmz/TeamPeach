@@ -78,7 +78,10 @@ test("PeachChat website widget supports visitor microphone input and optional sp
  assert.match(widget,/Review the words here before sending/);
  assert.match(widget,/TeamPeach receives only the text you submit/);
  assert.match(widget,/stopVoiceInput\(\);stopSpeech\(\)/);
- assert.match(widget,/voice\.localService===true/);\n assert.match(widget,/splitSpeechChunks/);\n assert.match(widget,/synth\.resume\(\)/);\n assert.doesNotMatch(widget,/voices\.find\(v=>\/google\/i\.test\(v\.name\)/);
+ assert.match(widget,/voice\.localService===true/);
+ assert.match(widget,/splitSpeechChunks/);
+ assert.match(widget,/synth\.resume\(\)/);
+ assert.doesNotMatch(widget,/voices\.find\(v=>\/google\/i\.test\(v\.name\)/);
  assert.doesNotMatch(widget,/texttospeech\.googleapis\.com|cloud\.google\.com\/text-to-speech/i);
 });
 test("chatbot widget stores browser history locally but never injects chat text as HTML",()=>{
