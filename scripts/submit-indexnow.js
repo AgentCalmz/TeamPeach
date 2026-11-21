@@ -34,7 +34,7 @@ function pageUrlFromFile(filePath) {
 }
 function urlsForChanges(changedFiles,sitemapXml,forceSitemap=false) {
  const files=Array.isArray(changedFiles)?changedFiles:[];
- const refreshSitemap=forceSitemap||files.some(file=>["public/sitemap.xml","sitemap.xml","public/robots.txt","scripts/generate-sitemap.js"].includes(String(file).replace(/\\/g,"/")));
+ const refreshSitemap=forceSitemap||files.some(file=>["public/sitemap.xml","sitemap.xml","public/robots.txt","scripts/generate-sitemap.js","scripts/submit-indexnow.js",".github/workflows/indexnow.yml"].includes(String(file).replace(/\\/g,"/")));
  const urls=new Set(refreshSitemap?parseSitemapUrls(sitemapXml):[]);
  for(const file of files){
   const url=pageUrlFromFile(file);
@@ -72,6 +72,7 @@ async function waitForKeyFile(key) {
  }
  throw new Error("The IndexNow key file did not become publicly available. Check the TeamPeach deployment.");
 }
+function isAcceptedIndexNowStatus(status) { return status===200 || status===202; }
 async function submitUrls(urls,key,keyLocation) {
  const batchSize=10000;
  for(let offset=0;offset<urls.length;offset+=batchSize){
@@ -83,8 +84,9 @@ async function submitUrls(urls,key,keyLocation) {
    signal:AbortSignal.timeout(30000)
   });
   const responseText=await response.text();
-  if(response.status!==200)throw new Error("IndexNow rejected the URL batch (HTTP "+response.status+"): "+responseText.slice(0,500));
-  console.log("IndexNow accepted "+batch.length+" URL(s).");
+  if(!isAcceptedIndexNowStatus(response.status))throw new Error("IndexNow rejected the URL batch (HTTP "+response.status+"): "+responseText.slice(0,500));
+  if(response.status===202)console.log("IndexNow received "+batch.length+" URL(s); key verification is pending.");
+  else console.log("IndexNow accepted "+batch.length+" URL(s).");
  }
 }
 async function main() {
@@ -96,4 +98,4 @@ async function main() {
  await submitUrls(urls,key,keyLocation);
 }
 if(require.main===module)main().catch(error=>{console.error(error.message);process.exitCode=1;});
-module.exports={decodeXml,parseSitemapUrls,pageUrlFromFile,urlsForChanges,getIndexNowKey};
+module.exports={decodeXml,parseSitemapUrls,pageUrlFromFile,urlsForChanges,getIndexNowKey,isAcceptedIndexNowStatus};
