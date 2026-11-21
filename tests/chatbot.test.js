@@ -111,7 +111,7 @@ test("builder form requires only business name and description; premium switches
 });
 test("public chatbot marketing page provides SEO, AEO and GEO answer content",()=>{
  const html=read("public/tools/peachchat/index.html");
- assert.match(html,/<title>PeachChat AI Customer Assistant for Small Businesses \| TeamPeach<\/title>/);
+ assert.match(html,/<title>PeachChat: AI Customer Assistant for Websites \| TeamPeach<\/title>/);
  assert.match(html,/name="description"/);
  assert.match(html,/rel="canonical" href="https:\/\/teampeach\.org\/tools\/peachchat\//);
  assert.match(html,/@type":"WebApplication/);
@@ -203,22 +203,20 @@ test("chatbot hero includes visible external photography with alternative text",
  assert.ok(dashboard.includes("CREDITS USED · LAST 30 DAYS"));
 });
 
-test("public tools catalogue lists only the two currently published tools with capability notes",()=>{
+test("public tools catalogue lists all eight published tools with capability notes",()=>{
  const html=read("public/tools/index.html");
- assert.match(html,/<title>AI Tools and Business Tools \| TeamPeach Tools<\/title>/);
+ assert.match(html,/<title>8 Business &amp; AI Tools \| TeamPeach<\/title>/);
  assert.match(html,/rel="canonical" href="https:\/\/teampeach\.org\/tools\//);
  assert.match(html,/@type":"CollectionPage/);
  assert.match(html,/@type":"ItemList/);
- assert.match(html,/PeachBrief — AI SEO Content Planner/);
- assert.match(html,/PeachChat — AI Customer Assistant/);
+ assert.match(html,/"numberOfItems"\s*:\s*8/);
+ for(const tool of ["PeachBrief — AI SEO Content Planner","PeachChat — AI Customer Assistant","PeachJobs — 30-Day Job Search","Domain Intelligence Engine","Business Radar","Domain Trend Analyzer","Brand Protection Monitor","Domain Revival"])assert.ok(html.includes(tool),"missing catalogue entry "+tool);
  assert.match(html,/PeachBrief uses AI to generate/i);
  assert.doesNotMatch(html,/DeepSeek|deepseek/);
  assert.doesNotMatch(html,/does not call an AI model|uses a structured template/i);
  assert.match(html,/does not automatically crawl your website/i);
  assert.match(html,/images\.unsplash\.com/);
- assert.doesNotMatch(html,/DeepSeek|deepseek/);
- assert.doesNotMatch(html,/noindex,nofollow/);
- const home=read("public/index.html");
+ assert.doesNotMatch(html,/noindex,nofollow/); const home=read("public/index.html");
  assert.match(home,/href="\/tools\//);
  assert.match(home,/class="home-tool-grid"/);
  assert.match(home,/class="home-tool-image"/);
