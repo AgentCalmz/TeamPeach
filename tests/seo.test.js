@@ -125,3 +125,14 @@ test("all eight tool pages expose WebApplication and FAQ structured data",()=>{
   assert.equal(app.inLanguage,"en-NG",slug+" should declare its content language");
  }
 });
+
+test("homepage metadata and answer copy describe the complete published tools collection",()=>{
+ const html=read("public/index.html");
+ assert.match(html,/<title>TeamPeach \| Practical AI Tools, Business Research &amp; Automation<\/title>/);
+ assert.match(html,/eight TeamPeach AI and business tools/i);
+ assert.match(html,/property="og:locale" content="en_NG"/);
+ assert.match(html,/job discovery, domain intelligence, business research, market trends and brand protection/i);
+ const schemas=[...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(item=>JSON.parse(item[1]));
+ assert.ok(schemas.some(item=>item["@type"]==="Organization"&&item.areaServed?.name==="Nigeria"));
+ assert.ok(schemas.some(item=>item["@type"]==="WebSite"&&item.inLanguage==="en-NG"));
+});
