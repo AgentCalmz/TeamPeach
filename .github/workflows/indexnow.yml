@@ -8,6 +8,7 @@ on:
       - "sitemap.xml"
       - "public/robots.txt"
       - "scripts/generate-sitemap.js"
+      - "scripts/submit-indexnow.js"
       - ".github/workflows/indexnow.yml"
   workflow_dispatch:
 permissions:
