@@ -4,19 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#f8f4ee">
-<title>Brand Protection Monitor | TeamPeach</title>
-<meta name="description" content="Monitor protected brand names against newly observed domains. Find possible typosquats, suspicious lookalikes and brand-related domain variations with private browser-side scanning.">
+<title>Brand Protection: Lookalike Domain Monitor | TeamPeach</title>
+<meta name="description" content="Compare protected brand names with newly observed domains to spot possible lookalikes, typosquats and risky wording. Review every match; it is not a fraud verdict.">
 <link rel="canonical" href="https://teampeach.org/tools/brand-protection-monitor/">
 <meta name="robots" content="index,follow,max-image-preview:large">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="TeamPeach">
-<meta property="og:title" content="Brand Protection Monitor | TeamPeach">
-<meta property="og:description" content="Check daily newly observed domains for possible brand-name lookalikes, spelling variations and suspicious account-related wording.">
+<meta property="og:site_name" content="TeamPeach"><meta property="og:locale" content="en_NG">
+<meta property="og:title" content="Brand Protection: Lookalike Domain Monitor | TeamPeach">
+<meta property="og:description" content="Compare protected brand names with newly observed domains to spot possible lookalikes, typosquats and risky wording. Review every match; it is not a fraud verdict.">
 <meta property="og:url" content="https://teampeach.org/tools/brand-protection-monitor/">
 <meta property="og:image" content="https://teampeach.org/assets/brand-protection-hero.svg">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Brand Protection Monitor | TeamPeach">
-<meta name="twitter:description" content="Monitor protected brand names for possible lookalike domains with private browser-side scanning.">
+<meta name="twitter:title" content="Brand Protection: Lookalike Domain Monitor | TeamPeach">
+<meta name="twitter:description" content="Compare protected brand names with newly observed domains to spot possible lookalikes, typosquats and risky wording. Review every match; it is not a fraud verdict.">
 <meta name="twitter:image" content="https://teampeach.org/assets/brand-protection-hero.svg">
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26,18 +26,104 @@
 <link rel="stylesheet" href="/css/brand-protection-monitor.css?v=1">
 <script type="application/ld+json">
 {
- "@context":"https://schema.org",
- "@graph":[
-  {"@type":"Organization","@id":"https://teampeach.org/#organization","name":"TeamPeach","url":"https://teampeach.org/"},
-  {"@type":"WebApplication","@id":"https://teampeach.org/tools/brand-protection-monitor/#application","name":"Brand Protection Monitor","url":"https://teampeach.org/tools/brand-protection-monitor/","applicationCategory":"SecurityApplication","operatingSystem":"Web","description":"A browser-side brand monitoring tool that compares user-supplied protected brand names against newly observed public domain snapshots to identify possible spelling variations and brand-related domain names. It does not verify ownership, infringement or malicious intent.","provider":{"@id":"https://teampeach.org/#organization"},"featureList":["Add up to 20 protected brand names","Optionally exclude official domains","Scan newly observed domain names locally in the browser","Detect possible spelling variations and character substitutions","Highlight account, login and verification wording","Export scan results to CSV","Keep the watchlist in the current browser without sending it to TeamPeach"]},
-  {"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://teampeach.org/"},{"@type":"ListItem","position":2,"name":"Tools","item":"https://teampeach.org/tools/"},{"@type":"ListItem","position":3,"name":"Brand Protection Monitor","item":"https://teampeach.org/tools/brand-protection-monitor/"}]},
-  {"@type":"FAQPage","mainEntity":[
-   {"@type":"Question","name":"What does the Brand Protection Monitor check?","acceptedAnswer":{"@type":"Answer","text":"It compares names you add to a local watchlist against the latest newly observed public domain snapshot and flags exact name matches, spelling variations, character substitutions and domains that combine a brand name with other wording."}},
-   {"@type":"Question","name":"Does a match prove that a domain is impersonating my brand?","acceptedAnswer":{"@type":"Answer","text":"No. A name match is a lead for investigation, not proof of ownership, infringement, fraud or malicious intent. Review registration records, the website and independent evidence before taking action."}},
-   {"@type":"Question","name":"Are my protected brand names sent to TeamPeach?","acceptedAnswer":{"@type":"Answer","text":"No. Your watchlist is stored in your current browser and the name comparison runs locally. The public domain dataset is downloaded directly for local scanning."}},
-   {"@type":"Question","name":"Does the tool send alerts automatically?","acceptedAnswer":{"@type":"Answer","text":"No. The current version runs a scan when you open the tool and request one. It does not send email alerts, run background checks or synchronise your watchlist across devices."}},
-   {"@type":"Question","name":"Does this check every domain on the internet?","acceptedAnswer":{"@type":"Answer","text":"No. It checks the latest newly observed domain snapshot available through TeamPeach's public data feed. It does not scan every registered domain or historical registration record."}}
-  ]}
+ "@context": "https://schema.org",
+ "@graph": [
+  {
+   "@type": "Organization",
+   "@id": "https://teampeach.org/#organization",
+   "name": "TeamPeach",
+   "url": "https://teampeach.org/"
+  },
+  {
+   "@type": "WebApplication",
+   "@id": "https://teampeach.org/tools/brand-protection-monitor/#application",
+   "name": "Brand Protection Monitor",
+   "url": "https://teampeach.org/tools/brand-protection-monitor/",
+   "applicationCategory": "SecurityApplication",
+   "operatingSystem": "Web",
+   "description": "A browser-side brand monitoring tool that compares user-supplied protected brand names against newly observed public domain snapshots to identify possible spelling variations and brand-related domain names. It does not verify ownership, infringement or malicious intent.",
+   "provider": {
+    "@id": "https://teampeach.org/#organization"
+   },
+   "featureList": [
+    "Add up to 20 protected brand names",
+    "Optionally exclude official domains",
+    "Scan newly observed domain names locally in the browser",
+    "Detect possible spelling variations and character substitutions",
+    "Highlight account, login and verification wording",
+    "Export scan results to CSV",
+    "Keep the watchlist in the current browser without sending it to TeamPeach"
+   ],
+   "inLanguage": "en-NG"
+  },
+  {
+   "@type": "BreadcrumbList",
+   "itemListElement": [
+    {
+     "@type": "ListItem",
+     "position": 1,
+     "name": "Home",
+     "item": "https://teampeach.org/"
+    },
+    {
+     "@type": "ListItem",
+     "position": 2,
+     "name": "Tools",
+     "item": "https://teampeach.org/tools/"
+    },
+    {
+     "@type": "ListItem",
+     "position": 3,
+     "name": "Brand Protection Monitor",
+     "item": "https://teampeach.org/tools/brand-protection-monitor/"
+    }
+   ]
+  },
+  {
+   "@type": "FAQPage",
+   "mainEntity": [
+    {
+     "@type": "Question",
+     "name": "What does the Brand Protection Monitor check?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "It compares names you add to a local watchlist against the latest newly observed public domain snapshot and flags exact name matches, spelling variations, character substitutions and domains that combine a brand name with other wording."
+     }
+    },
+    {
+     "@type": "Question",
+     "name": "Does a match prove that a domain is impersonating my brand?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "No. A name match is a lead for investigation, not proof of ownership, infringement, fraud or malicious intent. Review registration records, the website and independent evidence before taking action."
+     }
+    },
+    {
+     "@type": "Question",
+     "name": "Are my protected brand names sent to TeamPeach?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "No. Your watchlist is stored in your current browser and the name comparison runs locally. The public domain dataset is downloaded directly for local scanning."
+     }
+    },
+    {
+     "@type": "Question",
+     "name": "Does the tool send alerts automatically?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "No. The current version runs a scan when you open the tool and request one. It does not send email alerts, run background checks or synchronise your watchlist across devices."
+     }
+    },
+    {
+     "@type": "Question",
+     "name": "Does this check every domain on the internet?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "No. It checks the latest newly observed domain snapshot available through TeamPeach's public data feed. It does not scan every registered domain or historical registration record."
+     }
+    }
+   ]
+  }
  ]
 }
 </script>
