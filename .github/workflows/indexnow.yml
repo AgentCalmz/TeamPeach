@@ -27,7 +27,7 @@ jobs:
           package-manager-cache: false
       - name: Notify IndexNow
         env:
-          INDEXNOW_BASE_SHA: \${{ github.event.before }}
-          INDEXNOW_HEAD_SHA: \${{ github.sha }}
-          INDEXNOW_FULL_SITEMAP: \${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}
+          INDEXNOW_BASE_SHA: ${{ github.event.before }}
+          INDEXNOW_HEAD_SHA: ${{ github.sha }}
+          INDEXNOW_FULL_SITEMAP: ${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}
         run: node scripts/submit-indexnow.js
