@@ -24,6 +24,9 @@ test("PeachJobs browser script is valid JavaScript and uses the existing Cloudfl
   assert.match(js, /\/v1\/jobs\?/);
   assert.match(js, /\/v1\/jobs\/stats/);
   assert.match(js, /attempt<2/);
+  assert.match(js, /if\(remote&&remote!=="any"\)p\.set\("remote",remote\)/);
+  assert.match(js, /if\(type\)p\.set\("type",type\)/);
+  assert.match(js, /pj-search-diagnostic/);
   assert.doesNotMatch(js, /first Cloudflare collection/);
   assert.match(read("public/tools/peachjobs/index.html"), /peachjobs\.js\?v=2/);
   assert.doesNotMatch(js, /render\.com|supabase/i);
