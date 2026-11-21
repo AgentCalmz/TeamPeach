@@ -1,7 +1,7 @@
 "use strict";
 const test=require("node:test");
 const assert=require("node:assert/strict");
-const {decodeXml,parseSitemapUrls,pageUrlFromFile,urlsForChanges,getIndexNowKey}=require("../scripts/submit-indexnow");
+const {decodeXml,parseSitemapUrls,pageUrlFromFile,urlsForChanges,getIndexNowKey,isAcceptedIndexNowStatus}=require("../scripts/submit-indexnow");
 
 test("IndexNow converts public HTML files to canonical TeamPeach URLs",()=>{
  assert.equal(pageUrlFromFile("public/index.html"),"https://teampeach.org/");
@@ -33,4 +33,11 @@ test("sitemap or robots updates trigger a full sitemap notification",()=>{
  const sitemap='<urlset><url><loc>https://teampeach.org/tools/</loc></url><url><loc>https://teampeach.org/products/</loc></url></urlset>';
  const urls=urlsForChanges(["public/robots.txt"],sitemap,false);
  assert.deepEqual(urls,["https://teampeach.org/tools/","https://teampeach.org/products/"]);
+});
+
+test("HTTP 202 is an accepted IndexNow response while key verification is pending",()=>{
+ assert.equal(isAcceptedIndexNowStatus(200),true);
+ assert.equal(isAcceptedIndexNowStatus(202),true);
+ assert.equal(isAcceptedIndexNowStatus(400),false);
+ assert.equal(isAcceptedIndexNowStatus(403),false);
 });
