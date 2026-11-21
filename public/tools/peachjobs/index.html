@@ -8,7 +8,7 @@
 <meta property="og:type" content="website"><meta property="og:site_name" content="TeamPeach"><meta property="og:title" content="PeachJobs | Fresh job opportunities"><meta property="og:description" content="Search employer-published job listings from the last 30 days, compare work arrangements and open the original application page."><meta property="og:url" content="https://teampeach.org/tools/peachjobs/"><meta property="og:image" content="https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&amp;fit=crop&amp;w=1200&amp;q=85">
 <meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="PeachJobs | TeamPeach"><meta name="twitter:description" content="A 30-day job index sourced from employer career pages and public hiring systems."><meta name="twitter:image" content="https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&amp;fit=crop&amp;w=1200&amp;q=85">
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/styles.css?v=7"><link rel="stylesheet" href="/css/peachjobs.css?v=2">
+<link rel="stylesheet" href="/css/styles.css?v=7"><link rel="stylesheet" href="/css/peachjobs.css?v=3">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@graph":[
  {"@type":"Organization","@id":"https://teampeach.org/#organization","name":"TeamPeach","url":"https://teampeach.org/"},
@@ -45,19 +45,27 @@
  </aside>
 </section>
 <section class="page-wrap pj-search-section" aria-labelledby="pj-search-title">
- <div class="pj-search-heading"><div><p class="eyebrow"><span></span> JOB SEARCH</p><h2 id="pj-search-title">Search opportunities</h2><p>Start with a job title or skill, then refine by location and work arrangement. Results are ordered by publication date.</p></div><span class="pj-window-label">Up to 30 days</span></div>
- <form id="pj-search-form" class="pj-search-panel">
-  <div class="pj-search-grid">
-   <label class="pj-wide">Role, employer or team<input id="pj-q" name="q" type="search" autocomplete="off" placeholder="e.g. data analyst, customer support, Stripe"></label>
-   <label>Location / country<input id="pj-location" name="location" type="search" autocomplete="off" placeholder="Nigeria, Lagos, EMEA"></label>
-   <button class="button button-dark pj-search-button" id="pj-search-button" type="submit">Search jobs <span>↗</span></button>
+ <div class="pj-search-heading"><div><p class="eyebrow"><span></span> JOB SEARCH</p><h2 id="pj-search-title">Find opportunities that fit.</h2><p>Search by role, skill or employer. Add a location and refine by work arrangement, employment type or posting date. Dropdown filters update automatically.</p></div></div>
+ <form id="pj-search-form" class="pj-filter-panel">
+  <div class="pj-filter-panel-head"><div><span class="pj-filter-overline">SEARCH & REFINE</span><h3>What kind of role are you looking for?</h3></div><button class="pj-clear-button" id="pj-clear-filters" type="button" disabled>Clear all filters</button></div>
+  <div class="pj-query-grid">
+   <label>Keywords, title or employer
+    <div class="pj-input-wrap"><span aria-hidden="true">⌕</span><input id="pj-q" name="q" type="search" autocomplete="off" placeholder="e.g. data analyst, customer support, Stripe"></div>
+    <small>Search job titles, employers, teams and skills</small>
+   </label>
+   <label>Location or country
+    <div class="pj-input-wrap"><span aria-hidden="true">⌖</span><input id="pj-location" name="location" type="search" autocomplete="off" placeholder="e.g. Nigeria, Lagos, United States"></div>
+    <small>Use a city, country or region</small>
+   </label>
   </div>
-  <div class="pj-filters">
+  <div class="pj-filter-divider"></div>
+  <div class="pj-filter-row">
    <label>Work arrangement<select id="pj-remote" name="remote"><option value="any">Any arrangement</option><option value="remote">Remote</option><option value="hybrid">Hybrid</option><option value="onsite">On-site</option></select></label>
    <label>Employment type<select id="pj-type" name="type"><option value="">Any employment type</option><option value="full">Full-time</option><option value="part">Part-time</option><option value="contract">Contract</option><option value="intern">Internship</option><option value="temporary">Temporary</option></select></label>
-   <label>Published within<select id="pj-days" name="days"><option value="30">Last 30 days</option><option value="14">Last 14 days</option><option value="7">Last 7 days</option><option value="1">Last 24 hours</option></select></label>
+   <label>Posted within<select id="pj-days" name="days"><option value="30">Last 30 days</option><option value="14">Last 14 days</option><option value="7">Last 7 days</option><option value="1">Last 24 hours</option></select></label>
   </div>
-  <div class="pj-search-footer"><span id="pj-result-count" role="status" aria-live="polite">Loading job index…</span><span>No resume upload. No application submission.</span></div>
+  <div class="pj-active-filters"><div class="pj-active-copy"><strong>Your filters</strong><small id="pj-filter-summary">Showing all recent opportunities</small></div><div class="pj-filter-chips" id="pj-filter-chips" aria-label="Active filters"><span class="pj-no-filter">No filters applied</span></div></div>
+  <div class="pj-filter-actions"><button class="button button-dark pj-filter-submit" id="pj-search-button" type="submit">Search jobs <span>↗</span></button><span class="pj-filter-guidance">Your filters are applied as you change them. No resume upload or application submission.</span></div>
  </form>
 </section>
 <section class="page-wrap pj-results-section" aria-labelledby="pj-results-title">
@@ -78,5 +86,5 @@
 </div></section>
 </main>
 <footer class="site-footer"><div class="page-wrap footer-bottom"><span>© <span id="current-year"></span> TeamPeach. Built with intention.</span><a href="/">Home</a><a href="/tools/">Tools</a><a href="/journal/">Journal</a></div></footer>
-<script src="/js/main.js?v=3" defer></script><script src="/js/peachjobs.js?v=3" defer></script>
+<script src="/js/main.js?v=3" defer></script><script src="/js/peachjobs.js?v=4" defer></script>
 </body></html>
