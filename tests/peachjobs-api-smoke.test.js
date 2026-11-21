@@ -31,11 +31,13 @@ async function getJson(path) {
   return data;
 }
 
-test("PeachJobs public search API is healthy, populated and browser-readable", async () => {
+test("PeachJobs public health, stats and default browser search request work", async () => {
   const [health, stats, search] = await Promise.all([
     getJson("/v1/jobs/health"),
     getJson("/v1/jobs/stats"),
-    getJson("/v1/jobs?days=30&page=1&limit=5")
+    // Matches the initial request built by public/js/peachjobs.js with all default
+    // filters selected: no role, location, remote or employment-type filters.
+    getJson("/v1/jobs?days=30&page=1&limit=20")
   ]);
 
   assert.equal(health.ok, true, "Jobs health endpoint did not report ok");
@@ -49,5 +51,11 @@ test("PeachJobs public search API is healthy, populated and browser-readable", a
   assert.equal(search.ok, true, "Jobs search endpoint did not report ok");
   assert.ok(Array.isArray(search.results), "Search results are not an array");
   assert.ok(search.results.length > 0, "Search returned no rows despite a populated index");
+  assert.ok(search.results.length <= 20, "Search returned more than the requested page size");
   assert.ok(Number(search.total) > 0, "Search total is zero despite a populated index");
+  for (const job of search.results) {
+    assert.equal(typeof job.title, "string", "A job is missing its title");
+    assert.equal(typeof job.company, "string", "A job is missing its employer");
+    assert.ok(typeof job.job_url === "string" && job.job_url.startsWith("https://"), "A job is missing its employer listing URL");
+  }
 });
