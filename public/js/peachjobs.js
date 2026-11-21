@@ -111,7 +111,7 @@
    const source=document.createElement("p");source.className="pj-card-source";source.textContent="Source: "+sourceName(job.ats);
    const bottom=document.createElement("div");bottom.className="pj-card-bottom";
    const seen=document.createElement("small");seen.textContent="Last checked "+ago(job.last_seen_at);
-   const link=document.createElement("a");link.href=safeHttps(job.apply_url)||safeHttps(job.job_url);link.target="_blank";link.rel="noopener noreferrer";link.textContent="View original listing ↗";
+   const link=document.createElement("a");const apply=safeHttps(job.apply_url);link.href=apply!=="#"?apply:safeHttps(job.job_url);link.target="_blank";link.rel="noopener noreferrer";link.textContent="View original listing ↗";
    if(link.href==="#")link.removeAttribute("target");
    bottom.append(seen,link);card.append(mark,title,employer,meta,source,bottom);target.appendChild(card);
   }
@@ -169,9 +169,10 @@
  }
  const form=$("pj-search-form");
  form.addEventListener("submit",event=>{event.preventDefault();if(inputTimer)clearTimeout(inputTimer);search(false);});
- $("pj-remote").addEventListener("change",()=>search(false));
- $("pj-type").addEventListener("change",()=>search(false));
- $("pj-days").addEventListener("change",()=>search(false));
+ function applyChangedFilter(){if(inputTimer)clearTimeout(inputTimer);search(false);}
+ $("pj-remote").addEventListener("change",applyChangedFilter);
+ $("pj-type").addEventListener("change",applyChangedFilter);
+ $("pj-days").addEventListener("change",applyChangedFilter);
  for(const id of ["pj-q","pj-location"]){
   $(id).addEventListener("input",()=>{
    if(inputTimer)clearTimeout(inputTimer);
