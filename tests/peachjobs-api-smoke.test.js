@@ -59,3 +59,75 @@ test("PeachJobs public health, stats and default browser search request work", a
     assert.ok(typeof job.job_url === "string" && job.job_url.startsWith("https://"), "A job is missing its employer listing URL");
   }
 });
+
+
+test("PeachJobs live search filters work independently on indexed listings", async () => {
+  const baseline = await getJson("/v1/jobs?days=30&page=1&limit=50");
+  assert.ok(baseline.results.length > 0, "No indexed jobs available for live filter checks");
+
+  const sameJob = (left, right) =>
+    left.ats === right.ats &&
+    left.board_key === right.board_key &&
+    left.external_id === right.external_id;
+
+  const textSample = baseline.results.find(job => job.title && job.company);
+  assert.ok(textSample, "No title/company sample is available");
+  const companyToken = (textSample.company.match(/[A-Za-z0-9]+/) || [])[0];
+  const titleToken = (textSample.title.match(/[A-Za-z0-9]+/) || [])[0];
+  assert.ok(companyToken && titleToken, "Could not build a text-search sample");
+  const textParams = new URLSearchParams({
+    q: companyToken + " " + titleToken,
+    days: "30", page: "1", limit: "50"
+  });
+  const textResult = await getJson("/v1/jobs?" + textParams);
+  assert.ok(
+    textResult.results.some(job => sameJob(job, textSample)),
+    "Keyword search did not find the sampled job across employer and title fields"
+  );
+
+  const locationSample = baseline.results.find(job => job.location && job.location.includes(","));
+  assert.ok(locationSample, "No comma-separated location sample is available");
+  const locationParams = new URLSearchParams({
+    location: locationSample.location.replace(/[,;]/g, " "),
+    days: "30", page: "1", limit: "50"
+  });
+  const locationResult = await getJson("/v1/jobs?" + locationParams);
+  assert.ok(
+    locationResult.results.some(job => sameJob(job, locationSample)),
+    "Location search did not match the words in a comma-separated indexed location"
+  );
+
+  const remoteValues = [...new Set(
+    baseline.results.map(job => job.remote_status)
+      .filter(value => ["remote", "hybrid", "onsite"].includes(value))
+  )];
+  for (const remote of remoteValues) {
+    const data = await getJson("/v1/jobs?" + new URLSearchParams({
+      remote, days: "30", page: "1", limit: "50"
+    }));
+    assert.ok(data.total > 0, "Remote filter returned no jobs for " + remote);
+    assert.ok(data.results.every(job => job.remote_status === remote),
+      "Remote filter returned a different work arrangement for " + remote);
+  }
+
+  const typeAliases = {
+    full: ["full"],
+    part: ["part"],
+    contract: ["contract"],
+    intern: ["intern"],
+    temporary: ["temporary", "temp"]
+  };
+  for (const [filter, aliases] of Object.entries(typeAliases)) {
+    const expected = baseline.results.some(job =>
+      aliases.some(alias => String(job.employment_type || "").toLowerCase().includes(alias))
+    );
+    if (!expected) continue;
+    const data = await getJson("/v1/jobs?" + new URLSearchParams({
+      type: filter, days: "30", page: "1", limit: "50"
+    }));
+    assert.ok(data.total > 0, "Employment type filter returned no jobs for " + filter);
+    assert.ok(data.results.every(job =>
+      String(job.employment_type || "").toLowerCase().includes(filter === "temporary" ? "temp" : filter)
+    ), "Employment type filter returned an unrelated type for " + filter);
+  }
+});
