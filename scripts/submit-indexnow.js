@@ -9,7 +9,8 @@ const SITEMAP_PATH = path.join(PUBLIC_DIR, "sitemap.xml");
 const PRIVATE_ROOTS = new Set(["account","admin","assistant","chatbot-preview","dashboard","forgot-password","login","register","unsubscribe","verify-email"]);
 
 function decodeXml(value) {
- return value.replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&apos;/g,"'");
+ const entities = { "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&apos;": "'" };
+ return value.replace(/&(amp|lt|gt|quot|apos);/g, entity => entities[entity] || entity);
 }
 function parseSitemapUrls(xml) {
  const urls=[];
@@ -95,4 +96,4 @@ async function main() {
  await submitUrls(urls,key,keyLocation);
 }
 if(require.main===module)main().catch(error=>{console.error(error.message);process.exitCode=1;});
-module.exports={parseSitemapUrls,pageUrlFromFile,urlsForChanges,getIndexNowKey};
+module.exports={decodeXml,parseSitemapUrls,pageUrlFromFile,urlsForChanges,getIndexNowKey};
