@@ -28,3 +28,5 @@ jobs:
         run: npm ci
       - name: Run regression tests
         run: npm test
+      - name: Verify the live PeachJobs public API
+        run: node --test tests/peachjobs-api-smoke.test.js
