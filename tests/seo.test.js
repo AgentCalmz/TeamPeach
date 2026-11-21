@@ -107,7 +107,7 @@ test("domain intelligence prioritises new-domain discovery with transparent busi
 test("the public tools catalogue consistently reports eight published tools",()=>{
  const page=read("public/tools/index.html");
  assert.ok(page.includes("<strong>08</strong>"));
- assert.match(page,/"numberOfItems":8/);
+ assert.match(page,/"numberOfItems"\s*:\s*8/);
  for(const route of [
   "/tools/peachchat/","/tools/peachbrief/","/tools/peachjobs/",
   "/tools/domain-intelligence/","/tools/business-radar/",
