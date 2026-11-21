@@ -3,7 +3,7 @@
  const API="https://teampeach-domain-api.creatorletofficial.workers.dev";
  const $=id=>document.getElementById(id);
  const number=new Intl.NumberFormat();
- let page=1,hasMore=false;
+ let page=1,hasMore=false,searchRequest=0;
  const esc=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
  function ago(value){
   if(!value)return "Date not supplied";
@@ -70,22 +70,28 @@
  }
  async function search(append){
   if(!append)page=1;
+  const request=++searchRequest;
   const button=$("pj-search-button");button.disabled=true;button.textContent="Searching…";
   try{
    const requestPath="/v1/jobs?"+makeParams().toString();
    const data=await api(requestPath);
+   // Ignore an older response if the user has already submitted a newer filter set.
+   if(request!==searchRequest)return;
    if(!Array.isArray(data.results))throw new Error("The job service response is missing its results list.");
    render(data.results,!!append);
    setText("pj-result-count",number.format(data.total||0)+" matching listings · last "+data.days+" days");
    hasMore=!!data.has_more;$("pj-load-more").hidden=!hasMore;
   }catch(error){
+   if(request!==searchRequest)return;
    console.error("[PeachJobs] Search failed",error);
    if(!append){
     const message=String(error&&error.message||"Unknown error").slice(0,180);
     $("pj-results").innerHTML='<div class="pj-empty">The job search service could not complete this search. Please try again or check service status.<br><small class="pj-search-diagnostic">Diagnostic: '+esc(message)+'</small> <a href="'+API+'/v1/jobs/health" target="_blank" rel="noopener noreferrer">Check service status</a>.</div>';
    }
    setText("pj-result-count","Search unavailable");
-  }finally{button.disabled=false;button.innerHTML='Search jobs <span>↗</span>';}
+  }finally{
+   if(request===searchRequest){button.disabled=false;button.innerHTML='Search jobs <span>↗</span>';}
+  }
  }
  async function metrics(){
   try{
