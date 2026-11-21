@@ -12,11 +12,23 @@
  }
  function sourceName(ats){return ({ashby:"Ashby",greenhouse:"Greenhouse",lever:"Lever"})[ats]||"Employer career page";}
  function setText(id,value){const node=$(id);if(node)node.textContent=value;}
+ const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
  async function api(path){
-  const r=await fetch(API+path,{method:"GET",mode:"cors",credentials:"omit",cache:"no-store",headers:{Accept:"application/json"}});
-  const data=await r.json().catch(()=>({}));
-  if(!r.ok||data.ok===false)throw new Error(data.error||"The PeachJobs index is temporarily unavailable.");
-  return data;
+  let lastError;
+  for(let attempt=0;attempt<2;attempt++){
+   try{
+    const r=await fetch(API+path,{method:"GET",mode:"cors",credentials:"omit",cache:"no-store",headers:{Accept:"application/json"}});
+    const body=await r.text();
+    let data;
+    try{data=JSON.parse(body);}catch{throw new Error("The job service returned an unexpected response.");}
+    if(!r.ok||data.ok===false)throw new Error(data.error||"The job service is temporarily unavailable.");
+    return data;
+   }catch(error){
+    lastError=error;
+    if(attempt===0)await pause(450);
+   }
+  }
+  throw lastError||new Error("The job service is temporarily unavailable.");
  }
  function makeParams(){
   const p=new URLSearchParams();
@@ -53,7 +65,7 @@
    setText("pj-result-count",number.format(data.total||0)+" matching listings · last "+data.days+" days");
    hasMore=!!data.has_more;$("pj-load-more").hidden=!hasMore;
   }catch(error){
-   if(!append)$("pj-results").innerHTML='<div class="pj-empty">'+esc(error.message)+'<br>The index may still need its first Cloudflare collection.</div>';
+   if(!append)$("pj-results").innerHTML='<div class="pj-empty">The job search service could not be reached from this page. Please try again. <a href="'+API+'/v1/jobs/health" target="_blank" rel="noopener noreferrer">Check service status</a>.</div>';
    setText("pj-result-count","Search unavailable");
   }finally{button.disabled=false;button.innerHTML='Search jobs <span>↗</span>';}
  }
