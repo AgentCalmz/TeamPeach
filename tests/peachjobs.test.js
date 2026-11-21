@@ -33,9 +33,9 @@ test("PeachJobs browser script is valid JavaScript and uses the existing Cloudfl
   assert.match(js, /addEventListener\("change"/);
   assert.match(js, /setTimeout\(\(\)=>search\(false\),450\)/);
   assert.match(read("public/tools/peachjobs/index.html"), /pj-filter-panel/);
-  assert.match(read("public/tools/peachjobs/index.html"), /peachjobs\\.css\\?v=3/);
+  assert.match(read("public/tools/peachjobs/index.html"), /peachjobs\.css\?v=3/);
   assert.doesNotMatch(js, /first Cloudflare collection/);
-  assert.match(read("public/tools/peachjobs/index.html"), /peachjobs\.js\?v=3/);
+  assert.match(read("public/tools/peachjobs/index.html"), /peachjobs\.js\?v=4/);
   assert.doesNotMatch(js, /render\.com|supabase/i);
 });
 
