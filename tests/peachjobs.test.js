@@ -24,6 +24,10 @@ test("PeachJobs browser script is valid JavaScript and uses the existing Cloudfl
   assert.match(js, /\/v1\/jobs\?/);
   assert.match(js, /\/v1\/jobs\/stats/);
   assert.match(js, /attempt<2/);
+  assert.match(js, /D1_DAILY_READ_LIMIT/);
+  assert.match(js, /cache:"default"/);
+  assert.match(js, /data.message\|\|data.error\|\|data.detail/);
+  assert.match(js, /stats=await api\("\/v1\/jobs\/stats"\)/);
   assert.match(js, /filters\.remote&&filters\.remote!=="any"/);
   assert.match(js, /if\(filters\.type\)params\.set\("type",filters\.type\)/);
   assert.match(js, /pj-search-diagnostic/);
@@ -48,4 +52,11 @@ test("PeachJobs is linked from public and workspace tool directories and the sit
   assert.match(directory, /href="\/tools\/peachjobs\//);
   assert.match(workspace, /href="\/tools\/peachjobs\//);
   assert.match(sitemap, /https:\/\/teampeach\.org\/tools\/peachjobs\//);
+});
+test("PeachJobs surfaces D1 quota/storage limits without retrying unavailable reads",()=>{
+ const js=read("public/js/peachjobs.js");
+ assert.match(js,/error.status===429\|\|error.status===507/);
+ assert.match(js,/D1_DAILY_WRITE_LIMIT/);
+ assert.match(js,/D1_STORAGE_LIMIT/);
+ assert.match(js,/Search resumes after 00:00 UTC/);
 });
