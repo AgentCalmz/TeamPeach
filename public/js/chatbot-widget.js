@@ -35,7 +35,7 @@ const voiceStatus=document.createElement("div");voiceStatus.className="tp-voice-
 const footer=document.createElement("div");footer.className="tp-footer";panel.append(header,stream,form,voiceStatus,footer);shadow.append(launch,panel);
 let config=null,loading=false,csrfToken="",history=[],visitorKey="",welcomeShown=false;
 let recognition=null,listening=false,voicePrivacyNoteShown=false,activeSpeakButton=null,activeUtterance=null,activeSpeechQueue=null;
-let voiceChatActive=false,voiceChatWaiting=false,voiceChatRecognition=null,voiceChatRestartTimer=null;
+let voiceChatActive=false,voiceChatWaiting=false,voiceChatRecognition=null,voiceChatRestartTimer=null,voiceChatPrivacyNoteShown=false;
 function setMicState(active){
  listening=Boolean(active);
  mic.setAttribute("aria-pressed",String(listening));
@@ -165,11 +165,14 @@ function speakReply(value,button,onFinish){
   speakNextChunk(queue);return true;
  }catch(_){finishSpeechQueue(queue);addError("Your browser could not start spoken playback.");return false;}
 }
-function addVoicePrivacyNote(){
- if(voicePrivacyNoteShown)return;
- voicePrivacyNoteShown=true;
+function addVoicePrivacyNote(autoSend){
+ const alreadyShown=autoSend?voiceChatPrivacyNoteShown:voicePrivacyNoteShown;
+ if(alreadyShown)return;
+ if(autoSend)voiceChatPrivacyNoteShown=true;else voicePrivacyNoteShown=true;
  const note=document.createElement("div");note.className="tp-voice-note";
- note.textContent="Voice input is handled by your browser's speech-recognition service. Depending on your browser, microphone audio may be sent to its provider for transcription. Review the words here before sending; TeamPeach receives only the text you submit.";
+ note.textContent=autoSend
+  ?"Voice Chat uses your browser's speech-recognition service. Its provider may process microphone audio for transcription. Recognised speech is sent automatically through the assistant's usual TeamPeach chat and credit flow. Audio is not streamed through TeamPeach or Render."
+  :"Voice input is handled by your browser's speech-recognition service. Depending on your browser, microphone audio may be sent to its provider for transcription. Review the words here before sending; TeamPeach receives only the text you submit.";
  stream.appendChild(note);stream.scrollTop=stream.scrollHeight;
 }
 function startVoiceInput(){
@@ -214,7 +217,7 @@ function updateVoiceChatStatus(message,visible){
  voiceStatus.textContent=String(message||"");
  voiceStatus.hidden=visible===false;
  voiceChat.setAttribute("aria-pressed",String(voiceChatActive));
- voiceChat.textContent=voiceChatActive?"◉":"◌";
+ voiceChat.textContent=voiceChatActive?"■":"☎";
  voiceChat.title=voiceChatActive?"Stop voice chat":"Start voice chat";
  voiceChat.setAttribute("aria-label",voiceChatActive?"Stop voice chat":"Start voice chat");
 }
@@ -285,7 +288,7 @@ function toggleVoiceChat(){
  if(typeof SpeechRecognition!=="function"){addError("Live voice chat is not supported by this browser. Try Chrome or Edge, or use the microphone button to dictate.");return;}
  if(window.isSecureContext===false){addError("Microphone access requires a secure HTTPS website.");return;}
  if(!window.speechSynthesis||!window.SpeechSynthesisUtterance){addError("Spoken replies are not supported by this browser. You can still use the microphone button to dictate.");return;}
- addVoicePrivacyNote();
+ addVoicePrivacyNote(true);
  voiceChatActive=true;voiceChatWaiting=false;updateVoiceChatStatus("Starting voice chat…",true);startVoiceChatListening();
 }
 
