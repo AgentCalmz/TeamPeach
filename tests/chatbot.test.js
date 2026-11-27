@@ -184,8 +184,8 @@ test("assistant preview uses a CSP-compatible external bootstrap and reports rea
  assert.match(bootstrap,/AbortController/);
  assert.match(bootstrap,/classList\.contains\("tp-open"\)/);
  assert.match(bootstrap,/did not finish loading/);
- assert.ok(bootstrap.includes("/js/chatbot-widget.js?v=6"));
- assert.ok(read("server.js").includes("/js/chatbot-widget.js?v=6"));
+ assert.ok(bootstrap.includes("/js/chatbot-widget.js?v=7"));
+ assert.ok(read("server.js").includes("/js/chatbot-widget.js?v=7"));
 });
 test("chatbot hero includes visible external photography with alternative text",()=>{
  const html=read("public/tools/peachchat/index.html");
@@ -345,10 +345,24 @@ test("PeachBrief does not offer workspace saving or restore saved workspace proj
 test("PeachChat voice options are documented on the public page and shared assistant entry",()=>{
  const page=read("public/tools/peachchat/index.html");
  const schema=page.slice(page.indexOf("<script type=\"application/ld+json\">"),page.indexOf("</script>"));
- assert.match(schema,/spoken assistant replies using available browser voices/i);
+ assert.match(schema,/Optional spoken assistant replies using available browser voices/i);
+ assert.match(schema,/Live voice chat with real-time interim transcription/i);
  assert.match(schema,/speech recognition/i);
  assert.match(page,/Can visitors talk to PeachChat or listen to replies/);
  assert.match(page,/browser's speech-recognition provider/);
+ assert.match(page,/microphone audio is not streamed through TeamPeach or Render/i);
  const share=read("public/assistant/index.html");
  assert.match(share,/chatbot-widget\.js\?v=6/);
+});
+
+test("PeachChat browser voice chat sends live transcripts through existing AI and speaks its replies",()=>{
+ const widget=read("public/js/chatbot-widget.js");
+ assert.doesNotThrow(()=>new Function(widget));
+ assert.match(widget,/instance\.interimResults=true;instance\.continuous=true/);
+ assert.match(widget,/Hearing: /);
+ assert.match(widget,/sendMessage\(finalText,\{voiceChat:true\}\)/);
+ assert.match(widget,/speakReply\(answer,null/);
+ assert.match(widget,/startVoiceChatListening\(\)/);
+ assert.match(widget,/googleLocal=local\.filter/);
+ assert.doesNotMatch(widget,/generativelanguage\.googleapis\.com|BidiGenerateContent|authTokens\//);
 });
