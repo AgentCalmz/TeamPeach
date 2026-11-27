@@ -21,7 +21,7 @@ a{color:#ad664a;font-weight:700;text-decoration:none}
 (function(){
  const id=new URLSearchParams(location.search).get("id")||"";
  if(!/^[0-9a-f-]{36}$/i.test(id)){document.querySelector("h1").textContent="This assistant link is incomplete.";document.querySelector("main>p").textContent="Ask the business owner for a new assistant link.";return;}
- const script=document.createElement("script");script.src="https://teampeach.org/js/chatbot-widget.js?v=6";script.dataset.assistantId=id;script.dataset.openOnLoad="1";script.defer=true;document.body.appendChild(script);
+ const script=document.createElement("script");script.src="https://teampeach.org/js/chatbot-widget.js?v=7";script.dataset.assistantId=id;script.dataset.openOnLoad="1";script.defer=true;document.body.appendChild(script);
 })();
 </script>
 </body></html>
