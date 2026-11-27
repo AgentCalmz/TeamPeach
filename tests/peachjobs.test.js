@@ -40,7 +40,7 @@ test("PeachJobs browser script is valid JavaScript and uses the existing Cloudfl
   assert.match(read("public/tools/peachjobs/index.html"), /id="pj-result-count"/);
   assert.match(read("public/tools/peachjobs/index.html"), /peachjobs\.css\?v=3/);
   assert.doesNotMatch(js, /first Cloudflare collection/);
-  assert.match(read("public/tools/peachjobs/index.html"), /peachjobs\.js\?v=4/);
+  assert.match(read("public/tools/peachjobs/index.html"), /peachjobs\.js\?v=5/);
   assert.doesNotMatch(js, /render\.com|supabase/i);
 });
 
