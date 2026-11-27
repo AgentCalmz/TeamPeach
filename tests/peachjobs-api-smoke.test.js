@@ -10,13 +10,17 @@ async function getJson(path) {
     signal: AbortSignal.timeout(20000)
   });
   const body = await response.text();
-  assert.match(response.headers.get("content-type") || "", /application\\/json/i, path + " did not return JSON");
+  assert.match(response.headers.get("content-type") || "", /application\/json/i, path + " did not return JSON");
   assert.equal(response.headers.get("access-control-allow-origin"), "*", path + " is missing the public CORS header required by the browser");
   let data;
   try { data = JSON.parse(body); }
   catch { assert.fail(path + " returned invalid JSON: " + body.slice(0, 500)); }
-  if (response.status === 429 && ["D1_DAILY_READ_LIMIT", "D1_DAILY_WRITE_LIMIT"].includes(data.code)) {
-    assert.match(data.message || "", /saved job listings are safe/i);
+  const quotaError =
+    (response.status === 429 && ["D1_DAILY_READ_LIMIT", "D1_DAILY_WRITE_LIMIT"].includes(data.code)) ||
+    (response.status === 502 && /exceeded D1's free tier daily row (read|write) limit/i.test(data.detail || ""));
+  if (quotaError) {
+    const quotaDescription = [data.message, data.detail].filter(Boolean).join(" ");
+    assert.match(quotaDescription, /D1's free tier daily row (read|write) limit/i);
     return { ...data, quotaExceeded: true };
   }
   assert.equal(response.status, 200, path + " returned HTTP " + response.status + ": " + body.slice(0, 500));
