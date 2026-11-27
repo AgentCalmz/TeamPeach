@@ -352,7 +352,7 @@ test("PeachChat voice options are documented on the public page and shared assis
  assert.match(page,/browser's speech-recognition provider/);
  assert.match(page,/microphone audio is not streamed through TeamPeach or Render/i);
  const share=read("public/assistant/index.html");
- assert.match(share,/chatbot-widget\.js\?v=6/);
+ assert.match(share,/chatbot-widget\.js\?v=7/);
 });
 
 test("PeachChat browser voice chat sends live transcripts through existing AI and speaks its replies",()=>{
