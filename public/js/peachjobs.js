@@ -22,18 +22,22 @@
   let lastError;
   for(let attempt=0;attempt<2;attempt++){
    try{
-    const response=await fetch(API+path,{method:"GET",mode:"cors",credentials:"omit",cache:"no-store",signal,headers:{Accept:"application/json"}});
+    const response=await fetch(API+path,{method:"GET",mode:"cors",credentials:"omit",cache:"default",signal,headers:{Accept:"application/json"}});
     const body=await response.text();
     let data;
     try{data=JSON.parse(body);}catch{throw new Error("The job service returned an unexpected response (HTTP "+response.status+").");}
     if(!response.ok||data.ok===false){
-     const reason=[data.error,data.detail].filter(Boolean).join(": ");
-     throw new Error(reason||"The job service returned HTTP "+response.status+".");
+     const reason=data.message||data.error||data.detail||"The job service returned HTTP "+response.status+".";
+     const failure=new Error(reason);failure.status=response.status;failure.code=data.code||"";
+     failure.retryAfter=Number(data.retry_after_seconds)||0;throw failure;
     }
     return data;
    }catch(error){
     if(error&&error.name==="AbortError")throw error;
     lastError=error;
+    // D1 quota/storage responses are not transient network errors; retrying
+    // only consumes additional requests while the service remains unavailable.
+    if(error&&(error.status===429||error.status===507||/^D1_/.test(error.code||"")))throw error;
     if(attempt===0)await new Promise(resolve=>setTimeout(resolve,350));
    }
   }
@@ -146,8 +150,11 @@
    if(request!==searchRequest||error&&error.name==="AbortError")return;
    console.error("[PeachJobs] Search failed",error);
    if(!append){
-    const message=String(error&&error.message||"Unknown error").slice(0,180);
-    results.innerHTML='<div class="pj-empty">We could not complete this search. Please try again.<small class="pj-search-diagnostic">Diagnostic: '+esc(message)+'</small><br><a href="'+API+'/v1/jobs/health" target="_blank" rel="noopener noreferrer">Check service status</a></div>';
+    const message=String(error&&error.message||"Unknown error").slice(0,220);
+    const quotaError=error&&["D1_DAILY_READ_LIMIT","D1_DAILY_WRITE_LIMIT"].includes(error.code);
+    const storageError=error&&error.code==="D1_STORAGE_LIMIT";
+    const heading=quotaError?message:storageError?message:"We could not complete this search. Please try again.";
+    results.innerHTML='<div class="pj-empty">'+esc(heading)+'<small class="pj-search-diagnostic">'+(quotaError||storageError?'Your saved listings have not been deleted. ':'Diagnostic: ')+esc(message)+'</small><br><a href="'+API+'/v1/jobs/health" target="_blank" rel="noopener noreferrer">Check service status</a></div>';
    }
    setText("pj-result-count","Search unavailable");
   }finally{
@@ -160,12 +167,18 @@
  }
  async function metrics(){
   try{
-   const [health,stats]=await Promise.all([api("/v1/jobs/health"),api("/v1/jobs/stats")]);
+   // The stats response includes database readiness, so one compact request
+   // replaces the former health + stats pair during every page load.
+   const stats=await api("/v1/jobs/stats");
    setText("pj-total-jobs",number.format(stats.jobs||0));setText("pj-employers",number.format(stats.employers||0));
    const date=stats.latest_collection&&stats.latest_collection.collected_at;
    setText("pj-last-run",date?new Date(date).toLocaleString(undefined,{dateStyle:"medium",timeStyle:"short"}):"Awaiting first collection");
-   setText("pj-index-status",health.database==="ready"?"Connected":"Not ready");
-  }catch(error){console.error("[PeachJobs] Index status failed",error);setText("pj-index-status","Not connected");}
+   setText("pj-index-status",stats.database==="ready"?"Connected":"Not ready");
+  }catch(error){
+   console.error("[PeachJobs] Index status failed",error);
+   setText("pj-index-status",error.code==="D1_DAILY_READ_LIMIT"?"Daily quota reached":"Not connected");
+   if(error.code==="D1_DAILY_READ_LIMIT"||error.code==="D1_DAILY_WRITE_LIMIT")setText("pj-last-run","Search resumes after 00:00 UTC");
+  }
  }
  const form=$("pj-search-form");
  form.addEventListener("submit",event=>{event.preventDefault();if(inputTimer)clearTimeout(inputTimer);search(false);});
